@@ -1,0 +1,207 @@
+{
+  "name": "conduit-vscode",
+  "displayName": "Conduit — Universal AI Bridge",
+  "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
+  "version": "0.1.0",
+  "publisher": "elvatis",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["AI", "Chat", "Other"],
+  "keywords": ["ai", "grok", "claude", "gemini", "chatgpt", "copilot", "assistant", "conduit"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "configuration": {
+      "title": "Conduit",
+      "properties": {
+        "conduit.proxyUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:31337",
+          "description": "Base URL of the OpenAI-compatible proxy (cli-bridge)"
+        },
+        "conduit.apiKey": {
+          "type": "string",
+          "default": "cli-bridge",
+          "description": "API key for the proxy"
+        },
+        "conduit.defaultModel": {
+          "type": "string",
+          "default": "cli-gemini/gemini-2.5-pro",
+          "description": "Default model to use (e.g. cli-gemini/gemini-2.5-pro, grok-3)"
+        },
+        "conduit.inlineSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline code suggestions (ghost text) while typing"
+        },
+        "conduit.inlineTriggerDelay": {
+          "type": "number",
+          "default": 600,
+          "description": "Delay in ms before requesting inline suggestion"
+        },
+        "conduit.contextLines": {
+          "type": "number",
+          "default": 80,
+          "description": "Number of lines above/below cursor to include as context"
+        },
+        "conduit.includeOpenFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include other open editor tabs as additional context"
+        },
+        "conduit.maxOpenFilesContext": {
+          "type": "number",
+          "default": 3,
+          "description": "Max number of open files to include as context"
+        },
+        "conduit.terminalIntegration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal command suggestions"
+        },
+        "conduit.autoStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show provider status in status bar"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "conduit.openChat",
+        "title": "Conduit: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "conduit.switchModel",
+        "title": "Conduit: Switch Model",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "conduit.explainSelection",
+        "title": "Conduit: Explain Selected Code"
+      },
+      {
+        "command": "conduit.refactorSelection",
+        "title": "Conduit: Refactor Selected Code"
+      },
+      {
+        "command": "conduit.generateTests",
+        "title": "Conduit: Generate Tests for Selection"
+      },
+      {
+        "command": "conduit.fixDiagnostics",
+        "title": "Conduit: Fix Errors in File"
+      },
+      {
+        "command": "conduit.askInTerminal",
+        "title": "Conduit: Suggest Terminal Command"
+      },
+      {
+        "command": "conduit.inlineEdit",
+        "title": "Conduit: Inline Edit (prompt)",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "conduit.toggleInline",
+        "title": "Conduit: Toggle Inline Suggestions"
+      },
+      {
+        "command": "conduit.checkStatus",
+        "title": "Conduit: Check Proxy Status"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "conduit.explainSelection",
+          "when": "editorHasSelection",
+          "group": "conduit@1"
+        },
+        {
+          "command": "conduit.refactorSelection",
+          "when": "editorHasSelection",
+          "group": "conduit@2"
+        },
+        {
+          "command": "conduit.generateTests",
+          "when": "editorHasSelection",
+          "group": "conduit@3"
+        },
+        {
+          "command": "conduit.inlineEdit",
+          "when": "editorHasSelection",
+          "group": "conduit@4"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "conduit.fixDiagnostics",
+          "when": "resourceLangId",
+          "group": "conduit"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "conduit.openChat",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g"
+      },
+      {
+        "command": "conduit.inlineEdit",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "conduit.explainSelection",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "conduit-sidebar",
+          "title": "Conduit AI",
+          "icon": "media/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "conduit-sidebar": [
+        {
+          "type": "webview",
+          "id": "conduit.chatView",
+          "name": "Chat"
+        },
+        {
+          "id": "conduit.modelsView",
+          "name": "Models"
+        }
+      ]
+    },
+    "languages": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "dev": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.4.0"
+  }
+}
