@@ -4,11 +4,33 @@ import { ConduitChatPanel } from './chat-panel';
 import { ConduitStatusBar } from './status-bar';
 import { registerCommands } from './commands';
 import { onConfigChange } from './config';
+import { BridgeManager } from './bridge-manager';
+import { BridgePanel } from './bridge-panel';
 
 let statusBar: ConduitStatusBar | undefined;
+let bridgeManager: BridgeManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Conduit: activating…');
+
+  // ── Bridge Manager ──────────────────────────────────────────────────────────
+  bridgeManager = new BridgeManager();
+  context.subscriptions.push({ dispose: () => bridgeManager?.dispose() });
+
+  // Bridge panel command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('conduit.showBridgePanel', () => {
+      BridgePanel.createOrShow(bridgeManager!);
+    }),
+    vscode.commands.registerCommand('conduit.startBridge', () => bridgeManager!.start()),
+    vscode.commands.registerCommand('conduit.stopBridge', () => bridgeManager!.stop()),
+    vscode.commands.registerCommand('conduit.restartBridge', () => bridgeManager!.restart()),
+    vscode.commands.registerCommand('conduit.bridgeLogs', () => bridgeManager!.showLogs()),
+    vscode.commands.registerCommand('conduit.loginGrok',    () => bridgeManager!.login('grok')),
+    vscode.commands.registerCommand('conduit.loginClaude',  () => bridgeManager!.login('claude')),
+    vscode.commands.registerCommand('conduit.loginGemini',  () => bridgeManager!.login('gemini')),
+    vscode.commands.registerCommand('conduit.loginChatGPT', () => bridgeManager!.login('chatgpt')),
+  );
 
   // ── Status bar ──────────────────────────────────────────────────────────────
   statusBar = new ConduitStatusBar();

@@ -112,6 +112,43 @@
       {
         "command": "conduit.checkStatus",
         "title": "Conduit: Check Proxy Status"
+      },
+      {
+        "command": "conduit.showBridgePanel",
+        "title": "Conduit: Bridge Manager",
+        "icon": "$(server-process)"
+      },
+      {
+        "command": "conduit.startBridge",
+        "title": "Conduit: Start Bridge"
+      },
+      {
+        "command": "conduit.stopBridge",
+        "title": "Conduit: Stop Bridge"
+      },
+      {
+        "command": "conduit.restartBridge",
+        "title": "Conduit: Restart Bridge"
+      },
+      {
+        "command": "conduit.bridgeLogs",
+        "title": "Conduit: Show Bridge Logs"
+      },
+      {
+        "command": "conduit.loginGrok",
+        "title": "Conduit: Login — Grok"
+      },
+      {
+        "command": "conduit.loginClaude",
+        "title": "Conduit: Login — Claude"
+      },
+      {
+        "command": "conduit.loginGemini",
+        "title": "Conduit: Login — Gemini"
+      },
+      {
+        "command": "conduit.loginChatGPT",
+        "title": "Conduit: Login — ChatGPT"
       }
     ],
     "menus": {
