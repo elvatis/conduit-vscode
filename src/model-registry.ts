@@ -45,6 +45,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai-codex/gpt-5.2-codex': 'GPT-5.2 Codex',
   'openai-codex/gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
   // Web Grok (IDs from bridge /v1/models)
+  'web-grok/grok-4': 'Grok 4.0',
   'web-grok/grok-3': 'Grok 3.0',
   'web-grok/grok-3-fast': 'Grok 3.0 Fast',
   'web-grok/grok-3-mini': 'Grok 3.0 Mini',
