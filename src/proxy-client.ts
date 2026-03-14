@@ -20,6 +20,7 @@ export interface ModelInfo {
   object: string;
   created: number;
   owned_by: string;
+  capabilities?: { tools?: boolean };
 }
 
 /** Raw streaming chunk from SSE */
@@ -145,6 +146,25 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
   };
 
   const req = pickTransport(url).request(options, res => {
+    // Handle non-200 status codes - read body as error message
+    if (res.statusCode && res.statusCode >= 400) {
+      let errBody = '';
+      res.on('data', (chunk: Buffer) => { errBody += chunk.toString(); });
+      res.on('end', () => {
+        let errMsg = `HTTP ${res.statusCode}`;
+        try {
+          const parsed = JSON.parse(errBody);
+          errMsg += ': ' + (parsed.error?.message ?? parsed.message ?? parsed.detail ?? errBody.slice(0, 200));
+        } catch {
+          if (errBody) errMsg += ': ' + errBody.slice(0, 200);
+        }
+        error = new Error(errMsg);
+        done = true;
+        resolve?.();
+      });
+      return;
+    }
+
     let buf = '';
     res.on('data', (chunk: Buffer) => {
       buf += chunk.toString();
@@ -177,6 +197,13 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
 
   req.on('error', (err: Error) => {
     error = err;
+    done = true;
+    resolve?.();
+  });
+
+  req.setTimeout(120000, () => {
+    req.destroy();
+    error = new Error('Stream request timed out after 120s');
     done = true;
     resolve?.();
   });

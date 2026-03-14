@@ -169,6 +169,40 @@
       {
         "command": "conduit.loginChatGPT",
         "title": "Conduit: Login — ChatGPT"
+      },
+      {
+        "command": "conduit.refreshModels",
+        "title": "Conduit: Refresh Models",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "conduit.inlineChat",
+        "title": "Conduit: Inline Chat",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "conduit.generateCommitMessage",
+        "title": "Conduit: Generate Commit Message",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "conduit.newSession",
+        "title": "New Session",
+        "icon": "$(add)"
+      },
+      {
+        "command": "conduit.refreshSessions",
+        "title": "Refresh Sessions",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "conduit.loadSession",
+        "title": "Load Session"
+      },
+      {
+        "command": "conduit.deleteSessionFromTree",
+        "title": "Delete Session",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -192,6 +226,25 @@
           "command": "conduit.inlineEdit",
           "when": "editorHasSelection",
           "group": "conduit@4"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "conduit.newSession",
+          "when": "view == conduit.sessionsView",
+          "group": "navigation"
+        },
+        {
+          "command": "conduit.refreshSessions",
+          "when": "view == conduit.sessionsView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "conduit.deleteSessionFromTree",
+          "when": "view == conduit.sessionsView && viewItem == session",
+          "group": "inline"
         }
       ],
       "editor/title": [
@@ -219,27 +272,38 @@
         "key": "ctrl+shift+e",
         "mac": "cmd+shift+e",
         "when": "editorHasSelection"
+      },
+      {
+        "command": "conduit.inlineChat",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "conduit.generateCommitMessage",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m"
       }
     ],
     "viewsContainers": {
-      "activitybar": [
+      "panel": [
         {
-          "id": "conduit-sidebar",
+          "id": "conduit-panel",
           "title": "Conduit AI",
           "icon": "media/sidebar-icon.svg"
         }
       ]
     },
     "views": {
-      "conduit-sidebar": [
+      "conduit-panel": [
         {
           "type": "webview",
           "id": "conduit.chatView",
           "name": "Chat"
         },
         {
-          "id": "conduit.modelsView",
-          "name": "Models"
+          "id": "conduit.sessionsView",
+          "name": "Sessions"
         }
       ]
     },

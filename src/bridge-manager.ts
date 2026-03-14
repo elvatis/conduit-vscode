@@ -199,24 +199,32 @@ export class BridgeManager {
   }
 
   private _findBridgeCli(): string | null {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const isWin = process.platform === 'win32';
+
     // Look for conduit-bridge CLI in common locations
     const candidates = [
-      // Installed globally via npm
-      '/usr/local/bin/conduit-bridge',
-      `${process.env.HOME}/.npm-global/bin/conduit-bridge`,
       // npx-resolved (node_modules/.bin)
-      path.join(__dirname, '..', 'node_modules', '.bin', 'conduit-bridge'),
+      path.join(__dirname, '..', 'node_modules', '.bin', isWin ? 'conduit-bridge.cmd' : 'conduit-bridge'),
       path.join(__dirname, '..', '..', 'conduit-bridge', 'dist', 'cli.js'),
+      // Installed globally via npm
+      ...(isWin ? [
+        path.join(home, 'AppData', 'Roaming', 'npm', 'conduit-bridge.cmd'),
+      ] : [
+        '/usr/local/bin/conduit-bridge',
+        `${home}/.npm-global/bin/conduit-bridge`,
+      ]),
     ];
 
     for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
+      try { if (fs.existsSync(p)) return p; } catch { /* skip */ }
     }
 
-    // Try which/where
+    // Try where (Windows) or which (Unix)
+    const cmd = isWin ? 'where conduit-bridge' : 'which conduit-bridge';
     try {
-      const result = cp.execSync('which conduit-bridge 2>/dev/null || where conduit-bridge 2>/dev/null', {
-        encoding: 'utf-8', timeout: 3000,
+      const result = cp.execSync(cmd, {
+        encoding: 'utf-8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'],
       }).trim().split('\n')[0];
       if (result && fs.existsSync(result)) return result;
     } catch { /* not found */ }
@@ -255,11 +263,13 @@ export class BridgeManager {
 
   private _apiGet(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      http.get(url, { timeout: 5000 }, res => {
+      const req = http.get(url, { timeout: 5000 }, res => {
         let data = '';
         res.on('data', c => { data += c; });
         res.on('end', () => resolve(data));
-      }).on('error', reject).on('timeout', () => reject(new Error('timeout')));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
     });
   }
 

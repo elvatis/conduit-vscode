@@ -238,7 +238,7 @@ async function streamIntoNewEditor(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
 ) {
   const doc = await vscode.workspace.openTextDocument({ language, content: '' });
-  const editor = await vscode.window.showTextDocument(doc, { beside: true });
+  const editor = await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
 
   let position = new vscode.Position(0, 0);
   let fullText = '';
