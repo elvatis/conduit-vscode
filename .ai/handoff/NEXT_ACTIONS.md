@@ -6,7 +6,7 @@ _Last updated: 2026-03-14_
 
 | Status  | Count |
 |---------|-------|
-| Done    | 9     |
+| Done    | 14    |
 | Ready   | 1     |
 | Blocked | 0     |
 
@@ -42,3 +42,8 @@ _No blocked tasks._
 | T-008 | Chat history persistence (globalState, up to 50 sessions) | 2026-03-14 |
 | T-009 | Model selector in status bar + chat toolbar | 2026-03-14 |
 | T-010 | Health dashboard webview panel | 2026-03-14 |
+| T-011 | Native QuickPick model/mode selectors (replace HTML dropdowns) | 2026-03-14 |
+| T-012 | Native Sessions tree view (replace HTML overlay history) | 2026-03-14 |
+| T-013 | 30+ model registry with display names + Grok 4.0 support | 2026-03-14 |
+| T-014 | Streaming error handling (HTTP codes, timeout, empty response) | 2026-03-14 |
+| T-015 | Comprehensive README documentation | 2026-03-14 |
