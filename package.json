@@ -150,6 +150,11 @@
         "title": "Conduit: Show Bridge Logs"
       },
       {
+        "command": "conduit.showHealthPanel",
+        "title": "Conduit: Health Dashboard",
+        "icon": "$(pulse)"
+      },
+      {
         "command": "conduit.loginGrok",
         "title": "Conduit: Login — Grok"
       },

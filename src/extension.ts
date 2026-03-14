@@ -6,6 +6,7 @@ import { registerCommands } from './commands';
 import { onConfigChange } from './config';
 import { BridgeManager } from './bridge-manager';
 import { BridgePanel } from './bridge-panel';
+import { HealthPanel } from './health-panel';
 import { checkHealth } from './proxy-client';
 
 let statusBar: ConduitStatusBar | undefined;
@@ -13,6 +14,9 @@ let bridgeManager: BridgeManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Conduit: activating…');
+
+  // ── Initialize chat panel with extension context (for persistence) ─────────
+  ConduitChatPanel.init(context);
 
   // ── Bridge Manager ──────────────────────────────────────────────────────────
   bridgeManager = new BridgeManager();
@@ -31,6 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('conduit.loginClaude',  () => bridgeManager!.login('claude')),
     vscode.commands.registerCommand('conduit.loginGemini',  () => bridgeManager!.login('gemini')),
     vscode.commands.registerCommand('conduit.loginChatGPT', () => bridgeManager!.login('chatgpt')),
+    vscode.commands.registerCommand('conduit.showHealthPanel', () => {
+      HealthPanel.createOrShow(bridgeManager!);
+    }),
   );
 
   // ── Auto-start bridge if not reachable ─────────────────────────────────────
