@@ -6,7 +6,7 @@ _Last updated: 2026-03-14_
 
 | Status  | Count |
 |---------|-------|
-| Done    | 6     |
+| Done    | 9     |
 | Ready   | 1     |
 | Blocked | 0     |
 
@@ -36,6 +36,9 @@ _No blocked tasks._
 | T-001 | Scaffold extension + all core features | 2026-03-12 |
 | T-007 | Add BridgeManager + BridgePanel | 2026-03-12 |
 | T-002 | Auto-start bridge on extension activate | 2026-03-14 |
-| T-003 | Inline suggestion system prompt tuning (per-language) | 2026-03-14 |
+| T-003 | Inline suggestion system prompt tuning (per-language, 18 langs) | 2026-03-14 |
 | T-004 | Add test suite (vitest, 30 tests, 3 test files) | 2026-03-14 |
-| T-005 | Package as .vsix (17.65 KB) + icon | 2026-03-14 |
+| T-005 | Package as .vsix (20.86 KB) + icon | 2026-03-14 |
+| T-008 | Chat history persistence (globalState, up to 50 sessions) | 2026-03-14 |
+| T-009 | Model selector in status bar + chat toolbar | 2026-03-14 |
+| T-010 | Health dashboard webview panel | 2026-03-14 |

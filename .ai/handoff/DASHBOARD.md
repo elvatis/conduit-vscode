@@ -6,11 +6,12 @@ _Quick-glance state for autonomous agents. Last updated: 2026-03-14_
 
 | Item | Value |
 |---|---|
-| Version | 0.1.0 |
-| Build | passes (`npm run build`, 39.8kb) |
+| Version | 0.2.0 |
+| Build | passes (`npm run build`, 54.8kb) |
 | Tests | 30 passing (`npm test`, vitest) |
-| .vsix packaged | conduit-vscode-0.1.0.vsix (17.65 KB) |
+| .vsix packaged | conduit-vscode-0.2.0.vsix (20.86 KB) |
 | Installed locally | elvatis.conduit-vscode |
+| Default proxy | http://127.0.0.1:31338 |
 | Marketplace | not yet (T-006) |
 | GitHub | https://github.com/elvatis/conduit-vscode |
 | Next task | T-006 - VS Code Marketplace listing |
@@ -20,6 +21,9 @@ _Quick-glance state for autonomous agents. Last updated: 2026-03-14_
 | Feature | Status |
 |---|---|
 | Chat Panel | Done |
+| Chat History Persistence | Done |
+| Model Selector (toolbar + status bar) | Done |
+| Health Dashboard | Done |
 | Inline Suggestions | Done |
 | Inline Edit | Done |
 | Explain / Refactor / Tests | Done |
