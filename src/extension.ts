@@ -6,6 +6,7 @@ import { registerCommands } from './commands';
 import { onConfigChange } from './config';
 import { BridgeManager } from './bridge-manager';
 import { BridgePanel } from './bridge-panel';
+import { checkHealth } from './proxy-client';
 
 let statusBar: ConduitStatusBar | undefined;
 let bridgeManager: BridgeManager | undefined;
@@ -31,6 +32,22 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('conduit.loginGemini',  () => bridgeManager!.login('gemini')),
     vscode.commands.registerCommand('conduit.loginChatGPT', () => bridgeManager!.login('chatgpt')),
   );
+
+  // ── Auto-start bridge if not reachable ─────────────────────────────────────
+  (async () => {
+    const healthy = await checkHealth();
+    if (!healthy) {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Conduit: starting bridge...', cancellable: false },
+        async () => {
+          await bridgeManager!.start();
+        },
+      );
+    } else {
+      // Bridge is already running - refresh status for status bar
+      await bridgeManager!.getStatus();
+    }
+  })();
 
   // ── Status bar ──────────────────────────────────────────────────────────────
   statusBar = new ConduitStatusBar();

@@ -106,10 +106,35 @@ export function buildSystemPrompt(ctx: EditorContext): string {
   return parts.join('\n');
 }
 
+const INLINE_HINTS: Record<string, string> = {
+  typescript: 'Complete the TypeScript code naturally. Infer types where possible. Follow existing naming conventions.',
+  javascript: 'Complete the JavaScript code naturally. Match the existing style (const vs let, arrow vs function).',
+  typescriptreact: 'Complete the TSX code naturally. Infer types and close JSX tags properly.',
+  javascriptreact: 'Complete the JSX code naturally. Close JSX tags properly.',
+  python: 'Complete the Python code naturally. Match indentation style. Use type hints if the surrounding code does.',
+  go: 'Complete the Go code naturally. Follow Go idioms (short variable names, error handling patterns).',
+  rust: 'Complete the Rust code naturally. Respect ownership and borrowing patterns from context.',
+  java: 'Complete the Java code naturally. Match the existing class and method style.',
+  csharp: 'Complete the C# code naturally. Follow existing conventions for async/await and LINQ usage.',
+  cpp: 'Complete the C++ code naturally. Match the existing style for pointers, references, and templates.',
+  c: 'Complete the C code naturally. Match existing patterns for memory management and error handling.',
+  markdown: 'Complete the sentence or paragraph naturally. Do not add code fences or formatting unless continuing an existing block.',
+  plaintext: 'Complete the sentence or paragraph naturally.',
+  html: 'Complete the HTML tag or structure. Close opened tags properly.',
+  css: 'Complete the CSS property or rule block. Match existing formatting.',
+  scss: 'Complete the SCSS property, rule, or mixin. Match existing formatting.',
+  json: 'Complete the JSON structure. Ensure valid JSON syntax with proper commas and brackets.',
+  yaml: 'Complete the YAML entry. Match indentation level precisely.',
+};
+
+const DEFAULT_INLINE_HINT = 'Complete the code at the cursor position naturally. Match the existing style.';
+
 export function buildInlinePrompt(ctx: EditorContext): string {
+  const langHint = INLINE_HINTS[ctx.language] ?? DEFAULT_INLINE_HINT;
   return [
     buildSystemPrompt(ctx),
-    `\nComplete the code at the cursor position. Return ONLY the completion text, nothing else. No markdown fences.`,
+    `\n${langHint}`,
+    `\nReturn ONLY the completion text, nothing else. No markdown fences. No explanations.`,
     `\nCode before cursor:\n${ctx.prefix}`,
     ctx.suffix ? `\nCode after cursor:\n${ctx.suffix}` : '',
   ].filter(Boolean).join('\n');

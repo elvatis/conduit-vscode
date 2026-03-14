@@ -17,6 +17,9 @@ Out of the box: Grok, Claude, Gemini, ChatGPT — powered by [cli-bridge](https:
 - **Terminal Command Suggestions** — describe what you want to do, get a shell command
 - **Editor Context** — open files, diagnostics, and surrounding code included automatically
 - **Status Bar** — live proxy health indicator with model count
+- **Bridge Manager** — start/stop/restart conduit-bridge, per-provider login/logout, live logs
+- **Auto-start bridge** — automatically starts conduit-bridge on extension activation if not running
+- **Per-language inline prompts** — tuned completion prompts for TypeScript, Python, Go, Rust, Markdown, and more
 - **Provider switching** — switch between Grok, Claude, Gemini, ChatGPT from the UI
 
 ## Requirements
@@ -51,12 +54,27 @@ Out of the box: Grok, Claude, Gemini, ChatGPT — powered by [cli-bridge](https:
 | `conduit.includeOpenFiles` | `true` | Include other open tabs as context |
 | `conduit.terminalIntegration` | `true` | Enable terminal command suggestions |
 
+## Install from .vsix
+
+```bash
+code --install-extension conduit-vscode-0.1.0.vsix
+```
+
+Or in VS Code: Extensions > ... > Install from VSIX...
+
 ## Development
 
 ```bash
 git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
-npm install
+npm install --include=dev
 npm run dev   # watch mode
+npm test      # run tests (vitest)
 # Press F5 in VS Code to launch Extension Development Host
+```
+
+## Packaging
+
+```bash
+npx @vscode/vsce package --allow-missing-repository
 ```

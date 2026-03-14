@@ -1,0 +1,9 @@
+.ai/**
+.claude/**
+.git/**
+.gitignore
+src/**
+node_modules/**
+vitest.config.ts
+tsconfig.json
+*.vsix
