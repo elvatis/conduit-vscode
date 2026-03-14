@@ -4,7 +4,7 @@ import { getConfig, onConfigChange } from '../config';
 describe('getConfig', () => {
   it('returns default values when no configuration is set', () => {
     const cfg = getConfig();
-    expect(cfg.proxyUrl).toBe('http://127.0.0.1:31337');
+    expect(cfg.proxyUrl).toBe('http://127.0.0.1:31338');
     expect(cfg.apiKey).toBe('cli-bridge');
     expect(cfg.defaultModel).toBe('cli-gemini/gemini-2.5-pro');
     expect(cfg.inlineSuggestions).toBe(true);

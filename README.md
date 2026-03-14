@@ -25,7 +25,7 @@ Out of the box: Grok, Claude, Gemini, ChatGPT — powered by [cli-bridge](https:
 ## Requirements
 
 - VS Code 1.90+
-- [openclaw-cli-bridge-elvatis](https://github.com/elvatis/openclaw-cli-bridge-elvatis) running on `127.0.0.1:31337`
+- [openclaw-cli-bridge-elvatis](https://github.com/elvatis/openclaw-cli-bridge-elvatis) running on `127.0.0.1:31338`
 
 ## Setup
 
@@ -45,7 +45,7 @@ Out of the box: Grok, Claude, Gemini, ChatGPT — powered by [cli-bridge](https:
 
 | Setting | Default | Description |
 |---|---|---|
-| `conduit.proxyUrl` | `http://127.0.0.1:31337` | Proxy base URL |
+| `conduit.proxyUrl` | `http://127.0.0.1:31338` | Proxy base URL |
 | `conduit.apiKey` | `cli-bridge` | API key |
 | `conduit.defaultModel` | `cli-gemini/gemini-2.5-pro` | Default model |
 | `conduit.inlineSuggestions` | `true` | Enable ghost-text completions |

@@ -16,7 +16,7 @@ export interface ConduitConfig {
 export function getConfig(): ConduitConfig {
   const cfg = vscode.workspace.getConfiguration('conduit');
   return {
-    proxyUrl:             cfg.get<string>('proxyUrl', 'http://127.0.0.1:31337'),
+    proxyUrl:             cfg.get<string>('proxyUrl', 'http://127.0.0.1:31338'),
     apiKey:               cfg.get<string>('apiKey', 'cli-bridge'),
     defaultModel:         cfg.get<string>('defaultModel', 'cli-gemini/gemini-2.5-pro'),
     inlineSuggestions:    cfg.get<boolean>('inlineSuggestions', true),

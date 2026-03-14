@@ -93,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
   if (isFirstRun) {
     context.globalState.update('conduit.installed', true);
     vscode.window.showInformationMessage(
-      'Conduit AI is ready! Make sure cli-bridge is running on port 31337.',
+      'Conduit AI is ready! Make sure conduit-bridge is running on port 31338.',
       'Open Chat',
       'Settings',
     ).then(action => {

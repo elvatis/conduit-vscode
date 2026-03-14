@@ -34,7 +34,7 @@
       "properties": {
         "conduit.proxyUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:31337",
+          "default": "http://127.0.0.1:31338",
           "description": "Base URL of the OpenAI-compatible proxy (cli-bridge)"
         },
         "conduit.apiKey": {
