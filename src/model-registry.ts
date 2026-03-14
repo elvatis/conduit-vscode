@@ -49,15 +49,19 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'web-grok/grok-3-fast': 'Grok 3 Fast',
   'web-grok/grok-3-mini': 'Grok 3 Mini',
   'web-grok/grok-3-mini-fast': 'Grok 3 Mini Fast',
+  'web-grok/grok-2': 'Grok 2',
   // Web Gemini
   'web-gemini/gemini-2-5-pro': 'Gemini 2.5 Pro',
   'web-gemini/gemini-2-5-flash': 'Gemini 2.5 Flash',
   'web-gemini/gemini-3-pro': 'Gemini 3 Pro',
   'web-gemini/gemini-3-flash': 'Gemini 3 Flash',
-  // Web Claude
+  // Web Claude (short IDs returned by bridge)
   'web-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6',
   'web-claude/claude-opus-4-6': 'Claude Opus 4.6',
   'web-claude/claude-haiku-4-5': 'Claude Haiku 4.5',
+  'web-claude/claude-sonnet': 'Claude Sonnet 4.6',
+  'web-claude/claude-opus': 'Claude Opus 4.6',
+  'web-claude/claude-haiku': 'Claude Haiku 4.5',
   // Web ChatGPT
   'web-chatgpt/gpt-5': 'GPT-5',
   'web-chatgpt/gpt-5-mini': 'GPT-5 Mini',
@@ -66,6 +70,8 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'web-chatgpt/gpt-4.1': 'GPT-4.1',
   'web-chatgpt/o3': 'o3',
   'web-chatgpt/o4-mini': 'o4 Mini',
+  'web-chatgpt/gpt-o3': 'o3',
+  'web-chatgpt/gpt-o4-mini': 'o4 Mini',
   // Local
   'local-bitnet/bitnet-2b': 'BitNet 2B',
 };
