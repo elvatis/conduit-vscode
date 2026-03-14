@@ -27,44 +27,46 @@ const KNOWN_CONTEXT_WINDOWS: Record<string, { ctx: number; max: number }> = {
   'local-bitnet/':  { ctx: 4_096,     max: 2_048 },
 };
 
-// Friendly display names for known models
+// Friendly display names for known models - ALWAYS include version numbers
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   // CLI Claude
-  'cli-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6',
-  'cli-claude/claude-opus-4-6': 'Claude Opus 4.6',
-  'cli-claude/claude-haiku-4-5': 'Claude Haiku 4.5',
+  'cli-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6 (CLI)',
+  'cli-claude/claude-opus-4-6': 'Claude Opus 4.6 (CLI)',
+  'cli-claude/claude-haiku-4-5': 'Claude Haiku 4.5 (CLI)',
   // CLI Gemini
-  'cli-gemini/gemini-2.5-pro': 'Gemini 2.5 Pro',
-  'cli-gemini/gemini-2.5-flash': 'Gemini 2.5 Flash',
-  'cli-gemini/gemini-3-pro-preview': 'Gemini 3 Pro Preview',
-  'cli-gemini/gemini-3-flash-preview': 'Gemini 3 Flash Preview',
+  'cli-gemini/gemini-2.5-pro': 'Gemini 2.5 Pro (CLI)',
+  'cli-gemini/gemini-2.5-flash': 'Gemini 2.5 Flash (CLI)',
+  'cli-gemini/gemini-3-pro-preview': 'Gemini 3.0 Pro Preview (CLI)',
+  'cli-gemini/gemini-3-flash-preview': 'Gemini 3.0 Flash Preview (CLI)',
   // OpenAI Codex
-  'openai-codex/gpt-5.4': 'GPT-5.4',
+  'openai-codex/gpt-5.4': 'GPT-5.4 (Codex)',
   'openai-codex/gpt-5.3-codex': 'GPT-5.3 Codex',
   'openai-codex/gpt-5.3-codex-spark': 'GPT-5.3 Codex Spark',
   'openai-codex/gpt-5.2-codex': 'GPT-5.2 Codex',
   'openai-codex/gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
-  // Web Grok
-  'web-grok/grok-3': 'Grok 3',
-  'web-grok/grok-3-fast': 'Grok 3 Fast',
-  'web-grok/grok-3-mini': 'Grok 3 Mini',
-  'web-grok/grok-3-mini-fast': 'Grok 3 Mini Fast',
-  'web-grok/grok-2': 'Grok 2',
+  // Web Grok (IDs from bridge /v1/models)
+  'web-grok/grok-3': 'Grok 3.0',
+  'web-grok/grok-3-fast': 'Grok 3.0 Fast',
+  'web-grok/grok-3-mini': 'Grok 3.0 Mini',
+  'web-grok/grok-3-mini-fast': 'Grok 3.0 Mini Fast',
+  'web-grok/grok-2': 'Grok 2.0',
   // Web Gemini
   'web-gemini/gemini-2-5-pro': 'Gemini 2.5 Pro',
   'web-gemini/gemini-2-5-flash': 'Gemini 2.5 Flash',
-  'web-gemini/gemini-3-pro': 'Gemini 3 Pro',
-  'web-gemini/gemini-3-flash': 'Gemini 3 Flash',
-  // Web Claude (short IDs returned by bridge)
+  'web-gemini/gemini-3-pro': 'Gemini 3.0 Pro',
+  'web-gemini/gemini-3-flash': 'Gemini 3.0 Flash',
+  // Web Claude (bridge returns short IDs without version suffix)
   'web-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6',
   'web-claude/claude-opus-4-6': 'Claude Opus 4.6',
   'web-claude/claude-haiku-4-5': 'Claude Haiku 4.5',
   'web-claude/claude-sonnet': 'Claude Sonnet 4.6',
   'web-claude/claude-opus': 'Claude Opus 4.6',
   'web-claude/claude-haiku': 'Claude Haiku 4.5',
-  // Web ChatGPT
-  'web-chatgpt/gpt-5': 'GPT-5',
-  'web-chatgpt/gpt-5-mini': 'GPT-5 Mini',
+  'web-claude/claude-sonnet-4-5': 'Claude Sonnet 4.5',
+  'web-claude/claude-opus-4-5': 'Claude Opus 4.5',
+  // Web ChatGPT (bridge returns gpt-o3, gpt-o4-mini with prefix)
+  'web-chatgpt/gpt-5': 'GPT-5.0',
+  'web-chatgpt/gpt-5-mini': 'GPT-5.0 Mini',
   'web-chatgpt/gpt-4o': 'GPT-4o',
   'web-chatgpt/gpt-4o-mini': 'GPT-4o Mini',
   'web-chatgpt/gpt-4.1': 'GPT-4.1',
@@ -73,7 +75,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'web-chatgpt/gpt-o3': 'o3',
   'web-chatgpt/gpt-o4-mini': 'o4 Mini',
   // Local
-  'local-bitnet/bitnet-2b': 'BitNet 2B',
+  'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
 };
 
 const CATEGORY_MAP: Record<string, ModelCapabilities['category']> = {
