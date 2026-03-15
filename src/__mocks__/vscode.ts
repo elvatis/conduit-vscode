@@ -86,6 +86,7 @@ export const workspace = {
     update: async () => {},
   }),
   onDidChangeConfiguration: () => ({ dispose: () => {} }),
+  findFiles: async () => [] as Uri[],
   openTextDocument: async (opts: any) => ({
     getText: () => opts?.content ?? '',
     lineCount: 1,
@@ -98,7 +99,7 @@ export const workspace = {
 };
 
 export const languages = {
-  getDiagnostics: () => [],
+  getDiagnostics: (uri?: any) => uri ? [] : [],
   registerInlineCompletionItemProvider: () => ({ dispose: () => {} }),
 };
 
