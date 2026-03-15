@@ -136,32 +136,68 @@ const SLASH_COMMANDS: SlashCommand[] = [
     name: 'help',
     description: 'Show available commands and features',
     handler: async () => {
-      return `**Conduit - Available Commands**
+      return `**Conduit - Help**
+
+---
+
+**Slash Commands**
 
 | Command | Description |
 |---------|-------------|
 | \`/help\` | Show this help message |
-| \`/fix\` | Fix errors in the current file |
-| \`/explain\` | Explain selected code |
-| \`/tests\` | Generate tests for selected code |
-| \`/refactor [instruction]\` | Refactor selected code |
-| \`/plan [task]\` | Create an implementation plan |
-| \`/commit\` | Generate a commit message |
-| \`/clear\` | Clear current chat |
-| \`/new\` | Start a new chat session |
-| \`/cost\` | Show estimated token usage |
-| \`/model [name]\` | Switch model |
-| \`/mode [ask|edit|agent|plan]\` | Switch chat mode |
-| \`/rename [name]\` | Rename current session |
+| \`/fix\` | Fix errors and diagnostics in the current file |
+| \`/explain\` | Explain the currently selected code |
+| \`/tests\` | Generate unit tests for selected code |
+| \`/refactor [instruction]\` | Refactor selected code with an optional instruction |
+| \`/plan [task]\` | Create a step-by-step implementation plan |
+| \`/commit\` | Generate a commit message from staged changes |
+| \`/clear\` | Clear the current chat history |
+| \`/new\` | Start a fresh chat session |
+| \`/cost\` | Show estimated token usage for this session |
+| \`/model [name]\` | Switch to a specific model (or click the model button) |
+| \`/mode [ask\\|edit\\|agent\\|plan]\` | Switch chat mode |
+| \`/rename [name]\` | Rename the current session |
 
-**Context mentions:** Use \`#file:path\`, \`#selection\`, \`#problems\`, \`#codebase\` to attach context.
+---
 
-**Keyboard shortcuts:**
-- \`Ctrl+Shift+I\` - Inline Chat (edit code in-place)
-- \`Ctrl+Shift+G\` - Open Chat panel
-- \`Ctrl+Shift+E\` - Explain selection
-- \`Enter\` - Send message
-- \`Shift+Enter\` - New line`;
+**Context Mentions**
+
+Attach context to any message using \`#\` mentions. These pull relevant information directly into your prompt so the model can see it.
+
+| Mention | What it does | Example |
+|---------|-------------|---------|
+| \`#file:path\` | Attach the full contents of a file | \`Explain this #file:src/utils.ts\` |
+| \`#file:path:L-L\` | Attach specific lines from a file | \`What does #file:src/index.ts:10-25 do?\` |
+| \`#selection\` | Attach whatever code you have highlighted in the editor | \`Refactor #selection to use async/await\` |
+| \`#problems\` | Attach errors and warnings from the current file | \`Fix #problems in this file\` |
+| \`#codebase\` | Attach an overview of the workspace file structure | \`#codebase Where is authentication handled?\` |
+| \`#terminal\` | Reference terminal output (select text in terminal first) | \`Why is #terminal failing?\` |
+
+You can combine multiple mentions in a single message:
+\`Refactor #selection based on the patterns in #file:src/helpers.ts\`
+
+---
+
+**Keyboard Shortcuts**
+
+| Shortcut | Action |
+|----------|--------|
+| \`Ctrl+Shift+I\` | Inline Chat - edit code directly in the editor |
+| \`Ctrl+Shift+G\` | Open the Chat panel |
+| \`Ctrl+Shift+E\` | Explain the current selection |
+| \`Enter\` | Send message |
+| \`Shift+Enter\` | Insert a new line |
+
+---
+
+**Chat Modes**
+
+| Mode | Best for |
+|------|----------|
+| **Ask** | Questions, explanations, code review |
+| **Edit** | Modifying and refactoring existing code |
+| **Agent** | Multi-step tasks, building features end-to-end |
+| **Plan** | Creating implementation plans before coding |`;
     },
   },
   {
@@ -825,7 +861,11 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     // Find the model by name
-    const cleanLabel = picked.label.replace(/^\$\(check\)\s*/, '').trim();
+    const cleanLabel = picked.label
+      .replace(/\$\(check\)\s*/g, '')
+      .replace(/\$\(star-full\)\s*/g, '')
+      .replace(/\$\(star-half\)\s*/g, '')
+      .trim();
     const model = this._models.find(m => m.name === cleanLabel);
     if (model) {
       this.switchModelInternal(model.id);
