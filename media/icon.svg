@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <!-- Background gradient matching VS Code dark theme -->
+    <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2140"/>
+    </linearGradient>
+    <!-- Elvatis blue gradient -->
+    <linearGradient id="blue" x1="30" y1="20" x2="98" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5CC8F5"/>
+      <stop offset="100%" stop-color="#2BA4E0"/>
+    </linearGradient>
+    <!-- Glow filter for the conduit flow -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rounded rectangle background -->
+  <rect width="128" height="128" rx="22" fill="url(#bg)"/>
+
+  <!-- Elvatis-inspired hexagonal shape -->
+  <!-- Outer hex with characteristic gap/flow in upper-left -->
+  <g transform="translate(64, 64)">
+    <!-- Main hex ring -->
+    <path fill-rule="evenodd" fill="url(#blue)" d="
+      M0 -40
+      L34.6 -20
+      L34.6 20
+      L0 40
+      L-34.6 20
+      L-34.6 -20
+      Z
+      M0 -29
+      L-25 -14.5
+      L-25 14.5
+      L0 29
+      L25 14.5
+      L25 -14.5
+      Z
+    "/>
+
+    <!-- Conduit flow: arrow going through the hex center -->
+    <!-- This represents data flowing through the bridge -->
+    <g filter="url(#glow)">
+      <!-- Source node -->
+      <circle cx="-16" cy="0" r="5" fill="url(#blue)"/>
+      <!-- Flow line -->
+      <line x1="-10" y1="0" x2="12" y2="0" stroke="url(#blue)" stroke-width="4" stroke-linecap="round"/>
+      <!-- Arrow head -->
+      <path d="M10 -6 L17 0 L10 6" fill="none" stroke="url(#blue)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Small accent dots on hex vertices (AI provider nodes) -->
+    <circle cx="0" cy="-40" r="3" fill="#5CC8F5" opacity="0.7"/>
+    <circle cx="34.6" cy="-20" r="3" fill="#5CC8F5" opacity="0.5"/>
+    <circle cx="34.6" cy="20" r="3" fill="#5CC8F5" opacity="0.5"/>
+    <circle cx="0" cy="40" r="3" fill="#5CC8F5" opacity="0.7"/>
+    <circle cx="-34.6" cy="20" r="3" fill="#5CC8F5" opacity="0.5"/>
+    <circle cx="-34.6" cy="-20" r="3" fill="#5CC8F5" opacity="0.5"/>
+  </g>
+</svg>
