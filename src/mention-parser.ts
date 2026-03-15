@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getModelCapabilities } from './model-registry';
 
 export interface ParsedMention {
   type: 'file' | 'selection' | 'codebase' | 'terminal' | 'problems' | 'workspace';
@@ -12,8 +13,9 @@ export interface ParsedMention {
 /**
  * Parse #-mentions in user input and resolve them to content.
  * Supported: #file:path, #selection, #codebase, #terminal, #problems
+ * @param modelId - optional model ID to calculate token budget for #codebase
  */
-export async function parseMentions(text: string): Promise<{
+export async function parseMentions(text: string, modelId?: string): Promise<{
   cleanText: string;
   mentions: ParsedMention[];
 }> {
@@ -102,7 +104,7 @@ export async function parseMentions(text: string): Promise<{
 
   // #codebase - deep codebase context with file contents for autonomous search
   if (/#codebase\b/.test(text)) {
-    const codebaseCtx = await buildWorkspaceContext();
+    const codebaseCtx = await buildWorkspaceContext(modelId);
     if (codebaseCtx) {
       mentions.push({
         type: 'codebase',
@@ -213,9 +215,11 @@ async function buildCodebaseSummary(): Promise<string | null> {
 
 /**
  * Build deep workspace context: file tree + contents of key files.
- * Reads up to 30 source files, each truncated at 3000 chars, capped at ~80K total chars.
+ * Token budget is dynamically calculated based on the model's context window.
+ * Uses ~25% of the model's context for codebase context.
+ * @param modelId - optional model ID to calculate token budget
  */
-async function buildWorkspaceContext(): Promise<string | null> {
+async function buildWorkspaceContext(modelId?: string): Promise<string | null> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) return null;
 
@@ -226,6 +230,14 @@ async function buildWorkspaceContext(): Promise<string | null> {
   );
 
   if (files.length === 0) return null;
+
+  // Dynamic budget based on model context window
+  const caps = modelId ? getModelCapabilities(modelId) : undefined;
+  const contextWindow = caps?.contextWindow ?? 128_000;
+  // Use ~25% of context for codebase, min 40K, max 200K chars (~3 chars/token estimate)
+  const MAX_TOTAL_CHARS = Math.min(200_000, Math.max(40_000, Math.floor(contextWindow * 0.25 * 3)));
+  const MAX_FILES = Math.min(60, Math.max(15, Math.floor(MAX_TOTAL_CHARS / 3000)));
+  const MAX_FILE_CHARS = Math.min(6000, Math.max(2000, Math.floor(MAX_TOTAL_CHARS / MAX_FILES)));
 
   // Build file tree first
   const tree: Record<string, string[]> = {};
@@ -272,12 +284,7 @@ async function buildWorkspaceContext(): Promise<string | null> {
 
   scored.sort((a, b) => b.score - a.score);
 
-  // Read up to 30 files, max ~80K total chars
-  const MAX_FILES = 30;
-  const MAX_FILE_CHARS = 3000;
-  const MAX_TOTAL_CHARS = 80_000;
   let totalChars = parts.join('\n').length;
-
   parts.push('## File Contents\n');
 
   let filesRead = 0;
@@ -300,7 +307,8 @@ async function buildWorkspaceContext(): Promise<string | null> {
 
   if (filesRead === 0) return null;
 
-  parts.push(`\n(${filesRead} of ${files.length} files included)`);
+  const budgetLabel = MAX_TOTAL_CHARS >= 1000 ? `${Math.round(MAX_TOTAL_CHARS / 1000)}K` : `${MAX_TOTAL_CHARS}`;
+  parts.push(`\n(${filesRead} of ${files.length} files included, ~${budgetLabel} char budget)`);
   return parts.join('\n');
 }
 

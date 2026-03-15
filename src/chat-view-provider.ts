@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
-import { stream, listModels, type StreamMeta } from './proxy-client';
+import { stream, streamWithFallback, listModels, type StreamMeta } from './proxy-client';
 import { getConfig } from './config';
 import { BridgeManager } from './bridge-manager';
 import { parseMentions } from './mention-parser';
@@ -10,7 +10,7 @@ import type { ToolCall, ToolResult } from './agent-types';
 import {
   getModelRegistry, getModelCapabilities,
   autoSelectModel, estimateComplexity, trimHistoryForModel,
-  supportsMode, getModeRecommendation,
+  supportsMode, getModeRecommendation, getFallbackModels,
   ModelCapabilities, ChatMode as RegistryChatMode,
 } from './model-registry';
 
@@ -658,6 +658,40 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
         }
         break;
       }
+      case 'attachImage': {
+        const imgUris = await vscode.window.showOpenDialog({
+          canSelectMany: false,
+          openLabel: 'Attach Image',
+          filters: { Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] },
+        });
+        if (imgUris && imgUris.length > 0) {
+          const imgData = await vscode.workspace.fs.readFile(imgUris[0]);
+          const ext = imgUris[0].fsPath.split('.').pop()?.toLowerCase() || 'png';
+          const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
+          const mime = mimeMap[ext] || 'image/png';
+          const base64 = Buffer.from(imgData).toString('base64');
+          const dataUri = `data:${mime};base64,${base64}`;
+          this._post({
+            type: 'imageAttached',
+            dataUri,
+            fileName: imgUris[0].fsPath.split(/[\\/]/).pop(),
+            mime,
+          });
+        }
+        break;
+      }
+      case 'pasteImage': {
+        // Handle image pasted in webview (forwarded as base64)
+        if (msg.dataUri && msg.fileName) {
+          this._post({
+            type: 'imageAttached',
+            dataUri: msg.dataUri,
+            fileName: msg.fileName,
+            mime: msg.mime,
+          });
+        }
+        break;
+      }
       case 'renameSession':
         this.renameSessionExternal(msg.sessionId as string | undefined);
         break;
@@ -671,6 +705,19 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       case 'agentAbort':
         this._activeAgentLoop?.abort();
         break;
+      case 'feedback': {
+        // Store model feedback for improving auto-selection
+        const feedbackKey = 'conduit.modelFeedback';
+        const feedback = this._context.globalState.get<Record<string, { good: number; poor: number }>>(feedbackKey, {});
+        const modelId = msg.model as string;
+        if (modelId) {
+          if (!feedback[modelId]) feedback[modelId] = { good: 0, poor: 0 };
+          if (msg.rating === 'good') feedback[modelId].good++;
+          else feedback[modelId].poor++;
+          this._context.globalState.update(feedbackKey, feedback);
+        }
+        break;
+      }
     }
   }
 
@@ -712,8 +759,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    // ── Parse #-mentions ───────────────────────────────────────────────────
-    const { cleanText, mentions } = await parseMentions(text);
+    // ── Parse #-mentions (pass model ID for token-aware context sizing) ──
+    const { cleanText, mentions } = await parseMentions(text, this._model);
     let finalText = cleanText;
     if (mentions.length > 0) {
       const mentionContext = mentions.map(m => m.content).join('\n\n');
@@ -729,7 +776,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     if (this._autoModel) {
       const registry = await getModelRegistry();
       const complexity = estimateComplexity(fullText);
-      modelToUse = autoSelectModel(registry, complexity, this._mode as RegistryChatMode) ?? this._model;
+      const feedbackScores = this._context.globalState.get<Record<string, { good: number; poor: number }>>('conduit.modelFeedback', {});
+      modelToUse = autoSelectModel(registry, complexity, this._mode as RegistryChatMode, feedbackScores) ?? this._model;
       this._post({ type: 'autoModelSelected', model: modelToUse, complexity });
     }
 
@@ -795,31 +843,58 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     const inputChars = trimmed.reduce((a, m) => a + m.content.length, 0);
     this._inputTokens += Math.ceil(inputChars / 4);
 
-    // ── Stream response ────────────────────────────────────────────────────
+    // ── Stream response with fallback ────────────────────────────────────
     let fullResponse = '';
     let lastMeta: StreamMeta | undefined;
+    const fallbacks = getFallbackModels(this._models, modelToUse);
     try {
-      for await (const chunk of stream({ messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, model: modelToUse })) {
-        if (chunk.done) break;
+      for await (const chunk of streamWithFallback(
+        { messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, model: modelToUse },
+        fallbacks,
+      )) {
+        if (chunk.fallbackModel) {
+          modelToUse = chunk.fallbackModel;
+          this._post({ type: 'assistantChunk', delta: `*Falling back to ${chunk.fallbackModel.split('/').pop()}...*\n\n` });
+          this._post({ type: 'modelChanged', model: chunk.fallbackModel });
+        }
         if (chunk.meta) {
           lastMeta = chunk.meta;
           this._post({ type: 'streamMeta', meta: chunk.meta });
         }
+        if (chunk.done) break;
         if (chunk.delta) {
           fullResponse += chunk.delta;
           this._post({ type: 'assistantChunk', delta: chunk.delta });
         }
       }
     } catch (err) {
-      const errMsg = `Error: ${(err as Error).message}`;
+      const msg = (err as Error).message || 'Unknown error';
+      const isTimeout = msg.includes('timeout');
+      const isNetwork = msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND');
+      let errMsg = 'Error: ';
+      if (isNetwork) errMsg += 'Cannot reach the bridge. Is conduit-bridge running?';
+      else if (isTimeout) errMsg += 'Request timed out. The model may be overloaded.';
+      else errMsg += msg;
       this._post({ type: 'assistantChunk', delta: errMsg });
+      this._post({ type: 'retryAvailable' });
       fullResponse = errMsg;
     }
 
     if (!fullResponse.trim()) {
       const noResp = `No response received from model \`${modelToUse}\`. The bridge may not support this model, or it returned an empty reply.`;
       this._post({ type: 'assistantChunk', delta: noResp });
+      this._post({ type: 'retryAvailable' });
       fullResponse = noResp;
+    }
+
+    // Token overflow warning - check if we're approaching context limits
+    const caps = getModelCapabilities(modelToUse);
+    if (caps) {
+      const totalChars = trimmed.reduce((a, m) => a + m.content.length, 0) + fullResponse.length;
+      const estimatedTokens = Math.ceil(totalChars / 3);
+      if (estimatedTokens > caps.contextWindow * 0.8) {
+        this._post({ type: 'tokenWarning', usage: estimatedTokens, limit: caps.contextWindow });
+      }
     }
 
     // Track output tokens
@@ -1094,6 +1169,12 @@ body {
 .msg-assistant .bubble h4, .msg-assistant .bubble h5, .msg-assistant .bubble h6 { font-size:12px; font-weight:700; margin:6px 0 3px; }
 .msg-assistant .bubble pre.code-block { background:var(--vscode-textBlockQuote-background); border:1px solid var(--vscode-panel-border); border-radius:var(--radius); padding:8px; overflow-x:auto; margin:6px 0; font-family:var(--vscode-editor-font-family); font-size:11px; position:relative; white-space:pre-wrap; word-break:break-word; }
 .msg-assistant .bubble pre.code-block code { background:none; padding:0; border-radius:0; font-size:inherit; }
+.code-lang-badge { position:absolute; top:2px; right:6px; font-size:9px; color:var(--vscode-descriptionForeground); opacity:0.6; text-transform:uppercase; letter-spacing:0.5px; pointer-events:none; }
+/* Syntax highlighting */
+.hl-kw { color:var(--vscode-symbolIcon-keywordForeground,#c586c0); }
+.hl-str { color:var(--vscode-symbolIcon-stringForeground,#ce9178); }
+.hl-cmt { color:var(--vscode-symbolIcon-commentForeground,#6a9955); font-style:italic; }
+.hl-num { color:var(--vscode-symbolIcon-numberForeground,#b5cea8); }
 .msg-assistant .bubble code { font-family:var(--vscode-editor-font-family); background:var(--vscode-textBlockQuote-background); padding:1px 4px; border-radius:2px; font-size:11px; }
 .msg-assistant .bubble ul, .msg-assistant .bubble ol { margin:4px 0; padding-left:20px; }
 .msg-assistant .bubble li { margin:2px 0; }
@@ -1122,6 +1203,10 @@ body {
 .attach-chip { display:flex; align-items:center; gap:4px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground); font-size:10px; padding:2px 6px; border-radius:10px; max-width:200px; }
 .attach-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .attach-chip button { background:none; border:none; cursor:pointer; color:inherit; font-size:12px; line-height:1; padding:0; }
+.attach-chip img { max-width:60px; max-height:30px; border-radius:3px; vertical-align:middle; }
+
+/* Drag-over state */
+#input-box.drag-over { border-color:var(--vscode-focusBorder); background:rgba(var(--vscode-focusBorder),0.1); box-shadow:0 0 0 1px var(--vscode-focusBorder); }
 
 /* Slash command autocomplete */
 #cmd-suggest { display:none; position:absolute; bottom:100%; left:0; right:0; background:var(--vscode-menu-background); border:1px solid var(--vscode-menu-border,var(--vscode-panel-border)); border-radius:6px; padding:4px 0; box-shadow:0 4px 16px rgba(0,0,0,0.3); z-index:100; margin-bottom:2px; max-height:200px; overflow-y:auto; }
@@ -1140,6 +1225,8 @@ body {
 .it-btn { background:none; border:none; cursor:pointer; color:var(--vscode-descriptionForeground); padding:3px 6px; border-radius:3px; font-size:11px; display:flex; align-items:center; gap:3px; white-space:nowrap; }
 .it-btn:hover { background:var(--vscode-toolbar-hoverBackground); color:var(--vscode-foreground); }
 .it-btn.active { color:var(--vscode-foreground); background:var(--vscode-toolbar-hoverBackground); }
+#voice-btn.active { color:#e53935; animation:pulse-voice 1s infinite; }
+@keyframes pulse-voice { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 .it-spacer { flex:1; }
 #send-btn { background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; border-radius:4px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; flex-shrink:0; }
 #send-btn:hover { background:var(--vscode-button-hoverBackground); }
@@ -1196,6 +1283,10 @@ body {
 .tool-card-result { padding:4px 10px 6px; font-size:10px; font-family:var(--vscode-editor-font-family); max-height:100px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; border-top:1px solid var(--vscode-panel-border); color:var(--vscode-descriptionForeground); }
 .tool-card-result.result-error { color:var(--vscode-errorForeground,#f48771); }
 .tool-card-result.result-denied { color:var(--vscode-charts-orange,#cca700); font-style:italic; }
+
+/* Retry button */
+.retry-btn { display:inline-flex; align-items:center; gap:4px; margin-top:4px; padding:4px 10px; font-size:11px; border:1px solid var(--vscode-button-background); background:transparent; color:var(--vscode-button-background); border-radius:4px; cursor:pointer; }
+.retry-btn:hover { background:var(--vscode-button-background); color:var(--vscode-button-foreground); }
 
 /* Agent iteration badge */
 .agent-iter-badge { display:inline-flex; align-items:center; gap:3px; font-size:9px; padding:1px 5px; border-radius:8px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground); margin-left:6px; }
@@ -1255,11 +1346,13 @@ body {
         <div class="dropdown-menu" id="attach-menu">
           <div class="dm-item" data-action="attachSelection">Current selection</div>
           <div class="dm-item" data-action="attachFile">File from disk...</div>
+          <div class="dm-item" data-action="attachImage">Image from disk...</div>
         </div>
       </div>
       <button class="it-btn" id="mode-btn" title="Chat mode"><span id="mode-label">Ask</span></button>
       <button class="it-btn" id="model-btn" title="Select model"><span id="model-label">Auto</span></button>
       <span class="it-spacer"></span>
+      <button class="it-btn" id="voice-btn" title="Voice input (hold to speak)">&#127908;</button>
       <button class="it-btn" id="settings-btn" title="Settings">&#9881;</button>
       <button id="send-btn" title="Send (Enter)" disabled>&#8593;</button>
     </div>
@@ -1363,9 +1456,12 @@ window.addEventListener('message', e => {
     case 'sessionLoaded': messagesEl.innerHTML=''; hasMessages=false; for(const x of m.messages){hideEmpty();appendMsg(x.role,x.content,x.model);} if(m.model){currentModel=m.model;updateModelLabel();} if(m.mode)setMode(m.mode); break;
     case 'sessionInfo': currentSessionId=m.id; break;
     case 'selectionAttached': case 'fileAttached': attachments.push({fileName:m.fileName,language:m.language,text:m.text}); renderAttach(); break;
+    case 'imageAttached': attachments.push({fileName:m.fileName,language:'image',text:'[Image: '+m.fileName+']',dataUri:m.dataUri,mime:m.mime}); renderAttach(); break;
     case 'autoModelSelected': ctxIndicator.innerHTML='<span class="ctx-label">Auto: '+esc(m.model.split('/').pop())+' ('+m.complexity+')</span>'; break;
     case 'versionInfo': $('version-info').textContent='ext v'+m.extVersion+' | bridge v'+m.bridgeVersion; break;
     case 'modeWarning': showModeWarning(m.reason, m.suggestion); break;
+    case 'retryAvailable': addRetryButton(currentBubble); break;
+    case 'tokenWarning': showTokenWarning(m.usage, m.limit); break;
   }
 });
 
@@ -1388,7 +1484,11 @@ function renderAttach() {
   attachmentsEl.classList.add('has-items');
   attachments.forEach((a,i) => {
     const c=document.createElement('div'); c.className='attach-chip';
-    c.innerHTML='<span>'+esc(a.fileName||'selection')+'</span><button data-idx="'+i+'">&times;</button>';
+    if(a.dataUri) {
+      c.innerHTML='<img src="'+a.dataUri+'" alt="'+esc(a.fileName||'image')+'"><span>'+esc(a.fileName||'image')+'</span><button data-idx="'+i+'">&times;</button>';
+    } else {
+      c.innerHTML='<span>'+esc(a.fileName||'selection')+'</span><button data-idx="'+i+'">&times;</button>';
+    }
     c.querySelector('button').addEventListener('click',()=>{attachments.splice(i,1);renderAttach();});
     attachmentsEl.appendChild(c);
   });
@@ -1464,13 +1564,59 @@ function sendMessage() {
   // Prepend attachments
   if(attachments.length>0) {
     let ctx='';
-    for(const a of attachments) ctx+='\\n\\n--- Attached: '+(a.fileName||'selection')+' ---\\n\`\`\`'+(a.language||'')+'\\n'+a.text+'\\n\`\`\`';
+    for(const a of attachments) {
+      if(a.dataUri) {
+        // Image attachment - include as data URI reference
+        ctx+='\\n\\n--- Attached image: '+(a.fileName||'image')+' ---\\n[Image data: '+a.dataUri.slice(0,80)+'...]';
+      } else {
+        ctx+='\\n\\n--- Attached: '+(a.fileName||'selection')+' ---\\n\`\`\`'+(a.language||'')+'\\n'+a.text+'\\n\`\`\`';
+      }
+    }
     text+=ctx;
     attachments=[];renderAttach();
   }
   inputEl.value='';inputEl.style.height='auto';updateSendBtn();
   vscode.postMessage({type:'send',text});
 }
+
+// Image paste support
+inputEl.addEventListener('paste', function(e) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        vscode.postMessage({ type: 'pasteImage', dataUri: reader.result, fileName: 'pasted-image.png', mime: file.type });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+});
+
+// Image drag-drop support
+const inputBox = $('input-box');
+inputBox.addEventListener('dragover', function(e) { e.preventDefault(); inputBox.classList.add('drag-over'); });
+inputBox.addEventListener('dragleave', function() { inputBox.classList.remove('drag-over'); });
+inputBox.addEventListener('drop', function(e) {
+  e.preventDefault();
+  inputBox.classList.remove('drag-over');
+  const files = e.dataTransfer?.files;
+  if (!files) return;
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = function() {
+        vscode.postMessage({ type: 'pasteImage', dataUri: reader.result, fileName: file.name, mime: file.type });
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+});
 
 // Messages
 function hideEmpty(){if(!hasMessages){hasMessages=true;emptyState?.remove();}}
@@ -1518,6 +1664,13 @@ function addActions(bubble,text,model) {
     insBtn.textContent='Copied!';setTimeout(()=>insBtn.textContent='Insert code',1500);
   };
   acts.appendChild(insBtn);
+  // Feedback buttons
+  const thumbUp=document.createElement('button');thumbUp.innerHTML='&#128077;';thumbUp.title='Good response';
+  thumbUp.onclick=()=>{vscode.postMessage({type:'feedback',model:model,rating:'good'});thumbUp.style.opacity='1';thumbDown.style.opacity='0.3';};
+  acts.appendChild(thumbUp);
+  const thumbDown=document.createElement('button');thumbDown.innerHTML='&#128078;';thumbDown.title='Poor response';
+  thumbDown.onclick=()=>{vscode.postMessage({type:'feedback',model:model,rating:'poor'});thumbDown.style.opacity='1';thumbUp.style.opacity='0.3';};
+  acts.appendChild(thumbDown);
   if(model){
     const tag=document.createElement('span');tag.style.cssText='font-size:9px;color:var(--vscode-descriptionForeground);margin-left:auto;';
     tag.textContent=model.includes('/')?model.split('/').pop():model;
@@ -1526,13 +1679,61 @@ function addActions(bubble,text,model) {
   bubble.parentElement.appendChild(acts);
 }
 
+// Lightweight syntax highlighter for code blocks
+function highlight(code, lang) {
+  if (!lang) return code;
+  const l = lang.toLowerCase();
+  // Keywords per language family
+  const kwSets = {
+    js: 'const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|this|class|extends|import|export|from|default|async|await|try|catch|finally|throw|typeof|instanceof|in|of|yield|delete|void|null|undefined|true|false|super|static|get|set',
+    ts: 'const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|this|class|extends|import|export|from|default|async|await|try|catch|finally|throw|typeof|instanceof|in|of|yield|delete|void|null|undefined|true|false|super|static|get|set|type|interface|enum|implements|namespace|declare|as|is|keyof|readonly|abstract|override|satisfies',
+    py: 'def|class|return|if|elif|else|for|while|import|from|as|try|except|finally|raise|with|yield|lambda|pass|break|continue|and|or|not|in|is|None|True|False|self|async|await|global|nonlocal',
+    go: 'func|return|if|else|for|range|switch|case|break|continue|var|const|type|struct|interface|map|chan|go|defer|select|package|import|nil|true|false|make|new|append|len|cap',
+    rs: 'fn|let|mut|return|if|else|for|while|loop|match|struct|enum|impl|trait|use|mod|pub|self|super|crate|const|static|type|where|async|await|move|ref|unsafe|true|false|Some|None|Ok|Err',
+    java: 'class|interface|extends|implements|return|if|else|for|while|do|switch|case|break|continue|new|this|super|static|final|void|public|private|protected|abstract|import|package|try|catch|finally|throw|throws|synchronized|volatile|transient|null|true|false|instanceof|native|enum',
+    cs: 'class|interface|struct|return|if|else|for|foreach|while|do|switch|case|break|continue|new|this|base|static|void|public|private|protected|internal|abstract|virtual|override|sealed|readonly|const|using|namespace|try|catch|finally|throw|null|true|false|var|async|await|yield|ref|out|in|is|as|typeof|sizeof|nameof|record',
+    html: 'html|head|body|div|span|p|a|img|table|tr|td|th|ul|ol|li|h1|h2|h3|h4|h5|h6|form|input|button|script|style|link|meta|title|section|article|nav|header|footer|main|aside',
+    css: 'color|background|margin|padding|border|font|display|position|width|height|top|left|right|bottom|flex|grid|align|justify|transform|transition|animation|opacity|overflow|z-index|box-shadow|text|line-height|cursor|content|outline|visibility|max-width|min-width|max-height|min-height',
+    sh: 'if|then|else|elif|fi|for|do|done|while|until|case|esac|function|return|exit|echo|export|source|local|readonly|declare|set|unset|shift|trap|eval|exec|true|false',
+    json: null,
+    md: null,
+  };
+  // Map language aliases
+  const langMap = { javascript:'js', typescript:'ts', typescriptreact:'ts', javascriptreact:'js', python:'py', golang:'go', rust:'rs', csharp:'cs', 'c++':'cs', cpp:'cs', bash:'sh', shell:'sh', zsh:'sh' };
+  const family = langMap[l] || l;
+  const kw = kwSets[family];
+  if (!kw && family !== 'json') return code;
+
+  // Simple token-based highlighting using split and rejoin
+  // All patterns avoid regex literals with backslash escapes (template literal safe)
+  var result = code;
+  // Strings (double-quoted)
+  result = result.replace(new RegExp('"[^"]*?"', 'g'), '<span class="hl-str">$&</span>');
+  // Strings (single-quoted)
+  result = result.replace(new RegExp("'[^']*?'", 'g'), '<span class="hl-str">$&</span>');
+  // Line comments (// style)
+  result = result.replace(new RegExp('//[^<]*', 'gm'), '<span class="hl-cmt">$&</span>');
+  // Hash comments (Python, shell, YAML)
+  if (['py','sh','yaml','toml'].includes(family)) {
+    result = result.replace(new RegExp('#[^<]*', 'gm'), '<span class="hl-cmt">$&</span>');
+  }
+  // Numbers
+  result = result.replace(new RegExp('(?<![a-zA-Z_])([0-9]+[.]?[0-9]*)', 'g'), '<span class="hl-num">$&</span>');
+  // Keywords
+  if (kw) {
+    result = result.replace(new RegExp('(?<![a-zA-Z_$])(' + kw + ')(?![a-zA-Z_$0-9])', 'g'), '<span class="hl-kw">$1</span>');
+  }
+  return result;
+}
+
 function renderMd(text) {
   // Split out fenced code blocks first to protect them from processing
   const codeBlocks=[];
   let src=text.replace(/\`\`\`(\\w*)\\n([\\s\\S]*?)\`\`\`/g,(_,lang,code)=>{
     const i=codeBlocks.length;
     const escaped=code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    codeBlocks.push('<pre class="code-block"'+(lang?' data-lang="'+lang+'"':'')+'><code>'+escaped+'</code></pre>');
+    const highlighted = highlight(escaped, lang);
+    codeBlocks.push('<pre class="code-block"'+(lang?' data-lang="'+lang+'"':'')+'><div class="code-lang-badge">'+(lang||'')+'</div><code>'+highlighted+'</code></pre>');
     return '\\x00CB'+i+'\\x00';
   });
 
@@ -1834,6 +2035,99 @@ function addIterBadge(bubble, iterations) {
   const parent = bubble.parentElement;
   const label = parent?.querySelector('.msg-label');
   if (label) label.appendChild(badge);
+}
+
+function addRetryButton(bubble) {
+  if (!bubble || !bubble.parentElement) return;
+  const btn = document.createElement('button');
+  btn.className = 'retry-btn';
+  btn.innerHTML = '&#8635; Retry';
+  btn.addEventListener('click', function() {
+    // Find the last user message and re-send it
+    const msgs = messagesEl.querySelectorAll('.msg-user .bubble');
+    if (msgs.length > 0) {
+      const lastUserText = msgs[msgs.length - 1].textContent;
+      btn.remove();
+      vscode.postMessage({ type: 'send', text: lastUserText });
+    }
+  });
+  bubble.parentElement.appendChild(btn);
+}
+
+function showTokenWarning(usage, limit) {
+  const pct = Math.round((usage / limit) * 100);
+  const bar = $('mode-warning-bar');
+  bar.style.display = 'block';
+  bar.className = 'mode-warning';
+  bar.innerHTML = '<span class="warn-text">Context ' + pct + '% full (~' + usage.toLocaleString() + '/' + limit.toLocaleString() + ' tokens). Consider starting a new chat to avoid truncation.</span>'
+    + '<button class="dismiss">&times;</button>';
+  bar.querySelector('.dismiss')?.addEventListener('click', function() { bar.style.display = 'none'; });
+}
+
+// Voice input (Web Speech API)
+const voiceBtn = $('voice-btn');
+let recognition = null;
+let isRecording = false;
+
+if (typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined') {
+  const SpeechAPI = typeof SpeechRecognition !== 'undefined' ? SpeechRecognition : webkitSpeechRecognition;
+  recognition = new SpeechAPI();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let finalTranscript = '';
+  let interimTranscript = '';
+
+  recognition.onresult = function(event) {
+    interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript + ' ';
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+    inputEl.value = finalTranscript + interimTranscript;
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+    updateSendBtn();
+  };
+
+  recognition.onend = function() {
+    isRecording = false;
+    voiceBtn.classList.remove('active');
+    voiceBtn.title = 'Voice input (click to speak)';
+    if (finalTranscript.trim()) {
+      inputEl.value = finalTranscript.trim();
+      updateSendBtn();
+    }
+    finalTranscript = '';
+    interimTranscript = '';
+  };
+
+  recognition.onerror = function(event) {
+    isRecording = false;
+    voiceBtn.classList.remove('active');
+    if (event.error !== 'aborted') {
+      console.warn('Speech recognition error:', event.error);
+    }
+  };
+
+  voiceBtn.addEventListener('click', function() {
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      finalTranscript = inputEl.value ? inputEl.value + ' ' : '';
+      interimTranscript = '';
+      isRecording = true;
+      voiceBtn.classList.add('active');
+      voiceBtn.title = 'Recording... (click to stop)';
+      recognition.start();
+    }
+  });
+} else {
+  voiceBtn.style.display = 'none';
 }
 </script>
 </body>

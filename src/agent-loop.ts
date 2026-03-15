@@ -87,9 +87,9 @@ export class AgentLoop {
           messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
           model: this._opts.model,
         })) {
-          if (chunk.done) break;
           if (this._aborted) break;
-          parser.feed(chunk.delta);
+          if (chunk.done) break;
+          if (chunk.delta) parser.feed(chunk.delta);
         }
         parser.flush();
       } catch (err) {

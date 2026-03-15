@@ -29,6 +29,9 @@ export class BridgeManager {
   private _healthTimer: NodeJS.Timeout | null = null;
   private _onStatusChange = new vscode.EventEmitter<BridgeStatus | null>();
   private _lastStatus: BridgeStatus | null = null;
+  private _autoRestart = true;
+  private _consecutiveFailures = 0;
+  private _wasRunning = false; // tracks if bridge was running before a failure
 
   readonly onStatusChange = this._onStatusChange.event;
 
@@ -40,8 +43,9 @@ export class BridgeManager {
   // ── Process management ────────────────────────────────────────────────────
 
   async start(): Promise<void> {
+    this._autoRestart = true;
     if (await this._isRunning()) {
-      this._log('Bridge already running — reusing existing instance');
+      this._log('Bridge already running - reusing existing instance');
       await this._refreshStatus();
       return;
     }
@@ -81,6 +85,25 @@ export class BridgeManager {
       this._process = null;
       this._updateStatusBar(null);
       this._onStatusChange.fire(null);
+
+      // Auto-relaunch on unexpected crash (not user-initiated stop)
+      if (this._autoRestart && code !== 0 && code !== null) {
+        this._consecutiveFailures++;
+        if (this._consecutiveFailures <= 3) {
+          const delay = Math.min(2000 * this._consecutiveFailures, 10000);
+          this._log(`Auto-restarting bridge in ${delay / 1000}s (attempt ${this._consecutiveFailures}/3)...`);
+          setTimeout(() => this.start(), delay);
+        } else {
+          this._log('Bridge crashed 3 times - stopping auto-restart. Use "Restart Bridge" to try again.');
+          vscode.window.showWarningMessage(
+            'Conduit bridge crashed repeatedly. Check logs for details.',
+            'Show Logs', 'Restart',
+          ).then(action => {
+            if (action === 'Show Logs') this.showLogs();
+            else if (action === 'Restart') { this._consecutiveFailures = 0; this.start(); }
+          });
+        }
+      }
     });
 
     // Wait up to 8s for bridge to come up
@@ -97,6 +120,7 @@ export class BridgeManager {
   }
 
   async stop(): Promise<void> {
+    this._autoRestart = false; // user-initiated stop - don't auto-restart
     if (this._process) {
       this._process.kill('SIGTERM');
       this._process = null;
@@ -107,8 +131,9 @@ export class BridgeManager {
   }
 
   async restart(): Promise<void> {
-    this._log('Restarting bridge…');
+    this._log('Restarting bridge...');
     await this.stop();
+    this._consecutiveFailures = 0;
     await new Promise(r => setTimeout(r, 1000));
     await this.start();
   }
@@ -161,6 +186,24 @@ export class BridgeManager {
     try {
       const text = await this._apiGet(`${cfg.proxyUrl}/v1/status`);
       const status = JSON.parse(text) as BridgeStatus;
+
+      // Detect session expiry: provider has a profile but session is no longer valid
+      if (this._lastStatus) {
+        for (const p of status.providers || []) {
+          const prev = this._lastStatus.providers?.find(pp => pp.name === p.name);
+          if (prev?.sessionValid && !p.sessionValid && p.hasProfile) {
+            this._log(`${p.name} session expired - prompting re-login`);
+            vscode.window.showWarningMessage(
+              `Conduit: ${p.name} session expired. Re-login to continue using this provider.`,
+              'Login',
+              'Dismiss',
+            ).then(action => {
+              if (action === 'Login') this.login(p.name as ProviderName);
+            });
+          }
+        }
+      }
+
       this._lastStatus = status;
       this._updateStatusBar(status);
       this._onStatusChange.fire(status);
@@ -175,7 +218,22 @@ export class BridgeManager {
   // ── Internal ──────────────────────────────────────────────────────────────
 
   private async _refreshStatus() {
-    await this.getStatus();
+    const status = await this.getStatus();
+    const isRunning = !!status;
+
+    // Detect bridge going from online to offline (external process died)
+    if (this._wasRunning && !isRunning && !this._process) {
+      this._log('Bridge went offline (external process may have stopped)');
+      vscode.window.showWarningMessage(
+        'Conduit bridge went offline.',
+        'Restart', 'Dismiss',
+      ).then(action => {
+        if (action === 'Restart') { this._consecutiveFailures = 0; this.start(); }
+      });
+    }
+
+    this._wasRunning = isRunning;
+    if (isRunning) this._consecutiveFailures = 0;
   }
 
   private _startHealthPoll() {

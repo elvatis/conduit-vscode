@@ -1,5 +1,11 @@
 import * as vscode from 'vscode';
 
+export interface LocalEndpoint {
+  name: string;
+  url: string;
+  apiKey?: string;
+}
+
 export interface ConduitConfig {
   proxyUrl: string;
   apiKey: string;
@@ -13,6 +19,7 @@ export interface ConduitConfig {
   autoStatusBar: boolean;
   agentMaxIterations: number;
   agentAutoApprove: boolean;
+  localEndpoints: LocalEndpoint[];
 }
 
 export function getConfig(): ConduitConfig {
@@ -30,6 +37,7 @@ export function getConfig(): ConduitConfig {
     autoStatusBar:        cfg.get<boolean>('autoStatusBar', true),
     agentMaxIterations:   cfg.get<number>('agentMaxIterations', 25),
     agentAutoApprove:     cfg.get<boolean>('agentAutoApprove', false),
+    localEndpoints:       cfg.get<LocalEndpoint[]>('localEndpoints', []),
   };
 }
 

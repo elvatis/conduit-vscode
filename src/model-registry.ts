@@ -1,5 +1,8 @@
 import { ModelInfo, listModels } from './proxy-client';
 import { extractProvider, shortModelName } from './utils';
+import { getConfig } from './config';
+import * as http from 'http';
+import * as https from 'https';
 
 /**
  * Model registry - caches model info, provides context window limits,
@@ -192,13 +195,65 @@ export async function getModelRegistry(): Promise<ModelCapabilities[]> {
   }
   try {
     const models = await listModels();
-    _cacheList = models.map(m => toCapabilities(m));
+    const localModels = await fetchLocalModels();
+    const allModels = [...models, ...localModels];
+    _cacheList = allModels.map(m => toCapabilities(m));
     _cacheMap = new Map(_cacheList.map(m => [m.id, m]));
     _cacheTime = Date.now();
   } catch {
     // keep stale cache
   }
   return _cacheList;
+}
+
+/** Fetch models from configured local endpoints (Ollama, LM Studio, etc.) */
+async function fetchLocalModels(): Promise<ModelInfo[]> {
+  const cfg = getConfig();
+  if (!cfg.localEndpoints || cfg.localEndpoints.length === 0) return [];
+
+  const results: ModelInfo[] = [];
+  for (const endpoint of cfg.localEndpoints) {
+    try {
+      const text = await httpGetLocal(endpoint.url + '/models', endpoint.apiKey);
+      const json = JSON.parse(text);
+      const models = json.data ?? json.models ?? [];
+      for (const m of models) {
+        const id = m.id ?? m.name ?? m.model;
+        if (!id) continue;
+        const prefixedId = `local-${endpoint.name.toLowerCase().replace(/\s+/g, '-')}/${id}`;
+        results.push({
+          id: prefixedId,
+          object: 'model',
+          created: m.created ?? 0,
+          owned_by: endpoint.name,
+        });
+      }
+    } catch { /* endpoint not reachable */ }
+  }
+  return results;
+}
+
+function httpGetLocal(url: string, apiKey?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const transport = url.startsWith('https://') ? https : http;
+    const headers: Record<string, string> = {};
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    const req = transport.request({
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      headers,
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.end();
+  });
 }
 
 export function getModelCapabilities(modelId: string): ModelCapabilities | undefined {
@@ -278,11 +333,13 @@ export function getModeRecommendation(
 /**
  * Auto-select the best model based on task complexity.
  * Prefers larger context models for complex tasks, faster models for simple ones.
+ * @param feedbackScores - optional model feedback from user (good/poor counts)
  */
 export function autoSelectModel(
   models: ModelCapabilities[],
   taskType: 'simple' | 'moderate' | 'complex',
   mode: ChatMode = 'ask',
+  feedbackScores?: Record<string, { good: number; poor: number }>,
 ): string | undefined {
   if (models.length === 0) return undefined;
 
@@ -310,6 +367,22 @@ export function autoSelectModel(
   };
 
   const ids = new Set(pool.map(m => m.id));
+
+  // If we have feedback data, boost models with good ratings and penalize poor ones
+  if (feedbackScores) {
+    const prefs = preferences[taskType].filter(id => ids.has(id));
+    const scored = prefs.map(id => {
+      const fb = feedbackScores[id];
+      const score = fb ? (fb.good - fb.poor * 2) : 0; // penalize poor ratings more heavily
+      return { id, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    // If the top-scored model has positive feedback, prefer it
+    if (scored.length > 0 && scored[0].score > 0) {
+      return scored[0].id;
+    }
+  }
+
   for (const pref of preferences[taskType]) {
     if (ids.has(pref)) return pref;
   }
@@ -333,6 +406,37 @@ export function estimateComplexity(text: string): 'simple' | 'moderate' | 'compl
   if (/\b(explain|what is|how does|fix this|rename|typo)\b/.test(lower)) return 'simple';
 
   return 'moderate';
+}
+
+/**
+ * Get fallback models for a given model, ordered by preference.
+ * Same-provider models are preferred, then cross-provider models of the same tier.
+ */
+export function getFallbackModels(
+  models: ModelCapabilities[],
+  primaryModelId: string,
+): string[] {
+  const primary = models.find(m => m.id === primaryModelId);
+  if (!primary) return [];
+
+  const candidates = models.filter(m =>
+    m.id !== primaryModelId &&
+    m.supportedModes.length >= primary.supportedModes.length,
+  );
+
+  // Sort: same provider first, then by tier distance (closest first), then by context window (larger first)
+  return candidates
+    .sort((a, b) => {
+      const aProvider = a.provider === primary.provider ? 0 : 1;
+      const bProvider = b.provider === primary.provider ? 0 : 1;
+      if (aProvider !== bProvider) return aProvider - bProvider;
+      const aTierDist = Math.abs(a.tier - primary.tier);
+      const bTierDist = Math.abs(b.tier - primary.tier);
+      if (aTierDist !== bTierDist) return aTierDist - bTierDist;
+      return b.contextWindow - a.contextWindow;
+    })
+    .slice(0, 3)
+    .map(m => m.id);
 }
 
 /**

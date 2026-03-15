@@ -125,6 +125,19 @@ export function activate(context: vscode.ExtensionContext) {
     if (isFirstRun) {
       context.globalState.update('conduit.installed', true);
 
+      // Security notice on first run
+      vscode.window.showInformationMessage(
+        'Conduit sends your code to AI providers via a local proxy (conduit-bridge). ' +
+        'Web-based providers (Grok, Claude, Gemini, ChatGPT) process your code through their web UIs. ' +
+        'The proxy listens on localhost only - do not expose it to the network.',
+        'Understood',
+        'Learn More',
+      ).then(action => {
+        if (action === 'Learn More') {
+          vscode.env.openExternal(vscode.Uri.parse('https://github.com/elvatis/conduit-vscode#security'));
+        }
+      });
+
       // Wait for views to be fully registered, then move to secondary sidebar
       setTimeout(async () => {
         try {

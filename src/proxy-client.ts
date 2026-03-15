@@ -44,20 +44,80 @@ export interface StreamChunk {
 export async function complete(opts: CompletionOptions): Promise<string> {
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
-  const body = JSON.stringify({ ...opts, model, stream: false });
+  const { url, apiKey, actualModel } = resolveEndpoint(model);
+  const body = JSON.stringify({ ...opts, model: actualModel, stream: false });
 
-  const text = await httpPost(cfg.proxyUrl + '/v1/chat/completions', body, cfg.apiKey);
+  const text = await httpPost(url, body, apiKey);
   const json = JSON.parse(text);
   return json.choices?.[0]?.message?.content ?? '';
+}
+
+/** Resolve the endpoint URL and API key for a model - local models bypass the bridge */
+function resolveEndpoint(model: string): { url: string; apiKey: string; actualModel: string } {
+  const cfg = getConfig();
+  // Check if model belongs to a local endpoint (format: local-endpoint-name/model-id)
+  if (model.startsWith('local-')) {
+    const slashIdx = model.indexOf('/');
+    if (slashIdx > 0) {
+      const prefix = model.slice(6, slashIdx); // e.g. "ollama" from "local-ollama/llama3"
+      const actualModel = model.slice(slashIdx + 1);
+      const endpoint = cfg.localEndpoints?.find(
+        e => e.name.toLowerCase().replace(/\s+/g, '-') === prefix,
+      );
+      if (endpoint) {
+        return { url: endpoint.url + '/chat/completions', apiKey: endpoint.apiKey || '', actualModel };
+      }
+    }
+  }
+  return { url: cfg.proxyUrl + '/v1/chat/completions', apiKey: cfg.apiKey, actualModel: model };
 }
 
 /** POST /v1/chat/completions — streams chunks via async generator */
 export async function* stream(opts: CompletionOptions): AsyncGenerator<StreamChunk> {
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
-  const body = JSON.stringify({ ...opts, model, stream: true });
+  const { url, apiKey, actualModel } = resolveEndpoint(model);
+  const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
 
-  yield* httpPostStream(cfg.proxyUrl + '/v1/chat/completions', body, cfg.apiKey);
+  yield* httpPostStream(url, body, apiKey);
+}
+
+/**
+ * Stream with automatic fallback to alternative models on failure.
+ * Yields a special meta chunk with the fallback model name if a fallback occurs.
+ */
+export async function* streamWithFallback(
+  opts: CompletionOptions,
+  fallbackModels: string[],
+): AsyncGenerator<StreamChunk & { fallbackModel?: string }> {
+  const cfg = getConfig();
+  const primaryModel = opts.model ?? cfg.defaultModel;
+  const modelsToTry = [primaryModel, ...fallbackModels.filter(m => m !== primaryModel)];
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const model = modelsToTry[i];
+    try {
+      const { url, apiKey, actualModel } = resolveEndpoint(model);
+      const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
+      let gotContent = false;
+
+      for await (const chunk of httpPostStream(url, body, apiKey)) {
+        if (i > 0 && !gotContent && !chunk.done) {
+          // First real chunk from fallback - notify caller
+          yield { ...chunk, fallbackModel: model };
+          gotContent = true;
+        } else {
+          yield chunk;
+        }
+      }
+      return; // success - no need to try next model
+    } catch (err) {
+      if (i === modelsToTry.length - 1) {
+        throw err; // all models failed
+      }
+      // Try next model
+    }
+  }
 }
 
 /** GET /v1/models */
@@ -192,8 +252,10 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
             const delta = json.choices?.[0]?.delta?.content ?? '';
             const meta = json.conduit_meta as StreamMeta | undefined;
             const finishReason = json.choices?.[0]?.finish_reason;
-            if (delta) chunks.push({ delta, done: false, meta });
-            else if (finishReason === 'stop' && meta) chunks.push({ delta: '', done: false, meta });
+            // Always yield chunks that have content, metadata, or a finish signal
+            if (delta || meta || finishReason) {
+              chunks.push({ delta, done: false, meta });
+            }
           } catch { /* ignore malformed */ }
         }
       }

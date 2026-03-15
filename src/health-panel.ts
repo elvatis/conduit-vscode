@@ -170,6 +170,7 @@ export class HealthPanel {
   .footer a:hover { text-decoration: underline; }
   .empty-state { text-align: center; padding: 40px 20px; color: var(--vscode-descriptionForeground); }
   .empty-state p { margin-bottom: 16px; }
+  .security-notice { margin-top: 16px; padding: 10px 14px; border-radius: 6px; font-size: 11px; background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); color: var(--vscode-foreground); line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -225,6 +226,10 @@ ${models.length > 0 ? `
     : '<button class="btn-primary" onclick="send(\'start\')">Start Bridge</button>'}
   <button class="btn-secondary" onclick="send('logs')">Show Logs</button>
   <button class="btn-secondary" onclick="send('refresh')">Refresh</button>
+</div>
+
+<div class="security-notice">
+  <strong>Security:</strong> The bridge proxy listens on localhost (${proxyUrl}) only. Your code is sent to web-based AI providers through their web UIs. Do not expose this port to the network.
 </div>
 
 <div class="footer">

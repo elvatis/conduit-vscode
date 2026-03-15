@@ -2,7 +2,7 @@
   "name": "conduit-vscode",
   "displayName": "Conduit — Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "elvatis",
   "private": true,
   "engines": {
@@ -93,6 +93,29 @@
           "type": "boolean",
           "default": false,
           "description": "Auto-approve destructive agent actions (file writes, terminal commands) without confirmation"
+        },
+        "conduit.localEndpoints": {
+          "type": "array",
+          "default": [],
+          "description": "Local OpenAI-compatible endpoints (Ollama, LM Studio, llama.cpp). Each entry: {name, url, apiKey?}",
+          "items": {
+            "type": "object",
+            "required": ["name", "url"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name for this endpoint (e.g. 'Ollama', 'LM Studio')"
+              },
+              "url": {
+                "type": "string",
+                "description": "Base URL of the OpenAI-compatible API (e.g. http://localhost:11434/v1)"
+              },
+              "apiKey": {
+                "type": "string",
+                "description": "Optional API key (most local servers don't need one)"
+              }
+            }
+          }
         }
       }
     },
