@@ -13,6 +13,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 - [Supported Models](#supported-models)
 - [Chat Interface](#chat-interface)
 - [Chat Modes](#chat-modes)
+- [Agent Mode](#agent-mode)
 - [Model Selection](#model-selection)
 - [Session Management](#session-management)
 - [Slash Commands](#slash-commands)
@@ -39,7 +40,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.2.0.vsix
+code --install-extension conduit-vscode-0.3.1.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -48,8 +49,8 @@ Or in VS Code: `Extensions > ... > Install from VSIX...`
 git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
-npx @vscode/vsce package --allow-missing-repository
-code --install-extension conduit-vscode-0.2.0.vsix
+npx @vscode/vsce package --no-dependencies
+code --install-extension conduit-vscode-0.3.1.vsix
 ```
 
 ### First Launch
@@ -68,11 +69,17 @@ code --install-extension conduit-vscode-0.2.0.vsix
 ## Features
 
 ### Chat Interface
-- Streaming responses with Markdown rendering (code blocks, tables, bold, inline code)
+- Streaming responses with full Markdown rendering (headings, code blocks, tables, lists, blockquotes, bold, italic, links)
 - Copy and insert-code actions on every response
 - Per-message model tag showing which model generated each response
 - Automatic context window management - trims conversation history to fit model limits
 - Token usage tracking via `/cost`
+
+### Agent Step Cards
+- In Agent mode, responses are structured as collapsible step cards
+- Each step shows an animated **spinner** while streaming, then a **green checkmark** when complete
+- Steps are click-to-expand/collapse for easy navigation
+- Models are instructed to use `### Step N: Title` format for structured output
 
 ### Sessions (History)
 - Native VS Code tree view panel (like GitHub Copilot's Sessions)
@@ -85,12 +92,11 @@ code --install-extension conduit-vscode-0.2.0.vsix
 ### Model Selection
 - **Native VS Code QuickPick** - opens a full-width, searchable picker at the top of the editor
 - Models grouped by provider (WEB-GROK, WEB-CLAUDE, WEB-GEMINI, etc.)
+- Tier icons: star for flagship models, half-star for mid-tier
 - Context window size shown next to each model (131K, 200K, 1M)
-- Friendly display names with version numbers (e.g. "Claude Sonnet 4.6", "Grok 3.0 Fast")
-- **Auto mode** - automatically selects the best model based on task complexity:
-  - Simple tasks (short questions, explanations) -> fast/mini models
-  - Moderate tasks (code changes, debugging) -> mid-tier models
-  - Complex tasks (architecture, multi-file refactoring) -> flagship models
+- Friendly display names with version numbers (e.g. "Claude Sonnet 4.6", "Grok Expert")
+- **Auto mode** - automatically selects the best model based on task complexity
+- Model-mode compatibility warnings when a model doesn't support the current chat mode
 
 ### Code Intelligence
 - **Inline completions** (ghost text) - language-aware for 20+ languages
@@ -105,7 +111,7 @@ code --install-extension conduit-vscode-0.2.0.vsix
 - **Bridge manager** - start/stop/restart conduit-bridge from VS Code
 - **Per-provider login** - Grok, Claude, Gemini, ChatGPT login commands
 - **Auto-start bridge** - starts automatically if not running on activation
-- **Status bar** - live connection health and current model display
+- **Consolidated status bar** - bridge status, model count, and current model in one item
 
 ---
 
@@ -117,10 +123,10 @@ Models are served by conduit-bridge. The extension displays whatever the bridge 
 
 | Provider | Models | Context |
 |---|---|---|
-| **Grok** | Grok 3.0, Grok 3.0 Fast, Grok 3.0 Mini, Grok 2.0 | 131K |
+| **Grok** | Grok Expert, Grok Fast, Grok Heavy, Grok 4.20 Beta | 131K |
 | **Claude** | Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5 | 200K |
-| **Gemini** | Gemini 2.5 Pro, Gemini 2.5 Flash, Gemini 3.0 Pro, Gemini 3.0 Flash | 1M |
-| **ChatGPT** | GPT-5.0, GPT-4o, o3, o4 Mini | 128K |
+| **Gemini** | Gemini 3 Fast, Gemini 3 Thinking, Gemini 3.1 Pro | 1M |
+| **ChatGPT** | GPT-5.4 Pro, GPT-5.4 Thinking, GPT-5.3 Instant, GPT-5 Thinking Mini, o3 | 128K |
 
 ### CLI Models (requires CLI tool installed)
 
@@ -152,7 +158,7 @@ The Conduit Chat panel lives in the bottom panel area by default. For the best e
 The toolbar at the bottom of the chat has:
 - **+** - Attach context (current selection or file from disk)
 - **Mode button** (Ask/Edit/Agent/Plan) - click to switch chat mode via QuickPick
-- **Model button** (e.g. "gpt-5") - click to switch model via QuickPick
+- **Model button** (e.g. "Claude Sonnet 4.6") - click to switch model via QuickPick
 - **Settings** - open Conduit extension settings
 - **Send** - send your message (or press Enter)
 
@@ -166,8 +172,33 @@ Click the mode button in the toolbar to switch between modes:
 |---|---|---|
 | **Ask** | Answer questions about code | Conversational, explains concepts, provides examples |
 | **Edit** | Modify and refactor code | Focuses on producing code changes, minimal explanation |
-| **Agent** | Plan and build features | Multi-step reasoning, considers architecture and side effects |
+| **Agent** | Plan and build features | Multi-step reasoning with collapsible step cards |
 | **Plan** | Create implementation plans | Produces structured plans with steps, file lists, and considerations |
+
+### Mode Compatibility
+
+Models are classified into tiers that determine which modes they support:
+
+| Tier | Modes | Examples |
+|---|---|---|
+| **Tier 1** (flagship) | Ask, Edit, Agent, Plan | Claude Opus 4.6, GPT-5.4 Pro, Gemini 3.1 Pro |
+| **Tier 2** (mid-tier) | Ask, Edit, Plan | Claude Haiku 4.5, Grok Fast, GPT-5.3 Instant |
+| **Tier 3** (fast) | Ask only | GPT-5 Thinking Mini, BitNet 2B |
+
+If you select a mode that your current model doesn't support, Conduit shows a warning with a suggested alternative model.
+
+---
+
+## Agent Mode
+
+In Agent mode, models produce structured output with step-by-step reasoning. Each step is rendered as a **collapsible card** in the chat:
+
+- While the model streams a step, it shows an **animated spinner**
+- When a step finishes (the next step begins), it shows a **green checkmark**
+- When the full response is done, all steps show checkmarks
+- Click any step header to expand/collapse its contents
+
+This gives you a clear overview of the model's reasoning process without being overwhelmed by long responses.
 
 ---
 
@@ -178,25 +209,27 @@ Click the model name in the toolbar (or use `/model`) to open the model picker.
 The QuickPick shows all available models grouped by provider:
 ```
   Auto  best for task
-  ─── WEB-GROK ───
-  Grok 3.0                   131K context
-  Grok 3.0 Fast              131K context
-  ─── WEB-CLAUDE ───
-  Claude Sonnet 4.6          200K context
-  Claude Opus 4.6            200K context
+  --- WEB-GROK ---
+  * Grok Expert                  131K context - Ask, Edit, Agent, Plan
+    Grok Fast                    131K context - Ask, Edit, Plan
+  --- WEB-CLAUDE ---
+  * Claude Sonnet 4.6            200K context - Ask, Edit, Agent, Plan
+    Claude Opus 4.6              200K context - Ask, Edit, Agent, Plan
   ...
 ```
 
 - Type to search/filter models
 - The checkmark shows the currently selected model
+- Star icons indicate model tier (full star = tier 1, half star = tier 2)
+- Supported modes are shown next to each model
 - **Auto** mode picks the best model per message based on complexity
 
 ### Auto Model Selection
 
 When set to **Auto**, Conduit analyzes your message to determine complexity:
-- **Simple** (short questions, "explain this", "fix typo") -> uses fast models like Grok 3.0 Mini Fast, Gemini 2.5 Flash
-- **Moderate** (code changes, debugging) -> uses Gemini 2.5 Pro, Claude Sonnet 4.6, Grok 3.0
-- **Complex** (architecture, multi-file, "build a system") -> uses Claude Opus 4.6, GPT-5.4, Gemini 3.0 Pro
+- **Simple** (short questions, "explain this", "fix typo") -> fast models like Grok Fast, Gemini 3 Fast
+- **Moderate** (code changes, debugging) -> mid-tier models like Gemini 3 Thinking, Claude Sonnet
+- **Complex** (architecture, multi-file, "build a system") -> flagship models like Claude Opus, GPT-5.4 Pro
 
 ---
 
@@ -218,18 +251,15 @@ You can rename any session to keep track of what you were working on:
 - Custom names persist and are shown in the session list
 
 ### Model Switch Handoff
-When models change mid-conversation (either via Auto mode or manual switch), Conduit automatically injects a compressed summary of the previous context. This means the new model understands what was discussed before and can continue seamlessly - no more confused responses after switching from Gemini to Grok.
+When models change mid-conversation (either via Auto mode or manual switch), Conduit automatically injects a compressed summary of the previous context. This means the new model understands what was discussed before and can continue seamlessly.
 
 ### Working Context Persistence
-Each session stores a "working summary" - a compressed snapshot of what you were working on. When you switch between sessions, this summary is restored so no context is lost. The model picks up right where you left off.
-
-### Multi-Model Sessions
-Sessions that used multiple models (Auto mode, or manual switches) are labeled "Auto" in the session list. The tooltip shows all models that participated. This makes it easy to identify which sessions involved model routing.
+Each session stores a "working summary" - a compressed snapshot of what you were working on. When you switch between sessions, this summary is restored so no context is lost.
 
 Sessions are stored in VS Code's global state and persist across restarts. Up to 50 sessions are kept.
 
 ### Move to Secondary Sidebar
-To place Conduit next to GitHub Copilot and Claude Code in the secondary sidebar (right side), run the command **"Conduit: Move to Secondary Sidebar"** from the command palette (`Ctrl+Shift+P`). This keeps the file explorer visible on the left. On first install, Conduit attempts this automatically.
+To place Conduit next to GitHub Copilot and Claude Code in the secondary sidebar (right side), run the command **"Conduit: Move to Secondary Sidebar"** from the command palette (`Ctrl+Shift+P`).
 
 ---
 
@@ -239,7 +269,7 @@ Type `/` in the chat input to see autocomplete suggestions.
 
 | Command | Description |
 |---|---|
-| `/help` | Show all available commands and keyboard shortcuts |
+| `/help` | Show all available commands, context mentions, and keyboard shortcuts |
 | `/fix` | Fix errors and warnings in the current file |
 | `/explain` | Explain the selected code |
 | `/tests` | Generate tests for the selected code |
@@ -265,15 +295,23 @@ Add context to your messages by typing `#` followed by a mention:
 | `#file:src/main.ts:10-20` | Lines 10-20 of the file |
 | `#selection` | Current editor selection |
 | `#problems` | All errors/warnings in the current file |
-| `#codebase` | Workspace file tree overview |
-| `#terminal` | Terminal output (paste from clipboard) |
+| `#workspace` | Lightweight workspace folder structure overview |
+| `#codebase` | Deep search: file tree + contents of up to 30 source files (~80K chars) |
+| `#terminal` | Terminal output (select text in terminal first) |
 
-**Examples:**
+### Examples
 ```
 Explain this function #file:src/utils/parser.ts:45-80
 Fix the errors in this file #problems
 How does authentication work? #codebase
+Where are the API routes? #workspace
+Refactor #selection based on patterns in #file:src/helpers.ts
 ```
+
+### #workspace vs #codebase
+
+- **#workspace** is lightweight - just the folder structure. Use it when you need a quick overview of where things are.
+- **#codebase** is deep - includes the folder structure PLUS the actual contents of up to 30 prioritized source files. Use it when the model needs to understand how your code works. Files are prioritized: config files first, then entry points, then by directory depth.
 
 ---
 
@@ -348,6 +386,8 @@ The backend is a Node.js Express API with PostgreSQL.
 | `Ctrl+Shift+I` | Inline Edit - edit selected code with prompt |
 | `Ctrl+Shift+E` | Explain selected code |
 | `Ctrl+Shift+M` | Generate commit message from staged changes |
+| `Enter` | Send message in chat |
+| `Shift+Enter` | Insert new line in chat |
 
 ---
 
@@ -398,8 +438,6 @@ Requires the Codex CLI with OAuth tokens:
 2. Run `codex login` to authenticate
 3. Run `openclaw models auth login --provider openai-codex` and select "Codex CLI (existing login)"
 4. The codex models (including GPT-5.4) appear in the model picker
-
-> **Note:** GPT-5.4 may require an upgraded OAuth scope or higher-tier plan.
 
 ### Local Models (BitNet)
 
@@ -461,6 +499,7 @@ npm install --include=dev
 ```bash
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
+npm run lint    # eslint
 npm test        # run tests (vitest)
 ```
 
@@ -468,8 +507,8 @@ Press **F5** in VS Code to launch the Extension Development Host for debugging.
 
 ### Package for Distribution
 ```bash
-npx @vscode/vsce package --allow-missing-repository
-# produces conduit-vscode-0.2.0.vsix
+npx @vscode/vsce package --no-dependencies
+# produces conduit-vscode-X.Y.Z.vsix
 ```
 
 ### Project Structure
@@ -477,25 +516,26 @@ npx @vscode/vsce package --allow-missing-repository
 conduit-vscode/
   src/
     extension.ts              - activation, command registration
-    chat-view-provider.ts     - main chat webview (HTML, CSS, JS)
+    chat-view-provider.ts     - main chat webview (sidebar), slash commands, agent steps, markdown rendering
     sessions-tree-provider.ts - native sessions tree view
-    model-registry.ts         - model capabilities, display names, auto-selection
+    model-registry.ts         - model capabilities, display names, tiers, auto-selection
     proxy-client.ts           - HTTP/streaming client for the bridge
+    mention-parser.ts         - #file, #selection, #workspace, #codebase parsing
+    context-builder.ts        - editor context collection
     bridge-manager.ts         - bridge lifecycle management
     inline-provider.ts        - ghost-text inline completions
     inline-chat.ts            - Ctrl+I inline chat with diff
-    mention-parser.ts         - #file, #selection, #codebase parsing
-    context-builder.ts        - editor context collection
     custom-instructions.ts    - .conduit/instructions.md loader
     commit-message.ts         - git commit message generation
     config.ts                 - settings reader
     commands.ts               - command registrations
     health-panel.ts           - health dashboard webview
     bridge-panel.ts           - bridge manager webview
-    status-bar.ts             - status bar item
+    status-bar.ts             - consolidated status bar item
   dist/
     extension.js              - bundled output (esbuild)
   media/
     icon.png                  - extension icon
+    icon.svg                  - extension icon (vector)
     sidebar-icon.svg          - panel icon
 ```
