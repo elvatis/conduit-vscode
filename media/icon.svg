@@ -10,9 +10,9 @@
       <stop offset="0%" stop-color="#5CC8F5"/>
       <stop offset="100%" stop-color="#2BA4E0"/>
     </linearGradient>
-    <!-- Glow filter for the conduit flow -->
+    <!-- Subtle glow behind text -->
     <filter id="glow">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -23,44 +23,37 @@
   <!-- Rounded rectangle background -->
   <rect width="128" height="128" rx="22" fill="url(#bg)"/>
 
-  <!-- Elvatis-inspired hexagonal shape -->
-  <!-- Outer hex with characteristic gap/flow in upper-left -->
+  <!-- Elvatis-inspired hexagonal ring -->
   <g transform="translate(64, 64)">
-    <!-- Main hex ring -->
     <path fill-rule="evenodd" fill="url(#blue)" d="
-      M0 -40
-      L34.6 -20
-      L34.6 20
-      L0 40
-      L-34.6 20
-      L-34.6 -20
+      M0 -44
+      L38.1 -22
+      L38.1 22
+      L0 44
+      L-38.1 22
+      L-38.1 -22
       Z
-      M0 -29
-      L-25 -14.5
-      L-25 14.5
-      L0 29
-      L25 14.5
-      L25 -14.5
+      M0 -33
+      L-28.6 -16.5
+      L-28.6 16.5
+      L0 33
+      L28.6 16.5
+      L28.6 -16.5
       Z
     "/>
 
-    <!-- Conduit flow: arrow going through the hex center -->
-    <!-- This represents data flowing through the bridge -->
-    <g filter="url(#glow)">
-      <!-- Source node -->
-      <circle cx="-16" cy="0" r="5" fill="url(#blue)"/>
-      <!-- Flow line -->
-      <line x1="-10" y1="0" x2="12" y2="0" stroke="url(#blue)" stroke-width="4" stroke-linecap="round"/>
-      <!-- Arrow head -->
-      <path d="M10 -6 L17 0 L10 6" fill="none" stroke="url(#blue)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+    <!-- "cAI" text mark -->
+    <text x="0" y="7" text-anchor="middle"
+          font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+          font-size="28" font-weight="800" letter-spacing="-1"
+          fill="url(#blue)" filter="url(#glow)">cAI</text>
 
-    <!-- Small accent dots on hex vertices (AI provider nodes) -->
-    <circle cx="0" cy="-40" r="3" fill="#5CC8F5" opacity="0.7"/>
-    <circle cx="34.6" cy="-20" r="3" fill="#5CC8F5" opacity="0.5"/>
-    <circle cx="34.6" cy="20" r="3" fill="#5CC8F5" opacity="0.5"/>
-    <circle cx="0" cy="40" r="3" fill="#5CC8F5" opacity="0.7"/>
-    <circle cx="-34.6" cy="20" r="3" fill="#5CC8F5" opacity="0.5"/>
-    <circle cx="-34.6" cy="-20" r="3" fill="#5CC8F5" opacity="0.5"/>
+    <!-- Small accent dots on hex vertices -->
+    <circle cx="0" cy="-44" r="3.5" fill="#5CC8F5" opacity="0.6"/>
+    <circle cx="38.1" cy="-22" r="3" fill="#5CC8F5" opacity="0.4"/>
+    <circle cx="38.1" cy="22" r="3" fill="#5CC8F5" opacity="0.4"/>
+    <circle cx="0" cy="44" r="3.5" fill="#5CC8F5" opacity="0.6"/>
+    <circle cx="-38.1" cy="22" r="3" fill="#5CC8F5" opacity="0.4"/>
+    <circle cx="-38.1" cy="-22" r="3" fill="#5CC8F5" opacity="0.4"/>
   </g>
 </svg>
