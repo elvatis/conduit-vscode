@@ -21,15 +21,61 @@ export interface ModelCapabilities {
   tier: 1 | 2 | 3;
 }
 
-// Known context windows per model prefix (from openclaw-cli-bridge)
-const KNOWN_CONTEXT_WINDOWS: Record<string, { ctx: number; max: number }> = {
-  'cli-claude/':    { ctx: 200_000,   max: 8_192 },
-  'cli-gemini/':    { ctx: 1_000_000, max: 8_192 },
+// Per-model context windows (ctx) and max output tokens (max)
+// Sources: platform.claude.com, ai.google.dev, developers.openai.com, docs.x.ai
+const MODEL_LIMITS: Record<string, { ctx: number; max: number }> = {
+  // Claude 4.6 - 1M context, Opus 128K output, Sonnet 64K output
+  'web-claude/claude-opus':          { ctx: 1_000_000, max: 128_000 },
+  'web-claude/claude-opus-4-6':      { ctx: 1_000_000, max: 128_000 },
+  'web-claude/claude-sonnet':        { ctx: 1_000_000, max: 64_000 },
+  'web-claude/claude-sonnet-4-6':    { ctx: 1_000_000, max: 64_000 },
+  'web-claude/claude-haiku':         { ctx: 200_000,   max: 64_000 },
+  'web-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
+  // Claude 4.5 legacy
+  'web-claude/claude-opus-4-5':      { ctx: 200_000,   max: 32_768 },
+  'web-claude/claude-sonnet-4-5':    { ctx: 200_000,   max: 16_384 },
+  // CLI Claude (same models via API)
+  'cli-claude/claude-opus-4-6':      { ctx: 1_000_000, max: 128_000 },
+  'cli-claude/claude-sonnet-4-6':    { ctx: 1_000_000, max: 64_000 },
+  'cli-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
+  // Gemini - 1M context, 65K output
+  'web-gemini/gemini-3.1-pro':       { ctx: 1_000_000, max: 65_536 },
+  'web-gemini/gemini-3-thinking':    { ctx: 1_000_000, max: 65_536 },
+  'web-gemini/gemini-3-fast':        { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-2.5-pro':       { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-2.5-flash':     { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3-pro-preview': { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3-flash-preview': { ctx: 1_000_000, max: 65_536 },
+  // OpenAI / Codex - GPT-5.4 1M context 128K output
+  'openai-codex/gpt-5.4':            { ctx: 1_050_000, max: 128_000 },
+  'openai-codex/gpt-5.3-codex':      { ctx: 400_000,   max: 128_000 },
+  'openai-codex/gpt-5.3-codex-spark': { ctx: 400_000,  max: 64_000 },
+  'openai-codex/gpt-5.2-codex':      { ctx: 200_000,   max: 32_768 },
+  'openai-codex/gpt-5.1-codex-mini': { ctx: 128_000,   max: 16_384 },
+  // ChatGPT web
+  'web-chatgpt/gpt-5.4-pro':         { ctx: 1_050_000, max: 128_000 },
+  'web-chatgpt/gpt-5.4-thinking':    { ctx: 1_050_000, max: 128_000 },
+  'web-chatgpt/gpt-5.3-instant':     { ctx: 400_000,   max: 64_000 },
+  'web-chatgpt/gpt-5-thinking-mini': { ctx: 128_000,   max: 16_384 },
+  'web-chatgpt/o3':                   { ctx: 200_000,   max: 100_000 },
+  // Grok - Fast 2M context, Expert/Heavy 256K context
+  'web-grok/grok-fast':              { ctx: 2_000_000,  max: 131_072 },
+  'web-grok/grok-expert':            { ctx: 256_000,    max: 131_072 },
+  'web-grok/grok-heavy':             { ctx: 256_000,    max: 131_072 },
+  'web-grok/grok-4.20-beta':         { ctx: 256_000,    max: 131_072 },
+  // Local
+  'local-bitnet/bitnet-2b':          { ctx: 4_096,      max: 2_048 },
+};
+
+// Fallback limits per provider prefix (for unknown models from that provider)
+const PROVIDER_FALLBACK_LIMITS: Record<string, { ctx: number; max: number }> = {
+  'cli-claude/':    { ctx: 200_000,   max: 64_000 },
+  'cli-gemini/':    { ctx: 1_000_000, max: 65_536 },
   'openai-codex/':  { ctx: 200_000,   max: 32_768 },
-  'web-grok/':      { ctx: 131_072,   max: 131_072 },
-  'web-gemini/':    { ctx: 1_000_000, max: 8_192 },
-  'web-claude/':    { ctx: 200_000,   max: 8_192 },
-  'web-chatgpt/':   { ctx: 128_000,   max: 16_384 },
+  'web-grok/':      { ctx: 256_000,   max: 131_072 },
+  'web-gemini/':    { ctx: 1_000_000, max: 65_536 },
+  'web-claude/':    { ctx: 200_000,   max: 64_000 },
+  'web-chatgpt/':   { ctx: 128_000,   max: 32_768 },
   'local-bitnet/':  { ctx: 4_096,     max: 2_048 },
 };
 
@@ -154,8 +200,10 @@ export function getModelCapabilities(modelId: string): ModelCapabilities | undef
 }
 
 function toCapabilities(m: ModelInfo): ModelCapabilities {
-  const prefix = Object.keys(KNOWN_CONTEXT_WINDOWS).find(p => m.id.startsWith(p)) ?? '';
-  const limits = KNOWN_CONTEXT_WINDOWS[prefix] ?? { ctx: 128_000, max: 8_192 };
+  // Per-model limits first, then provider prefix fallback
+  const limits = MODEL_LIMITS[m.id]
+    ?? Object.entries(PROVIDER_FALLBACK_LIMITS).find(([p]) => m.id.startsWith(p))?.[1]
+    ?? { ctx: 128_000, max: 8_192 };
   const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'web';
   const provider = m.id.includes('/') ? m.id.split('/')[0] : 'unknown';
   const name = MODEL_DISPLAY_NAMES[m.id]

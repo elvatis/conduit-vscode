@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { getConfig } from './config';
 import { buildEditorContext, buildInlinePrompt } from './context-builder';
 import { complete } from './proxy-client';
+import { getModelCapabilities } from './model-registry';
+
+const log = vscode.window.createOutputChannel('Conduit Inline', { log: true });
 
 export class ConduitInlineProvider implements vscode.InlineCompletionItemProvider {
   private _enabled = true;
@@ -55,9 +58,14 @@ export class ConduitInlineProvider implements vscode.InlineCompletionItemProvide
 
     try {
       const prompt = buildInlinePrompt(ctx);
+
+      // Model-aware max_tokens: higher-tier models get more room
+      const caps = getModelCapabilities(cfg.defaultModel);
+      const maxTokens = getInlineMaxTokens(caps?.tier, caps?.maxTokens);
+
       const completion = await complete({
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 256,
+        max_tokens: maxTokens,
         temperature: 0.1,
       });
 
@@ -65,6 +73,7 @@ export class ConduitInlineProvider implements vscode.InlineCompletionItemProvide
 
       // Strip markdown fences if model added them
       const clean = stripFences(completion);
+      if (!clean) return null;
 
       const item = new vscode.InlineCompletionItem(
         clean,
@@ -72,15 +81,28 @@ export class ConduitInlineProvider implements vscode.InlineCompletionItemProvide
       );
 
       return { items: [item] };
-    } catch {
+    } catch (err) {
+      log.error('Inline completion failed:', err instanceof Error ? err.message : String(err));
       return null;
     }
   }
 }
 
+/**
+ * Determine max_tokens for inline completions based on model tier.
+ * Tier 1 (Opus, strong models): 1024 tokens - enough for full functions
+ * Tier 2 (Sonnet, mid-tier): 512 tokens - good balance
+ * Tier 3 (Haiku, fast): 256 tokens - keep it snappy
+ */
+function getInlineMaxTokens(tier?: 1 | 2 | 3, modelMax?: number): number {
+  const budget = tier === 1 ? 1024 : tier === 3 ? 256 : 512;
+  // Never exceed the model's own max output limit
+  return modelMax ? Math.min(budget, modelMax) : budget;
+}
+
 function stripFences(text: string): string {
   return text
-    .replace(/^```[\w]*\n?/, '')
-    .replace(/\n?```$/, '')
+    .replace(/^```[^\n]*\n?/, '')
+    .replace(/\n?```\s*$/, '')
     .trimEnd();
 }

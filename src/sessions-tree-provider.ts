@@ -12,13 +12,65 @@ interface SessionEntry {
   updatedAt: number;
 }
 
+// ── Provider display metadata ────────────────────────────────────────────────
+
+const PROVIDER_LABELS: Record<string, string> = {
+  'web-claude':    'Claude',
+  'cli-claude':    'Claude (CLI)',
+  'web-grok':      'Grok',
+  'web-gemini':    'Gemini',
+  'cli-gemini':    'Gemini (CLI)',
+  'web-chatgpt':   'ChatGPT',
+  'openai-codex':  'OpenAI Codex',
+  'local-bitnet':  'BitNet (Local)',
+};
+
+const PROVIDER_ICONS: Record<string, string> = {
+  'web-claude':    'hubot',
+  'cli-claude':    'hubot',
+  'web-grok':      'rocket',
+  'web-gemini':    'sparkle',
+  'cli-gemini':    'sparkle',
+  'web-chatgpt':   'comment-discussion',
+  'openai-codex':  'code',
+  'local-bitnet':  'server',
+};
+
+// ── Tree items ───────────────────────────────────────────────────────────────
+
+type TreeNode = ProviderGroupItem | SessionItem;
+
+class ProviderGroupItem extends vscode.TreeItem {
+  readonly kind = 'provider' as const;
+
+  constructor(
+    public readonly providerId: string,
+    public readonly sessions: SessionEntry[],
+    hasActiveSessions: boolean,
+  ) {
+    const label = PROVIDER_LABELS[providerId] ?? providerId;
+    super(label, vscode.TreeItemCollapsibleState.Expanded);
+
+    this.description = `${sessions.length} session${sessions.length !== 1 ? 's' : ''}`;
+    this.iconPath = new vscode.ThemeIcon(
+      PROVIDER_ICONS[providerId] ?? 'folder',
+      hasActiveSessions
+        ? new vscode.ThemeColor('charts.green')
+        : undefined,
+    );
+    this.contextValue = 'providerGroup';
+  }
+}
+
 class SessionItem extends vscode.TreeItem {
+  readonly kind = 'session' as const;
+
   constructor(public readonly session: SessionEntry, isActive: boolean) {
-    super(session.title, vscode.TreeItemCollapsibleState.None);
+    super(session.customTitle || session.title, vscode.TreeItemCollapsibleState.None);
 
     const modelsUsed = session.modelsUsed ?? [];
     const modelLabel = modelsUsed.length > 1
-      ? 'Auto'
+      ? 'Multi-model'
       : session.model?.includes('/')
         ? session.model.split('/').pop()!
         : session.model || 'unknown';
@@ -48,8 +100,10 @@ class SessionItem extends vscode.TreeItem {
   }
 }
 
-export class SessionsTreeProvider implements vscode.TreeDataProvider<SessionItem> {
-  private _onDidChangeTreeData = new vscode.EventEmitter<SessionItem | undefined | void>();
+// ── Tree data provider ───────────────────────────────────────────────────────
+
+export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private _context: vscode.ExtensionContext;
@@ -66,17 +120,70 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<SessionItem
     this._onDidChangeTreeData.fire();
   }
 
-  getTreeItem(element: SessionItem): vscode.TreeItem {
+  getTreeItem(element: TreeNode): vscode.TreeItem {
     return element;
   }
 
-  async getChildren(): Promise<SessionItem[]> {
+  async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     const sessions = this._context.globalState.get<SessionEntry[]>('conduit.chatSessions', []);
-    if (sessions.length === 0) {
-      return [];
+
+    if (!element) {
+      // Root level: group by primary provider
+      if (sessions.length === 0) return [];
+
+      const groups = new Map<string, SessionEntry[]>();
+      for (const s of sessions) {
+        const provider = extractProvider(s.model);
+        if (!groups.has(provider)) groups.set(provider, []);
+        groups.get(provider)!.push(s);
+      }
+
+      // Sort providers: providers with active session first, then alphabetically
+      const sorted = [...groups.entries()].sort((a, b) => {
+        const aHasActive = a[1].some(s => s.id === this._activeSessionId);
+        const bHasActive = b[1].some(s => s.id === this._activeSessionId);
+        if (aHasActive !== bHasActive) return aHasActive ? -1 : 1;
+        // Then by most recent session
+        const aRecent = Math.max(...a[1].map(s => s.updatedAt));
+        const bRecent = Math.max(...b[1].map(s => s.updatedAt));
+        return bRecent - aRecent;
+      });
+
+      // If only one provider, skip grouping and show sessions directly
+      if (sorted.length === 1) {
+        const [, providerSessions] = sorted[0];
+        return providerSessions.map(
+          s => new SessionItem(s, s.id === this._activeSessionId),
+        );
+      }
+
+      return sorted.map(([providerId, providerSessions]) => {
+        const hasActive = providerSessions.some(s => s.id === this._activeSessionId);
+        return new ProviderGroupItem(providerId, providerSessions, hasActive);
+      });
     }
-    return sessions.map(s => new SessionItem(s, s.id === this._activeSessionId));
+
+    if (element instanceof ProviderGroupItem) {
+      // Provider group children: sessions sorted by updatedAt (newest first)
+      const sorted = [...element.sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+      return sorted.map(s => new SessionItem(s, s.id === this._activeSessionId));
+    }
+
+    return [];
   }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extract the provider prefix from a model ID.
+ * e.g. "web-claude/claude-opus-4-6" -> "web-claude"
+ *      "cli-gemini/gemini-2.5-pro" -> "cli-gemini"
+ */
+function extractProvider(modelId: string): string {
+  if (!modelId) return 'unknown';
+  const slashIdx = modelId.indexOf('/');
+  return slashIdx > 0 ? modelId.slice(0, slashIdx) : 'unknown';
 }
 
 function timeAgo(ts: number): string {
