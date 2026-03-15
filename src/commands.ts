@@ -3,6 +3,7 @@ import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { complete, stream, listModels } from './proxy-client';
 import { getConfig } from './config';
 import { ConduitChatPanel } from './chat-panel';
+import { stripFences } from './utils';
 import { ConduitInlineProvider } from './inline-provider';
 
 export function registerCommands(
@@ -152,7 +153,7 @@ export function registerCommands(
         });
 
         if (!result) return;
-        const clean = result.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '');
+        const clean = stripFences(result);
 
         await editor.edit(editBuilder => {
           editBuilder.replace(editor.selection, clean);
@@ -194,7 +195,7 @@ export function registerCommands(
         });
 
         if (!cmd?.trim()) return;
-        const cleanCmd = cmd.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '').trim();
+        const cleanCmd = stripFences(cmd);
 
         const action = await vscode.window.showInformationMessage(
           `Conduit suggests: ${cleanCmd}`,

@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
+import type { ChatMode } from './model-registry';
+import { extractProvider, shortModelName } from './utils';
 
 interface SessionEntry {
   id: string;
   title: string;
   customTitle?: string;
   model: string;
-  mode: string;
+  mode: ChatMode;
   modelsUsed?: string[];
   messageCount: number;
   createdAt: number;
@@ -71,15 +73,13 @@ class SessionItem extends vscode.TreeItem {
     const modelsUsed = session.modelsUsed ?? [];
     const modelLabel = modelsUsed.length > 1
       ? 'Multi-model'
-      : session.model?.includes('/')
-        ? session.model.split('/').pop()!
-        : session.model || 'unknown';
+      : shortModelName(session.model);
     const ago = timeAgo(session.updatedAt);
 
     this.description = `${modelLabel} - ${ago}`;
 
     const modelsDetail = modelsUsed.length > 1
-      ? `Models used: ${modelsUsed.map(m => m.includes('/') ? m.split('/').pop() : m).join(', ')}`
+      ? `Models used: ${modelsUsed.map(m => shortModelName(m)).join(', ')}`
       : `Model: ${session.model}`;
     this.tooltip = new vscode.MarkdownString(
       `**${session.customTitle || session.title}**\n\n` +
@@ -174,17 +174,6 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Extract the provider prefix from a model ID.
- * e.g. "web-claude/claude-opus-4-6" -> "web-claude"
- *      "cli-gemini/gemini-2.5-pro" -> "cli-gemini"
- */
-function extractProvider(modelId: string): string {
-  if (!modelId) return 'unknown';
-  const slashIdx = modelId.indexOf('/');
-  return slashIdx > 0 ? modelId.slice(0, slashIdx) : 'unknown';
-}
 
 function timeAgo(ts: number): string {
   const seconds = Math.floor((Date.now() - ts) / 1000);

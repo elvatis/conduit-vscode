@@ -1,4 +1,5 @@
 import { ModelInfo, listModels } from './proxy-client';
+import { extractProvider, shortModelName } from './utils';
 
 /**
  * Model registry - caches model info, provides context window limits,
@@ -131,7 +132,9 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
 const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
   // Tier 1 - Full capability
   'web-claude/claude-opus':        1,
+  'web-claude/claude-opus-4-6':    1,
   'web-claude/claude-sonnet':      1,
+  'web-claude/claude-sonnet-4-6':  1,
   'web-claude/claude-opus-4-5':    1,
   'web-chatgpt/gpt-5.4-pro':      1,
   'web-chatgpt/gpt-5.4-thinking': 1,
@@ -147,6 +150,7 @@ const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
   'openai-codex/gpt-5.3-codex':   1,
   // Tier 2 - Good for ask, edit, plan
   'web-claude/claude-haiku':       2,
+  'web-claude/claude-haiku-4-5':   2,
   'web-claude/claude-sonnet-4-5':  2,
   'web-chatgpt/gpt-5.3-instant':  2,
   'web-gemini/gemini-3-fast':      2,
@@ -177,26 +181,28 @@ const CATEGORY_MAP: Record<string, ModelCapabilities['category']> = {
   'local-': 'local',
 };
 
-let _cache: ModelCapabilities[] = [];
+let _cacheList: ModelCapabilities[] = [];
+let _cacheMap = new Map<string, ModelCapabilities>();
 let _cacheTime = 0;
 const CACHE_TTL = 30_000;
 
 export async function getModelRegistry(): Promise<ModelCapabilities[]> {
-  if (Date.now() - _cacheTime < CACHE_TTL && _cache.length > 0) {
-    return _cache;
+  if (Date.now() - _cacheTime < CACHE_TTL && _cacheList.length > 0) {
+    return _cacheList;
   }
   try {
     const models = await listModels();
-    _cache = models.map(m => toCapabilities(m));
+    _cacheList = models.map(m => toCapabilities(m));
+    _cacheMap = new Map(_cacheList.map(m => [m.id, m]));
     _cacheTime = Date.now();
   } catch {
     // keep stale cache
   }
-  return _cache;
+  return _cacheList;
 }
 
 export function getModelCapabilities(modelId: string): ModelCapabilities | undefined {
-  return _cache.find(m => m.id === modelId);
+  return _cacheMap.get(modelId);
 }
 
 function toCapabilities(m: ModelInfo): ModelCapabilities {
@@ -205,9 +211,8 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
     ?? Object.entries(PROVIDER_FALLBACK_LIMITS).find(([p]) => m.id.startsWith(p))?.[1]
     ?? { ctx: 128_000, max: 8_192 };
   const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'web';
-  const provider = m.id.includes('/') ? m.id.split('/')[0] : 'unknown';
-  const name = MODEL_DISPLAY_NAMES[m.id]
-    ?? (m.id.includes('/') ? m.id.split('/').slice(1).join('/') : m.id);
+  const provider = extractProvider(m.id);
+  const name = MODEL_DISPLAY_NAMES[m.id] ?? shortModelName(m.id);
 
   const tier = MODEL_TIERS[m.id] ?? 2; // default to tier 2
   return {
@@ -349,13 +354,14 @@ export function trimHistoryForModel(
   let totalChars = system.reduce((a, m) => a + m.content.length, 0);
   const kept: typeof rest = [];
 
-  // Walk backwards to keep most recent messages
+  // Walk backwards to keep most recent messages (push + reverse avoids O(n^2) unshift)
   for (let i = rest.length - 1; i >= 0; i--) {
     const msgChars = rest[i].content.length;
     if (totalChars + msgChars > maxChars) break;
     totalChars += msgChars;
-    kept.unshift(rest[i]);
+    kept.push(rest[i]);
   }
+  kept.reverse();
 
   return [...system, ...kept];
 }

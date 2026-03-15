@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import { complete } from './proxy-client';
 import { getConfig } from './config';
+import { stripFences } from './utils';
 
 /**
  * Generate a commit message from staged changes using AI.
@@ -75,7 +76,7 @@ export async function generateCommitMessage(): Promise<void> {
         if (!result) return;
 
         // Clean up the result
-        const message = result.replace(/^["']|["']$/g, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+        const message = stripFences(result.replace(/^["']|["']$/g, ''));
 
         // Set it in the SCM input box
         const gitExtension = vscode.extensions.getExtension('vscode.git');

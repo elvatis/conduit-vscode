@@ -3,6 +3,7 @@ import { getConfig } from './config';
 import { buildEditorContext, buildInlinePrompt } from './context-builder';
 import { complete } from './proxy-client';
 import { getModelCapabilities } from './model-registry';
+import { stripFences } from './utils';
 
 const log = vscode.window.createOutputChannel('Conduit Inline', { log: true });
 
@@ -100,9 +101,3 @@ function getInlineMaxTokens(tier?: 1 | 2 | 3, modelMax?: number): number {
   return modelMax ? Math.min(budget, modelMax) : budget;
 }
 
-function stripFences(text: string): string {
-  return text
-    .replace(/^```[^\n]*\n?/, '')
-    .replace(/\n?```\s*$/, '')
-    .trimEnd();
-}

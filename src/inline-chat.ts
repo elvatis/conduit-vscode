@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { stream } from './proxy-client';
 import { getConfig } from './config';
+import { stripFences } from './utils';
 
 /**
  * Inline Chat - triggered by Ctrl+I.
@@ -69,7 +70,7 @@ export async function inlineChat(): Promise<void> {
   if (!result.trim()) return;
 
   // Strip markdown fences if the model wrapped them
-  result = result.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '').trimEnd();
+  result = stripFences(result);
 
   // Show diff and let user accept/reject
   await showInlineDiff(editor, targetRange, result);
