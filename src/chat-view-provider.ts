@@ -8,7 +8,8 @@ import { loadCustomInstructions } from './custom-instructions';
 import {
   getModelRegistry, getModelCapabilities,
   autoSelectModel, estimateComplexity, trimHistoryForModel,
-  ModelCapabilities,
+  supportsMode, getModeRecommendation,
+  ModelCapabilities, ChatMode as RegistryChatMode,
 } from './model-registry';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -240,6 +241,14 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
   setModeInternal(mode: ChatMode): void {
     this._mode = mode;
     this._post({ type: 'modeChanged', mode });
+
+    // Check if current model supports this mode and warn if not
+    if (!this._autoModel && this._model) {
+      const rec = getModeRecommendation(this._models, this._model, mode as RegistryChatMode);
+      if (!rec.compatible) {
+        this._post({ type: 'modeWarning', mode, reason: rec.reason, suggestion: rec.suggestion });
+      }
+    }
   }
 
   switchModelInternal(modelId: string): void {
@@ -249,6 +258,12 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     vscode.workspace.getConfiguration('conduit').update(
       'defaultModel', modelId, vscode.ConfigurationTarget.Global,
     );
+
+    // Check if new model supports current mode
+    const rec = getModeRecommendation(this._models, modelId, this._mode as RegistryChatMode);
+    if (!rec.compatible) {
+      this._post({ type: 'modeWarning', mode: this._mode, reason: rec.reason, suggestion: rec.suggestion });
+    }
   }
 
   clearChat(): void {
@@ -497,7 +512,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     if (this._autoModel) {
       const registry = await getModelRegistry();
       const complexity = estimateComplexity(fullText);
-      modelToUse = autoSelectModel(registry, complexity) ?? this._model;
+      modelToUse = autoSelectModel(registry, complexity, this._mode as RegistryChatMode) ?? this._model;
       this._post({ type: 'autoModelSelected', model: modelToUse, complexity });
     }
 
@@ -617,9 +632,14 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
           ? `${(m.contextWindow / 1_000_000).toFixed(0)}M context`
           : `${(m.contextWindow / 1_000).toFixed(0)}K context`;
         const isCurrent = !this._autoModel && m.id === this._model;
+        const modeIcons = m.supportedModes.map(mode => {
+          const labels: Record<string, string> = { ask: 'Ask', edit: 'Edit', agent: 'Agent', plan: 'Plan' };
+          return labels[mode] || mode;
+        }).join(', ');
+        const tierLabel = m.tier === 1 ? '$(star-full) ' : m.tier === 2 ? '$(star-half) ' : '';
         items.push({
-          label: `${isCurrent ? '$(check) ' : '     '}${m.name}`,
-          description: ctxLabel,
+          label: `${isCurrent ? '$(check) ' : '     '}${tierLabel}${m.name}`,
+          description: `${ctxLabel} - ${modeIcons}`,
           detail: isCurrent ? 'Currently selected' : undefined,
         });
       }
@@ -779,6 +799,13 @@ body {
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--vscode-panel-border); border-top-color:var(--vscode-progressBar-background); border-radius:50%; animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
+/* Mode warning banner */
+.mode-warning { display:flex; align-items:center; gap:6px; padding:6px 10px; margin:0 var(--pad); border-radius:var(--radius); background:var(--vscode-inputValidation-warningBackground,rgba(200,150,0,0.15)); border:1px solid var(--vscode-inputValidation-warningBorder,rgba(200,150,0,0.4)); font-size:11px; color:var(--vscode-foreground); }
+.mode-warning .warn-text { flex:1; }
+.mode-warning button { background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; border-radius:3px; padding:2px 8px; cursor:pointer; font-size:11px; white-space:nowrap; }
+.mode-warning button:hover { background:var(--vscode-button-hoverBackground); }
+.mode-warning .dismiss { background:none; color:var(--vscode-descriptionForeground); padding:2px 4px; font-size:14px; }
+
 /* Typing indicator */
 .typing-indicator { display:flex; align-items:center; gap:5px; padding:6px 2px; }
 .typing-indicator span { width:7px; height:7px; border-radius:50%; background:var(--vscode-descriptionForeground); animation:typing-bounce 1.4s ease-in-out infinite; }
@@ -808,6 +835,7 @@ body {
   </div>
 </div>
 
+<div id="mode-warning-bar" style="display:none"></div>
 <div id="attachments"></div>
 
 
@@ -886,8 +914,8 @@ window.addEventListener('message', e => {
   const m = e.data;
   switch(m.type) {
     case 'models': currentModel=m.current; if(m.grouped){for(const g of Object.values(m.grouped)){for(const x of g){modelNames[x.id]=x.name;}}} updateModelLabel(); break;
-    case 'modelChanged': currentModel=m.model; updateModelLabel(); break;
-    case 'modeChanged': setMode(m.mode); break;
+    case 'modelChanged': currentModel=m.model; updateModelLabel(); $('mode-warning-bar').style.display='none'; break;
+    case 'modeChanged': setMode(m.mode); $('mode-warning-bar').style.display='none'; break;
     case 'userMessage': hideEmpty(); appendMsg('user', m.text); break;
     case 'assistantStart': streaming=true; sendBtn.disabled=true; currentText=''; currentBubble=appendMsg('assistant','',m.model); showTyping(currentBubble); break;
     case 'assistantChunk': hideTyping(currentBubble); currentText+=m.delta; if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;} break;
@@ -898,6 +926,7 @@ window.addEventListener('message', e => {
     case 'sessionInfo': currentSessionId=m.id; break;
     case 'selectionAttached': case 'fileAttached': attachments.push({fileName:m.fileName,language:m.language,text:m.text}); renderAttach(); break;
     case 'autoModelSelected': ctxIndicator.innerHTML='<span class="ctx-label">Auto: '+esc(m.model.split('/').pop())+' ('+m.complexity+')</span>'; break;
+    case 'modeWarning': showModeWarning(m.reason, m.suggestion); break;
   }
 });
 
@@ -1084,6 +1113,21 @@ function hideTyping(bubble) {
   if(!bubble) return;
   const t=bubble.querySelector('.typing-indicator');
   if(t) t.remove();
+}
+
+function showModeWarning(reason, suggestion) {
+  const bar=$('mode-warning-bar');
+  bar.style.display='block';
+  bar.className='mode-warning';
+  bar.innerHTML='<span class="warn-text">'+esc(reason)+'</span>'
+    +(suggestion?'<button data-switch="'+esc(suggestion)+'">Switch</button>':'')
+    +'<button class="dismiss">&times;</button>';
+  bar.querySelector('.dismiss')?.addEventListener('click',()=>{bar.style.display='none';});
+  const switchBtn=bar.querySelector('[data-switch]');
+  if(switchBtn) switchBtn.addEventListener('click',()=>{
+    vscode.postMessage({type:'switchModel',model:switchBtn.dataset.switch});
+    bar.style.display='none';
+  });
 }
 </script>
 </body>

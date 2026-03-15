@@ -5,6 +5,8 @@ import { ModelInfo, listModels } from './proxy-client';
  * auto-selection logic, and provider-specific formatting.
  */
 
+export type ChatMode = 'ask' | 'edit' | 'agent' | 'plan';
+
 export interface ModelCapabilities {
   id: string;
   name: string;
@@ -13,6 +15,10 @@ export interface ModelCapabilities {
   maxTokens: number;
   supportsTools: boolean;
   category: 'cli' | 'web' | 'local' | 'codex';
+  /** Which chat modes this model handles well */
+  supportedModes: ChatMode[];
+  /** Reasoning tier: 1 = top (all modes), 2 = good (ask/edit/plan), 3 = fast (ask only) */
+  tier: 1 | 2 | 3;
 }
 
 // Known context windows per model prefix (from openclaw-cli-bridge)
@@ -72,6 +78,52 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
 };
 
+// Model reasoning tiers - determines which chat modes are supported
+// Tier 1: Strong reasoning, all modes (ask, edit, agent, plan)
+// Tier 2: Good reasoning, most modes (ask, edit, plan)
+// Tier 3: Fast/compact, basic mode only (ask)
+const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
+  // Tier 1 - Full capability
+  'web-claude/claude-opus':        1,
+  'web-claude/claude-sonnet':      1,
+  'web-claude/claude-opus-4-5':    1,
+  'web-chatgpt/gpt-5.4-pro':      1,
+  'web-chatgpt/gpt-5.4-thinking': 1,
+  'web-gemini/gemini-3.1-pro':     1,
+  'web-gemini/gemini-3-thinking':  1,
+  'web-grok/grok-expert':          1,
+  'web-grok/grok-heavy':           1,
+  'cli-claude/claude-opus-4-6':    1,
+  'cli-claude/claude-sonnet-4-6':  1,
+  'cli-gemini/gemini-2.5-pro':     1,
+  'cli-gemini/gemini-3-pro-preview': 1,
+  'openai-codex/gpt-5.4':         1,
+  'openai-codex/gpt-5.3-codex':   1,
+  // Tier 2 - Good for ask, edit, plan
+  'web-claude/claude-haiku':       2,
+  'web-claude/claude-sonnet-4-5':  2,
+  'web-chatgpt/gpt-5.3-instant':  2,
+  'web-gemini/gemini-3-fast':      2,
+  'web-grok/grok-fast':            2,
+  'web-chatgpt/o3':                2,
+  'web-grok/grok-4.20-beta':      2,
+  'cli-claude/claude-haiku-4-5':   2,
+  'cli-gemini/gemini-2.5-flash':   2,
+  'cli-gemini/gemini-3-flash-preview': 2,
+  'openai-codex/gpt-5.3-codex-spark': 2,
+  'openai-codex/gpt-5.2-codex':   2,
+  // Tier 3 - Fast, mainly ask
+  'web-chatgpt/gpt-5-thinking-mini': 3,
+  'openai-codex/gpt-5.1-codex-mini': 3,
+  'local-bitnet/bitnet-2b':       3,
+};
+
+const TIER_MODES: Record<number, ChatMode[]> = {
+  1: ['ask', 'edit', 'agent', 'plan'],
+  2: ['ask', 'edit', 'plan'],
+  3: ['ask'],
+};
+
 const CATEGORY_MAP: Record<string, ModelCapabilities['category']> = {
   'cli-': 'cli',
   'web-': 'web',
@@ -109,6 +161,7 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
   const name = MODEL_DISPLAY_NAMES[m.id]
     ?? (m.id.includes('/') ? m.id.split('/').slice(1).join('/') : m.id);
 
+  const tier = MODEL_TIERS[m.id] ?? 2; // default to tier 2
   return {
     id: m.id,
     name,
@@ -117,6 +170,55 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
     maxTokens: limits.max,
     supportsTools: m.capabilities?.tools !== false,
     category,
+    supportedModes: TIER_MODES[tier],
+    tier,
+  };
+}
+
+/**
+ * Check if a model supports a given chat mode.
+ */
+export function supportsMode(modelId: string, mode: ChatMode): boolean {
+  const caps = getModelCapabilities(modelId);
+  if (!caps) return true; // unknown model, assume yes
+  return caps.supportedModes.includes(mode);
+}
+
+/**
+ * Get a mode-compatible recommendation if the current model doesn't support the mode.
+ * Returns null if the current model is fine, or a suggested model ID.
+ */
+export function getModeRecommendation(
+  models: ModelCapabilities[],
+  currentModelId: string,
+  mode: ChatMode,
+): { compatible: boolean; suggestion?: string; reason?: string } {
+  const current = models.find(m => m.id === currentModelId);
+  if (!current) return { compatible: true };
+
+  if (current.supportedModes.includes(mode)) {
+    return { compatible: true };
+  }
+
+  // Find the best compatible model
+  const compatible = models.filter(m => m.supportedModes.includes(mode));
+  if (compatible.length === 0) return { compatible: false, reason: `No available models support ${mode} mode` };
+
+  // Prefer same provider, then by tier
+  const sameProvider = compatible.filter(m => m.provider === current.provider);
+  const suggestion = (sameProvider.length > 0 ? sameProvider : compatible)
+    .sort((a, b) => a.tier - b.tier)[0];
+
+  const modeLabels: Record<string, string> = {
+    agent: 'Agent mode needs strong reasoning',
+    plan: 'Plan mode needs detailed reasoning',
+    edit: 'Edit mode needs precise instruction-following',
+  };
+
+  return {
+    compatible: false,
+    suggestion: suggestion.id,
+    reason: `${current.name} is a ${current.tier === 3 ? 'fast' : 'mid-tier'} model. ${modeLabels[mode] ?? ''} - try ${suggestion.name}`,
   };
 }
 
@@ -127,8 +229,13 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
 export function autoSelectModel(
   models: ModelCapabilities[],
   taskType: 'simple' | 'moderate' | 'complex',
+  mode: ChatMode = 'ask',
 ): string | undefined {
   if (models.length === 0) return undefined;
+
+  // Filter to models that support the current mode
+  const modeCompatible = models.filter(m => m.supportedModes.includes(mode));
+  const pool = modeCompatible.length > 0 ? modeCompatible : models;
 
   // Preference order per complexity
   const preferences: Record<string, string[]> = {
@@ -149,11 +256,11 @@ export function autoSelectModel(
     ],
   };
 
-  const ids = new Set(models.map(m => m.id));
+  const ids = new Set(pool.map(m => m.id));
   for (const pref of preferences[taskType]) {
     if (ids.has(pref)) return pref;
   }
-  return models[0].id;
+  return pool[0].id;
 }
 
 /**
