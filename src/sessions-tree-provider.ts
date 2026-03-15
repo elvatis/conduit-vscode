@@ -175,7 +175,7 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(ts: number): string {
+export function timeAgo(ts: number): string {
   const seconds = Math.floor((Date.now() - ts) / 1000);
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;

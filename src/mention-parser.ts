@@ -304,7 +304,7 @@ async function buildWorkspaceContext(): Promise<string | null> {
   return parts.join('\n');
 }
 
-function guessLanguage(filePath: string): string {
+export function guessLanguage(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   const map: Record<string, string> = {
     '.ts': 'typescript', '.tsx': 'typescriptreact',

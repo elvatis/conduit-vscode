@@ -46,7 +46,7 @@ const MAX_HANDOFF_CHARS = 2000;
  * Build a compressed handoff summary when switching models mid-conversation.
  * This gives the new model enough context to continue seamlessly.
  */
-function buildHandoffSummary(
+export function buildHandoffSummary(
   messages: ChatMessage[],
   previousModel: string,
   newModel: string,
@@ -94,7 +94,7 @@ function buildHandoffSummary(
  * Generate a short working summary of the session for persistence.
  * Used when switching between sessions so context is not lost.
  */
-function generateWorkingSummary(messages: ChatMessage[]): string {
+export function generateWorkingSummary(messages: ChatMessage[]): string {
   if (messages.length === 0) return '';
 
   // Extract the core topics from user messages

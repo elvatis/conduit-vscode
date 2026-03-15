@@ -5,6 +5,29 @@ export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3
 export const DiagnosticSeverity = { Error: 0, Warning: 1, Information: 2, Hint: 3 };
 export const ProgressLocation = { Notification: 15, SourceControl: 1, Window: 10 };
 export const ViewColumn = { One: 1, Two: 2, Beside: -2 };
+export const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
+
+export class TreeItem {
+  label: string;
+  collapsibleState: number;
+  description?: string;
+  tooltip?: any;
+  iconPath?: any;
+  contextValue?: string;
+  command?: any;
+  constructor(label: string, collapsibleState?: number) {
+    this.label = label;
+    this.collapsibleState = collapsibleState ?? 0;
+  }
+}
+
+export class ThemeIcon {
+  constructor(public id: string, public color?: ThemeColor) {}
+}
+
+export class MarkdownString {
+  constructor(public value: string = '') {}
+}
 
 export class Position {
   constructor(public line: number, public character: number) {}

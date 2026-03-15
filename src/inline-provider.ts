@@ -95,7 +95,7 @@ export class ConduitInlineProvider implements vscode.InlineCompletionItemProvide
  * Tier 2 (Sonnet, mid-tier): 512 tokens - good balance
  * Tier 3 (Haiku, fast): 256 tokens - keep it snappy
  */
-function getInlineMaxTokens(tier?: 1 | 2 | 3, modelMax?: number): number {
+export function getInlineMaxTokens(tier?: 1 | 2 | 3, modelMax?: number): number {
   const budget = tier === 1 ? 1024 : tier === 3 ? 256 : 512;
   // Never exceed the model's own max output limit
   return modelMax ? Math.min(budget, modelMax) : budget;
