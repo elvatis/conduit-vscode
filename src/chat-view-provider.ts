@@ -171,6 +171,7 @@ Attach context to any message using \`#\` mentions. These pull relevant informat
 | \`#selection\` | Attach whatever code you have highlighted in the editor | \`Refactor #selection to use async/await\` |
 | \`#problems\` | Attach errors and warnings from the current file | \`Fix #problems in this file\` |
 | \`#codebase\` | Attach an overview of the workspace file structure | \`#codebase Where is authentication handled?\` |
+| \`#workspace\` | Attach file tree + contents of key source files | \`#workspace How does the auth flow work?\` |
 | \`#terminal\` | Reference terminal output (select text in terminal first) | \`Why is #terminal failing?\` |
 
 You can combine multiple mentions in a single message:
@@ -951,12 +952,26 @@ body {
 .msg-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--vscode-descriptionForeground); padding:0 2px; display:flex; align-items:center; gap:6px; }
 .msg-label .model-tag { font-weight:400; font-size:9px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground); padding:0 4px; border-radius:6px; text-transform:none; letter-spacing:0; }
 .msg-user .bubble { background:var(--vscode-input-background); border:1px solid var(--vscode-input-border); border-radius:var(--radius); padding:8px 10px; max-width:100%; white-space:pre-wrap; word-break:break-word; font-size:12px; }
-.msg-assistant .bubble { padding:8px 2px; max-width:100%; white-space:pre-wrap; word-break:break-word; line-height:1.5; font-size:12px; }
-.msg-assistant .bubble pre { background:var(--vscode-textBlockQuote-background); border:1px solid var(--vscode-panel-border); border-radius:var(--radius); padding:8px; overflow-x:auto; margin:6px 0; font-family:var(--vscode-editor-font-family); font-size:11px; position:relative; }
+.msg-assistant .bubble { padding:8px 2px; max-width:100%; word-break:break-word; line-height:1.5; font-size:12px; }
+.msg-assistant .bubble p { margin:0; }
+.msg-assistant .bubble .md-break { height:8px; }
+.msg-assistant .bubble h1 { font-size:16px; font-weight:700; margin:12px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--vscode-panel-border); }
+.msg-assistant .bubble h2 { font-size:14px; font-weight:700; margin:10px 0 4px; padding-bottom:3px; border-bottom:1px solid var(--vscode-panel-border); }
+.msg-assistant .bubble h3 { font-size:13px; font-weight:700; margin:8px 0 4px; }
+.msg-assistant .bubble h4, .msg-assistant .bubble h5, .msg-assistant .bubble h6 { font-size:12px; font-weight:700; margin:6px 0 3px; }
+.msg-assistant .bubble pre.code-block { background:var(--vscode-textBlockQuote-background); border:1px solid var(--vscode-panel-border); border-radius:var(--radius); padding:8px; overflow-x:auto; margin:6px 0; font-family:var(--vscode-editor-font-family); font-size:11px; position:relative; white-space:pre-wrap; word-break:break-word; }
+.msg-assistant .bubble pre.code-block code { background:none; padding:0; border-radius:0; font-size:inherit; }
 .msg-assistant .bubble code { font-family:var(--vscode-editor-font-family); background:var(--vscode-textBlockQuote-background); padding:1px 4px; border-radius:2px; font-size:11px; }
-.msg-assistant .bubble table { border-collapse:collapse; margin:6px 0; font-size:11px; }
+.msg-assistant .bubble ul, .msg-assistant .bubble ol { margin:4px 0; padding-left:20px; }
+.msg-assistant .bubble li { margin:2px 0; }
+.msg-assistant .bubble blockquote { border-left:3px solid var(--vscode-textBlockQuote-border,var(--vscode-panel-border)); padding:4px 10px; margin:6px 0; color:var(--vscode-descriptionForeground); background:var(--vscode-textBlockQuote-background); border-radius:0 var(--radius) var(--radius) 0; }
+.msg-assistant .bubble hr { border:none; border-top:1px solid var(--vscode-panel-border); margin:8px 0; }
+.msg-assistant .bubble table { border-collapse:collapse; margin:6px 0; font-size:11px; width:100%; }
 .msg-assistant .bubble th, .msg-assistant .bubble td { border:1px solid var(--vscode-panel-border); padding:4px 8px; text-align:left; }
 .msg-assistant .bubble th { background:var(--vscode-textBlockQuote-background); font-weight:600; }
+.msg-assistant .bubble a { color:var(--vscode-textLink-foreground); text-decoration:none; }
+.msg-assistant .bubble a:hover { text-decoration:underline; }
+.msg-assistant .bubble em { font-style:italic; }
 .msg-actions { display:flex; gap:4px; padding:2px 0; }
 .msg-actions button { font-size:10px; cursor:pointer; color:var(--vscode-descriptionForeground); background:none; border:none; padding:2px 6px; border-radius:3px; }
 .msg-actions button:hover { color:var(--vscode-foreground); background:var(--vscode-toolbar-hoverBackground); }
@@ -1036,7 +1051,8 @@ body {
       /commit - generate commit message<br>
       #file:path - attach a file<br>
       #selection - attach current selection<br>
-      #codebase - attach workspace overview
+      #codebase - attach workspace overview<br>
+      #workspace - attach file tree + source contents
     </div>
   </div>
 </div>
@@ -1291,21 +1307,110 @@ function addActions(bubble,text,model) {
 }
 
 function renderMd(text) {
-  let h=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // Tables
-  h=h.replace(/^(\\|.+\\|\\n)(\\|[-| :]+\\|\\n)((?:\\|.+\\|\\n?)*)/gm, (_,header,sep,body) => {
-    const hCells=header.trim().split('|').filter(Boolean).map(c=>'<th>'+c.trim()+'</th>').join('');
-    const rows=body.trim().split('\\n').map(r=>{
-      const cells=r.trim().split('|').filter(Boolean).map(c=>'<td>'+c.trim()+'</td>').join('');
-      return '<tr>'+cells+'</tr>';
-    }).join('');
-    return '<table><thead><tr>'+hCells+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  // Split out fenced code blocks first to protect them from processing
+  const codeBlocks=[];
+  let src=text.replace(/\`\`\`(\\w*)\\n([\\s\\S]*?)\`\`\`/g,(_,lang,code)=>{
+    const i=codeBlocks.length;
+    const escaped=code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    codeBlocks.push('<pre class="code-block"'+(lang?' data-lang="'+lang+'"':'')+'><code>'+escaped+'</code></pre>');
+    return '\\x00CB'+i+'\\x00';
   });
-  h=h.replace(/\`\`\`(\\w*)\\n([\\s\\S]*?)\`\`\`/g,(_,lang,code)=>'<pre><code>'+code+'</code></pre>');
-  h=h.replace(/\`([^\`]+)\`/g,'<code>$1</code>');
-  h=h.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');
-  h=h.replace(/\\n/g,'<br>');
-  return h;
+
+  // Escape HTML in remaining text
+  src=src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Process block-level elements line by line
+  const lines=src.split('\\n');
+  const out=[];
+  let i=0;
+
+  while(i<lines.length) {
+    const line=lines[i];
+
+    // Code block placeholder
+    const cbMatch=line.match(/^\\x00CB(\\d+)\\x00$/);
+    if(cbMatch){out.push(codeBlocks[parseInt(cbMatch[1])]);i++;continue;}
+
+    // Horizontal rule
+    if(/^(\\-{3,}|\\*{3,}|_{3,})$/.test(line.trim())){out.push('<hr>');i++;continue;}
+
+    // Headings
+    const hMatch=line.match(/^(#{1,6})\\s+(.+)$/);
+    if(hMatch){const lvl=hMatch[1].length;out.push('<h'+lvl+'>'+inline(hMatch[2])+'</h'+lvl+'>');i++;continue;}
+
+    // Table: collect header + separator + body rows
+    if(line.includes('|')&&i+1<lines.length&&/^[\\s|:\\-]+$/.test(lines[i+1])) {
+      const hCells=line.trim().split('|').filter(Boolean).map(c=>'<th>'+inline(c.trim())+'</th>').join('');
+      i+=2; // skip header + separator
+      const rows=[];
+      while(i<lines.length&&lines[i].includes('|')&&lines[i].trim().startsWith('|')) {
+        const cells=lines[i].trim().split('|').filter(Boolean).map(c=>'<td>'+inline(c.trim())+'</td>').join('');
+        rows.push('<tr>'+cells+'</tr>');
+        i++;
+      }
+      out.push('<table><thead><tr>'+hCells+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>');
+      continue;
+    }
+
+    // Blockquote
+    if(line.match(/^&gt;\\s?/)) {
+      const bqLines=[];
+      while(i<lines.length&&lines[i].match(/^&gt;\\s?/)) {
+        bqLines.push(lines[i].replace(/^&gt;\\s?/,''));
+        i++;
+      }
+      out.push('<blockquote>'+bqLines.map(l=>inline(l)).join('<br>')+'</blockquote>');
+      continue;
+    }
+
+    // Unordered list
+    if(line.match(/^(\\s*)[\\-\\*]\\s+/)) {
+      const listItems=[];
+      while(i<lines.length&&lines[i].match(/^(\\s*)[\\-\\*]\\s+/)) {
+        listItems.push('<li>'+inline(lines[i].replace(/^\\s*[\\-\\*]\\s+/,''))+'</li>');
+        i++;
+      }
+      out.push('<ul>'+listItems.join('')+'</ul>');
+      continue;
+    }
+
+    // Ordered list
+    if(line.match(/^(\\s*)\\d+\\.\\s+/)) {
+      const listItems=[];
+      while(i<lines.length&&lines[i].match(/^(\\s*)\\d+\\.\\s+/)) {
+        listItems.push('<li>'+inline(lines[i].replace(/^\\s*\\d+\\.\\s+/,''))+'</li>');
+        i++;
+      }
+      out.push('<ol>'+listItems.join('')+'</ol>');
+      continue;
+    }
+
+    // Empty line = paragraph break
+    if(!line.trim()){out.push('<div class="md-break"></div>');i++;continue;}
+
+    // Regular paragraph text
+    out.push('<p>'+inline(line)+'</p>');
+    i++;
+  }
+
+  return out.join('');
+}
+
+function inline(t) {
+  // Inline code (protect from further processing)
+  const codes=[];
+  t=t.replace(/\`([^\`]+)\`/g,(_,c)=>{codes.push(c);return '\\x00IC'+(codes.length-1)+'\\x00';});
+  // Bold + italic
+  t=t.replace(/\\*\\*\\*(.+?)\\*\\*\\*/g,'<strong><em>$1</em></strong>');
+  // Bold
+  t=t.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');
+  // Italic
+  t=t.replace(/\\*(.+?)\\*/g,'<em>$1</em>');
+  // Links
+  t=t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g,'<a href="$2">$1</a>');
+  // Restore inline code
+  t=t.replace(/\\x00IC(\\d+)\\x00/g,(_,i)=>'<code>'+codes[parseInt(i)]+'</code>');
+  return t;
 }
 function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
