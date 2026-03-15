@@ -65,6 +65,9 @@ export function activate(context: vscode.ExtensionContext) {
         chatViewProvider.deleteSessionExternal(item.session.id);
         sessionsTree.refresh();
       }),
+      vscode.commands.registerCommand('conduit.renameSession', (item?: { session: { id: string } }) => {
+        chatViewProvider.renameSessionExternal(item?.session?.id);
+      }),
     );
 
     // Refresh sessions tree when chat state changes
@@ -113,25 +116,39 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // ── Move chat view to secondary sidebar ─────────────────────────────────
-    // Always try to move the Conduit chat view to the secondary sidebar
-    // (next to Chat and Claude Code) on activation
-    setTimeout(async () => {
-      try {
-        await vscode.commands.executeCommand('conduit.chatView.focus');
-        await vscode.commands.executeCommand('workbench.action.moveFocusedView', {
-          destination: 'workbench.parts.auxiliarybar',
-        });
-      } catch {
-        // View may already be in the secondary sidebar or command not available
-      }
-    }, 2000);
-
+    // ── Move chat view to secondary sidebar (right side) ───────────────────
+    // On first install, move Conduit views to the secondary sidebar so they
+    // sit next to GitHub Copilot and Claude Code. VS Code remembers the
+    // position after the first move, so we only do this once.
     const isFirstRun = !context.globalState.get('conduit.installed');
     if (isFirstRun) {
       context.globalState.update('conduit.installed', true);
+
+      // Wait for views to be fully registered, then move to secondary sidebar
+      setTimeout(async () => {
+        try {
+          // Focus the chat view first so it becomes the "focused view"
+          await vscode.commands.executeCommand('conduit.chatView.focus');
+          // Small delay to ensure focus is registered
+          await new Promise(r => setTimeout(r, 500));
+          // Move the entire view container to the secondary sidebar (auxiliary bar)
+          await vscode.commands.executeCommand('workbench.action.moveActivityBarEntryToPanel');
+        } catch {
+          // Fallback: try the alternative move command
+          try {
+            await vscode.commands.executeCommand('conduit.chatView.focus');
+            await new Promise(r => setTimeout(r, 300));
+            await vscode.commands.executeCommand('workbench.action.moveFocusedView', {
+              destination: 'workbench.parts.auxiliarybar',
+            });
+          } catch {
+            // View may already be positioned or commands not available
+          }
+        }
+      }, 3000);
+
       vscode.window.showInformationMessage(
-        'Conduit AI is ready! Make sure conduit-bridge is running on port 31338.',
+        'Conduit AI is ready! The chat panel has been moved to the secondary sidebar (right side). Make sure conduit-bridge is running.',
         'Open Chat',
         'Settings',
       ).then(action => {
@@ -142,6 +159,24 @@ export function activate(context: vscode.ExtensionContext) {
         }
       });
     }
+
+    // Register command to manually move Conduit to secondary sidebar
+    context.subscriptions.push(
+      vscode.commands.registerCommand('conduit.moveToSecondarySidebar', async () => {
+        try {
+          await vscode.commands.executeCommand('conduit.chatView.focus');
+          await new Promise(r => setTimeout(r, 300));
+          await vscode.commands.executeCommand('workbench.action.moveFocusedView', {
+            destination: 'workbench.parts.auxiliarybar',
+          });
+          vscode.window.showInformationMessage('Conduit moved to secondary sidebar.');
+        } catch (err) {
+          vscode.window.showWarningMessage(
+            'Could not auto-move. Right-click the Conduit icon in the activity bar and select "Move Views to Secondary Side Bar".',
+          );
+        }
+      }),
+    );
 
     // ── Auto-start bridge (non-blocking) ────────────────────────────────────
     checkHealth().then(async healthy => {

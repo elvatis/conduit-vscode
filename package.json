@@ -203,6 +203,16 @@
         "command": "conduit.deleteSessionFromTree",
         "title": "Delete Session",
         "icon": "$(trash)"
+      },
+      {
+        "command": "conduit.renameSession",
+        "title": "Rename Session",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "conduit.moveToSecondarySidebar",
+        "title": "Conduit: Move to Secondary Sidebar",
+        "icon": "$(move)"
       }
     ],
     "menus": {
@@ -242,9 +252,14 @@
       ],
       "view/item/context": [
         {
+          "command": "conduit.renameSession",
+          "when": "view == conduit.sessionsView",
+          "group": "inline@1"
+        },
+        {
           "command": "conduit.deleteSessionFromTree",
           "when": "view == conduit.sessionsView && viewItem == session",
-          "group": "inline"
+          "group": "inline@2"
         }
       ],
       "editor/title": [
@@ -299,11 +314,13 @@
         {
           "type": "webview",
           "id": "conduit.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "visibility": "visible"
         },
         {
           "id": "conduit.sessionsView",
-          "name": "Sessions"
+          "name": "Sessions",
+          "visibility": "visible"
         }
       ]
     },

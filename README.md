@@ -208,9 +208,28 @@ The **Sessions** panel appears below the Chat panel (or as a separate collapsibl
 - **New Session** (+) - start a fresh conversation (saves the current one)
 - **Refresh** - reload the session list
 - **Click a session** - load that conversation into the chat
+- **Rename** (edit icon on hover) - give the session a custom name
 - **Delete** (trash icon on hover) - remove a session permanently
 
+### Session Rename
+You can rename any session to keep track of what you were working on:
+- Use `/rename My Feature Work` in the chat input
+- Or click the edit icon next to a session in the Sessions panel
+- Custom names persist and are shown in the session list
+
+### Model Switch Handoff
+When models change mid-conversation (either via Auto mode or manual switch), Conduit automatically injects a compressed summary of the previous context. This means the new model understands what was discussed before and can continue seamlessly - no more confused responses after switching from Gemini to Grok.
+
+### Working Context Persistence
+Each session stores a "working summary" - a compressed snapshot of what you were working on. When you switch between sessions, this summary is restored so no context is lost. The model picks up right where you left off.
+
+### Multi-Model Sessions
+Sessions that used multiple models (Auto mode, or manual switches) are labeled "Auto" in the session list. The tooltip shows all models that participated. This makes it easy to identify which sessions involved model routing.
+
 Sessions are stored in VS Code's global state and persist across restarts. Up to 50 sessions are kept.
+
+### Move to Secondary Sidebar
+To place Conduit next to GitHub Copilot and Claude Code in the secondary sidebar (right side), run the command **"Conduit: Move to Secondary Sidebar"** from the command palette (`Ctrl+Shift+P`). This keeps the file explorer visible on the left. On first install, Conduit attempts this automatically.
 
 ---
 
@@ -231,6 +250,7 @@ Type `/` in the chat input to see autocomplete suggestions.
 | `/new` | Save current chat and start a new session |
 | `/cost` | Show estimated token usage for this session |
 | `/model [name]` | Switch model by name, or list all available |
+| `/rename [name]` | Rename the current session |
 | `/mode [ask\|edit\|agent\|plan]` | Switch chat mode |
 
 ---

@@ -3,8 +3,10 @@ import * as vscode from 'vscode';
 interface SessionEntry {
   id: string;
   title: string;
+  customTitle?: string;
   model: string;
   mode: string;
+  modelsUsed?: string[];
   messageCount: number;
   createdAt: number;
   updatedAt: number;
@@ -14,15 +16,22 @@ class SessionItem extends vscode.TreeItem {
   constructor(public readonly session: SessionEntry, isActive: boolean) {
     super(session.title, vscode.TreeItemCollapsibleState.None);
 
-    const modelShort = session.model?.includes('/')
-      ? session.model.split('/').pop()!
-      : session.model || 'unknown';
+    const modelsUsed = session.modelsUsed ?? [];
+    const modelLabel = modelsUsed.length > 1
+      ? 'Auto'
+      : session.model?.includes('/')
+        ? session.model.split('/').pop()!
+        : session.model || 'unknown';
     const ago = timeAgo(session.updatedAt);
 
-    this.description = `${modelShort} - ${ago}`;
+    this.description = `${modelLabel} - ${ago}`;
+
+    const modelsDetail = modelsUsed.length > 1
+      ? `Models used: ${modelsUsed.map(m => m.includes('/') ? m.split('/').pop() : m).join(', ')}`
+      : `Model: ${session.model}`;
     this.tooltip = new vscode.MarkdownString(
-      `**${session.title}**\n\n` +
-      `Model: ${session.model}\n\n` +
+      `**${session.customTitle || session.title}**\n\n` +
+      `${modelsDetail}\n\n` +
       `Mode: ${session.mode}\n\n` +
       `Messages: ${session.messageCount}\n\n` +
       `Updated: ${new Date(session.updatedAt).toLocaleString()}`,

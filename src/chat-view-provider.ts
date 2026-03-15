@@ -25,9 +25,12 @@ interface ChatMessage {
 interface ChatSession {
   id: string;
   title: string;
+  customTitle?: string;       // user-defined session name (overrides auto-title)
   messages: ChatMessage[];
   model: string;
   mode: string;
+  modelsUsed: string[];       // all models that participated in this session
+  workingSummary?: string;    // compressed context of what the user is working on
   createdAt: number;
   updatedAt: number;
 }
@@ -35,6 +38,83 @@ interface ChatSession {
 type ChatMode = 'ask' | 'edit' | 'agent' | 'plan';
 
 const MAX_SESSIONS = 50;
+const MAX_HANDOFF_CHARS = 2000;
+
+/**
+ * Build a compressed handoff summary when switching models mid-conversation.
+ * This gives the new model enough context to continue seamlessly.
+ */
+function buildHandoffSummary(
+  messages: ChatMessage[],
+  previousModel: string,
+  newModel: string,
+): string {
+  if (messages.length < 2) return '';
+
+  // Collect the last few exchanges (up to 3 pairs) for a compressed overview
+  const recentPairs: string[] = [];
+  let i = messages.length - 1;
+  let pairsCollected = 0;
+
+  while (i >= 0 && pairsCollected < 3) {
+    const msg = messages[i];
+    if (msg.role === 'assistant') {
+      // Truncate long responses to first 200 chars
+      const summary = msg.content.length > 200
+        ? msg.content.slice(0, 200) + '...'
+        : msg.content;
+      const userMsg = i > 0 && messages[i - 1].role === 'user'
+        ? messages[i - 1].content.slice(0, 150)
+        : '';
+      recentPairs.unshift(
+        `User: ${userMsg}\nAssistant (${previousModel.split('/').pop()}): ${summary}`,
+      );
+      i -= 2;
+      pairsCollected++;
+    } else {
+      i--;
+    }
+  }
+
+  if (recentPairs.length === 0) return '';
+
+  const summary = [
+    `[Model handoff: switching from ${previousModel.split('/').pop()} to ${newModel.split('/').pop()}]`,
+    `Previous conversation summary (${messages.length} messages):`,
+    ...recentPairs,
+    `Continue the conversation naturally. The user's context and goals remain the same.`,
+  ].join('\n');
+
+  return summary.slice(0, MAX_HANDOFF_CHARS);
+}
+
+/**
+ * Generate a short working summary of the session for persistence.
+ * Used when switching between sessions so context is not lost.
+ */
+function generateWorkingSummary(messages: ChatMessage[]): string {
+  if (messages.length === 0) return '';
+
+  // Extract the core topics from user messages
+  const userMessages = messages.filter(m => m.role === 'user');
+  if (userMessages.length === 0) return '';
+
+  const topics = userMessages
+    .slice(-5)  // last 5 user messages
+    .map(m => m.content.slice(0, 120))
+    .join(' | ');
+
+  // Get the last assistant response summary
+  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+  const lastResponse = lastAssistant
+    ? lastAssistant.content.slice(0, 200)
+    : '';
+
+  return [
+    `Recent topics: ${topics}`,
+    lastResponse ? `Last response preview: ${lastResponse}...` : '',
+  ].filter(Boolean).join('\n');
+}
 
 const MODE_SYSTEM_PROMPTS: Record<ChatMode, string> = {
   ask: 'You are Conduit, an expert AI coding assistant integrated into VS Code. Answer questions clearly and concisely. Provide code examples when helpful.',
@@ -72,6 +152,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
 | \`/cost\` | Show estimated token usage |
 | \`/model [name]\` | Switch model |
 | \`/mode [ask|edit|agent|plan]\` | Switch chat mode |
+| \`/rename [name]\` | Rename current session |
 
 **Context mentions:** Use \`#file:path\`, \`#selection\`, \`#problems\`, \`#codebase\` to attach context.
 
@@ -185,6 +266,20 @@ const SLASH_COMMANDS: SlashCommand[] = [
         return null;
       }
       return '[Valid modes: ask, edit, agent, plan]';
+    },
+  },
+  {
+    name: 'rename',
+    description: 'Rename current session',
+    handler: async (args, provider) => {
+      if (args.trim()) {
+        // Direct rename with argument
+        provider.renameSessionDirect(args.trim());
+        return null;
+      }
+      // Open input box
+      provider.renameSessionExternal();
+      return null;
     },
   },
 ];
@@ -317,6 +412,44 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     this._sessionChangeEmitter.fire(this._session.id);
   }
 
+  renameSessionDirect(name: string): void {
+    this._session.customTitle = name;
+    this._session.title = name;
+    this._saveCurrentSession();
+    this._post({ type: 'sessionInfo', id: this._session.id, title: this._session.title });
+    this._sessionChangeEmitter.fire(this._session.id);
+  }
+
+  async renameSessionExternal(sessionId?: string): Promise<void> {
+    const targetId = sessionId ?? this._session.id;
+    const sessions = this._getSessions();
+    const session = sessions.find(s => s.id === targetId);
+    if (!session) return;
+
+    const currentName = session.customTitle || session.title;
+    const newName = await vscode.window.showInputBox({
+      prompt: 'Rename session',
+      value: currentName,
+      placeHolder: 'Enter a name for this session',
+    });
+
+    if (newName !== undefined && newName.trim()) {
+      session.customTitle = newName.trim();
+      session.title = newName.trim();
+      const idx = sessions.findIndex(s => s.id === targetId);
+      if (idx >= 0) sessions[idx] = session;
+      this._context.globalState.update('conduit.chatSessions', sessions);
+
+      // Update current session in memory if it's the active one
+      if (targetId === this._session.id) {
+        this._session.customTitle = session.customTitle;
+        this._session.title = session.title;
+        this._post({ type: 'sessionInfo', id: this._session.id, title: this._session.title });
+      }
+      this._sessionChangeEmitter.fire(this._session.id);
+    }
+  }
+
   // ── Session persistence ──────────────────────────────────────────────────
 
   private _createSession(): ChatSession {
@@ -326,6 +459,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       messages: [],
       model: this._model,
       mode: this._mode,
+      modelsUsed: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -341,12 +475,23 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     this._session.model = this._model;
     this._session.mode = this._mode;
 
-    if (this._session.title === 'New Chat') {
+    // Auto-generate title if no custom title set
+    if (!this._session.customTitle && this._session.title === 'New Chat') {
       const firstMsg = this._session.messages.find(m => m.role === 'user');
       if (firstMsg) {
-        this._session.title = firstMsg.content.slice(0, 60) + (firstMsg.content.length > 60 ? '...' : '');
+        // If multiple models were used, prefix with "Auto: "
+        const prefix = this._session.modelsUsed.length > 1 ? 'Auto: ' : '';
+        const maxLen = 60 - prefix.length;
+        this._session.title = prefix + firstMsg.content.slice(0, maxLen)
+          + (firstMsg.content.length > maxLen ? '...' : '');
       }
     }
+
+    // Generate working summary for session persistence
+    this._session.workingSummary = generateWorkingSummary(this._session.messages);
+
+    // Ensure modelsUsed is initialized for legacy sessions
+    if (!this._session.modelsUsed) this._session.modelsUsed = [];
 
     const sessions = this._getSessions();
     const idx = sessions.findIndex(s => s.id === this._session.id);
@@ -359,6 +504,9 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
   private _loadSession(id: string): boolean {
     const session = this._getSessions().find(s => s.id === id);
     if (!session) return false;
+    // Ensure new fields exist for legacy sessions
+    if (!session.modelsUsed) session.modelsUsed = session.model ? [session.model] : [];
+    if (!session.workingSummary) session.workingSummary = generateWorkingSummary(session.messages);
     this._session = session;
     this._model = session.model;
     this._mode = (session.mode as ChatMode) || 'ask';
@@ -451,6 +599,9 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
         }
         break;
       }
+      case 'renameSession':
+        this.renameSessionExternal(msg.sessionId as string | undefined);
+        break;
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'conduit');
         break;
@@ -516,11 +667,26 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       this._post({ type: 'autoModelSelected', model: modelToUse, complexity });
     }
 
+    // ── Detect model switch and build handoff context ──────────────────────
+    const lastAssistantMsg = [...this._messages].reverse().find(m => m.role === 'assistant');
+    const previousModel = lastAssistantMsg?.model;
+    let handoffContext = '';
+    if (previousModel && previousModel !== modelToUse && this._messages.length >= 2) {
+      handoffContext = buildHandoffSummary(this._messages, previousModel, modelToUse);
+    }
+
+    // Track model usage in session
+    if (!this._session.modelsUsed.includes(modelToUse)) {
+      this._session.modelsUsed.push(modelToUse);
+    }
+
     // ── Build system prompt ────────────────────────────────────────────────
     const ctx = buildEditorContext();
     const modePrompt = MODE_SYSTEM_PROMPTS[this._mode];
     const customInstructions = loadCustomInstructions();
     const parts = [modePrompt];
+    if (handoffContext) parts.push(`\n--- Conversation Handoff ---\n${handoffContext}`);
+    if (this._session.workingSummary) parts.push(`\n--- Session Context ---\n${this._session.workingSummary}`);
     if (customInstructions) parts.push(`\n--- Custom Instructions ---\n${customInstructions}`);
     if (ctx) parts.push('\n' + buildSystemPrompt(ctx));
     const systemPrompt = parts.join('\n');
@@ -902,6 +1068,7 @@ const COMMANDS = [
   { name:'cost', desc:'Show token usage' },
   { name:'model', desc:'Switch model' },
   { name:'mode', desc:'Switch chat mode' },
+  { name:'rename', desc:'Rename current session' },
 ];
 
 vscode.postMessage({ type:'getModels' });
