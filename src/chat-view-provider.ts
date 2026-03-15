@@ -834,7 +834,13 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     };
     this._messages.push(assistantMsg);
     this._session.messages = [...this._messages];
-    this._post({ type: 'assistantDone', model: modelToUse, meta: lastMeta });
+    // Use bridge metadata if available, otherwise fall back to local estimates
+    const finalMeta: StreamMeta = lastMeta ?? {};
+    if (!finalMeta.inputTokens && !finalMeta.outputTokens) {
+      finalMeta.inputTokens = Math.ceil(inputChars / 4);
+      finalMeta.outputTokens = Math.ceil(fullResponse.length / 4);
+    }
+    this._post({ type: 'assistantDone', model: modelToUse, meta: finalMeta });
     this._saveCurrentSession();
   }
 
@@ -866,17 +872,22 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       }),
       onIteration: (current, max) => this._post({ type: 'agentIteration', current, max }),
       onComplete: (response, iterations) => {
-        this._outputTokens += Math.ceil(response.length / 4);
+        const outTokens = Math.ceil(response.length / 4);
+        this._outputTokens += outTokens;
         const assistantMsg: ChatMessage = {
           role: 'assistant',
           content: response,
           model,
           timestamp: Date.now(),
-          tokenEstimate: Math.ceil(response.length / 4),
+          tokenEstimate: outTokens,
         };
         this._messages.push(assistantMsg);
         this._session.messages = [...this._messages];
-        this._post({ type: 'assistantDone', model, iterations });
+        const meta: StreamMeta = {
+          inputTokens: Math.ceil(userMessage.length / 4),
+          outputTokens: outTokens,
+        };
+        this._post({ type: 'assistantDone', model, iterations, meta });
         this._saveCurrentSession();
         this._activeAgentLoop = null;
       },
