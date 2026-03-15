@@ -5,6 +5,11 @@
   "version": "0.5.0",
   "publisher": "elvatis",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elvatis/conduit-vscode"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
