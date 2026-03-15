@@ -86,32 +86,32 @@ export async function parseMentions(text: string): Promise<{
     cleanText = cleanText.replace(/#terminal\b/g, '');
   }
 
-  // #codebase - workspace file listing for broad context
-  if (/#codebase\b/.test(text)) {
+  // #workspace - workspace folder structure overview
+  if (/#workspace\b/.test(text)) {
     const summary = await buildCodebaseSummary();
     if (summary) {
       mentions.push({
-        type: 'codebase',
-        raw: '#codebase',
-        content: summary,
-        label: 'Codebase',
-      });
-    }
-    cleanText = cleanText.replace(/#codebase\b/g, '');
-  }
-
-  // #workspace - deep workspace context with file contents
-  if (/#workspace\b/.test(text)) {
-    const wsContext = await buildWorkspaceContext();
-    if (wsContext) {
-      mentions.push({
         type: 'workspace',
         raw: '#workspace',
-        content: wsContext,
+        content: summary,
         label: 'Workspace',
       });
     }
     cleanText = cleanText.replace(/#workspace\b/g, '');
+  }
+
+  // #codebase - deep codebase context with file contents for autonomous search
+  if (/#codebase\b/.test(text)) {
+    const codebaseCtx = await buildWorkspaceContext();
+    if (codebaseCtx) {
+      mentions.push({
+        type: 'codebase',
+        raw: '#codebase',
+        content: codebaseCtx,
+        label: 'Codebase',
+      });
+    }
+    cleanText = cleanText.replace(/#codebase\b/g, '');
   }
 
   return { cleanText: cleanText.trim(), mentions };

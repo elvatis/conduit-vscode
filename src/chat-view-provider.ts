@@ -119,7 +119,24 @@ function generateWorkingSummary(messages: ChatMessage[]): string {
 const MODE_SYSTEM_PROMPTS: Record<ChatMode, string> = {
   ask: 'You are Conduit, an expert AI coding assistant integrated into VS Code. Answer questions clearly and concisely. Provide code examples when helpful.',
   edit: 'You are Conduit, an expert AI coding assistant integrated into VS Code. The user wants you to edit code. Return ONLY the modified code in a fenced code block. Preserve the original style and formatting.',
-  agent: 'You are Conduit, an autonomous AI coding agent integrated into VS Code. Break down the task into steps, reason through each step, and provide complete implementations. Be thorough and proactive - anticipate follow-up needs. When proposing changes, show complete file contents.',
+  agent: `You are Conduit, an autonomous AI coding agent integrated into VS Code.
+
+IMPORTANT: Structure your response as discrete steps using exactly this format:
+
+### Step 1: [Short title describing this step]
+[Content for this step - analysis, code, explanation]
+
+### Step 2: [Short title describing this step]
+[Content for this step]
+
+(continue with Step 3, Step 4, etc.)
+
+Rules:
+- Always use "### Step N:" format for each discrete task
+- Each step should be a self-contained unit of work
+- Be thorough and proactive - anticipate follow-up needs
+- When proposing code changes, show complete file contents in fenced code blocks
+- End with a brief summary of what was accomplished`,
   plan: 'You are Conduit, a planning assistant integrated into VS Code. Create a detailed implementation plan with numbered steps. For each step, describe: 1) What changes are needed, 2) Which files are affected, 3) Any risks or considerations. Do NOT write code yet - just plan. Format as a clear markdown checklist.',
 };
 
@@ -170,8 +187,8 @@ Attach context to any message using \`#\` mentions. These pull relevant informat
 | \`#file:path:L-L\` | Attach specific lines from a file | \`What does #file:src/index.ts:10-25 do?\` |
 | \`#selection\` | Attach whatever code you have highlighted in the editor | \`Refactor #selection to use async/await\` |
 | \`#problems\` | Attach errors and warnings from the current file | \`Fix #problems in this file\` |
-| \`#codebase\` | Attach an overview of the workspace file structure | \`#codebase Where is authentication handled?\` |
-| \`#workspace\` | Attach file tree + contents of key source files | \`#workspace How does the auth flow work?\` |
+| \`#workspace\` | Attach the workspace folder structure | \`#workspace Where is authentication handled?\` |
+| \`#codebase\` | Attach file tree + contents of key source files (deep search) | \`#codebase How does the auth flow work?\` |
 | \`#terminal\` | Reference terminal output (select text in terminal first) | \`Why is #terminal failing?\` |
 
 You can combine multiple mentions in a single message:
@@ -1020,6 +1037,23 @@ body {
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--vscode-panel-border); border-top-color:var(--vscode-progressBar-background); border-radius:50%; animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
+/* Agent step cards */
+.agent-step { margin:6px 0; border:1px solid var(--vscode-panel-border); border-radius:6px; overflow:hidden; background:var(--vscode-editor-background); }
+.agent-step-header { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:12px; list-style:none; user-select:none; border-bottom:1px solid transparent; }
+.agent-step-header::-webkit-details-summary-icon { display:none; }
+.agent-step[open] .agent-step-header { border-bottom:1px solid var(--vscode-panel-border); }
+.agent-step-icon { width:18px; height:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.step-spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--vscode-panel-border); border-top-color:var(--vscode-progressBar-background); border-radius:50%; animation:spin .8s linear infinite; }
+.step-check { display:none; color:var(--vscode-testing-iconPassed,#73c991); font-size:14px; font-weight:bold; }
+.step-done .step-spinner { display:none; }
+.step-done .step-check { display:inline; }
+.step-done .agent-step-header { opacity:0.8; }
+.agent-step-num { font-weight:700; color:var(--vscode-descriptionForeground); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+.agent-step-title { font-weight:600; flex:1; }
+.agent-step-body { padding:8px 12px; font-size:12px; line-height:1.5; }
+.agent-step-body p { margin:0; }
+.agent-step-body .md-break { height:6px; }
+
 /* Mode warning banner */
 .mode-warning { display:flex; align-items:center; gap:6px; padding:6px 10px; margin:0 var(--pad); border-radius:var(--radius); background:var(--vscode-inputValidation-warningBackground,rgba(200,150,0,0.15)); border:1px solid var(--vscode-inputValidation-warningBorder,rgba(200,150,0,0.4)); font-size:11px; color:var(--vscode-foreground); }
 .mode-warning .warn-text { flex:1; }
@@ -1051,8 +1085,8 @@ body {
       /commit - generate commit message<br>
       #file:path - attach a file<br>
       #selection - attach current selection<br>
-      #codebase - attach workspace overview<br>
-      #workspace - attach file tree + source contents
+      #workspace - attach folder structure<br>
+      #codebase - attach source files (deep search)
     </div>
   </div>
 </div>
@@ -1323,6 +1357,8 @@ function renderMd(text) {
   const lines=src.split('\\n');
   const out=[];
   let i=0;
+  let inAgentStep=false;
+  let stepCount=0;
 
   while(i<lines.length) {
     const line=lines[i];
@@ -1334,7 +1370,30 @@ function renderMd(text) {
     // Horizontal rule
     if(/^(\\-{3,}|\\*{3,}|_{3,})$/.test(line.trim())){out.push('<hr>');i++;continue;}
 
-    // Headings
+    // Agent step detection: ### Step N: Title
+    const stepMatch=line.match(/^###\\s+Step\\s+(\\d+):\\s*(.+)$/i);
+    if(stepMatch && currentMode==='agent') {
+      if(inAgentStep) out.push('</div></details>'); // close previous step
+      stepCount++;
+      const stepNum=stepMatch[1];
+      const stepTitle=inline(stepMatch[2]);
+      out.push(
+        '<details class="agent-step" open>'+
+        '<summary class="agent-step-header">'+
+        '<span class="agent-step-icon">'+
+        '<span class="step-spinner"></span>'+
+        '<span class="step-check">&#10003;</span>'+
+        '</span>'+
+        '<span class="agent-step-num">Step '+stepNum+'</span>'+
+        '<span class="agent-step-title">'+stepTitle+'</span>'+
+        '</summary>'+
+        '<div class="agent-step-body">'
+      );
+      inAgentStep=true;
+      i++;continue;
+    }
+
+    // Headings (non-step)
     const hMatch=line.match(/^(#{1,6})\\s+(.+)$/);
     if(hMatch){const lvl=hMatch[1].length;out.push('<h'+lvl+'>'+inline(hMatch[2])+'</h'+lvl+'>');i++;continue;}
 
@@ -1393,7 +1452,27 @@ function renderMd(text) {
     i++;
   }
 
-  return out.join('');
+  // Close last agent step if open
+  if(inAgentStep) out.push('</div></details>');
+
+  // Post-process: mark all steps except the last as "done"
+  let html=out.join('');
+  if(stepCount>0 && streaming) {
+    // While streaming, last step gets spinner, previous steps get checkmark
+    const stepElements=html.split('<details class="agent-step"');
+    if(stepElements.length>1) {
+      html=stepElements.map((part,idx)=>{
+        if(idx===0) return part; // content before first step
+        const isLast=idx===stepElements.length-1;
+        return '<details class="agent-step'+(isLast?'':' step-done')+'"'+part;
+      }).join('');
+    }
+  } else if(stepCount>0) {
+    // When done streaming, all steps are complete
+    html=html.replace(/class="agent-step"/g,'class="agent-step step-done"');
+  }
+
+  return html;
 }
 
 function inline(t) {
