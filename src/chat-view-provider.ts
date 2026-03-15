@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
-import { buildEditorContext, buildSystemPrompt } from './context-builder';
+import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
 import { stream, listModels } from './proxy-client';
 import { getConfig } from './config';
 import { BridgeManager } from './bridge-manager';
 import { parseMentions } from './mention-parser';
 import { loadCustomInstructions } from './custom-instructions';
+import { AgentLoop } from './agent-loop';
+import type { ToolCall, ToolResult } from './agent-types';
 import {
   getModelRegistry, getModelCapabilities,
   autoSelectModel, estimateComplexity, trimHistoryForModel,
@@ -354,6 +356,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
   private _inputTokens = 0;
   private _outputTokens = 0;
   private _autoModel = false;
+  private _activeAgentLoop: AgentLoop | null = null;
+  private _pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
   constructor(
     context: vscode.ExtensionContext,
@@ -659,6 +663,13 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'conduit');
         break;
+      case 'agentConfirm':
+        this._pendingConfirmations.get(msg.id as string)?.(msg.approved as boolean);
+        this._pendingConfirmations.delete(msg.id as string);
+        break;
+      case 'agentAbort':
+        this._activeAgentLoop?.abort();
+        break;
     }
   }
 
@@ -755,6 +766,21 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     this._messages.push(userMsg);
     this._session.messages = [...this._messages];
     this._post({ type: 'userMessage', text: displayText });
+
+    // ── Agent mode: delegate to agent loop ─────────────────────────────────
+    if (this._mode === 'agent') {
+      const ctx = buildEditorContext();
+      const agentPrompt = buildAgentSystemPrompt(ctx);
+      const customInstructions = loadCustomInstructions();
+      const agentParts = [agentPrompt];
+      if (customInstructions) agentParts.push(`\n--- Custom Instructions ---\n${customInstructions}`);
+      const agentSystemPrompt = agentParts.join('\n');
+
+      this._post({ type: 'assistantStart', model: modelToUse, agentMode: true });
+      await this._runAgentLoop(fullText, modelToUse, agentSystemPrompt);
+      return;
+    }
+
     this._post({ type: 'assistantStart', model: modelToUse });
 
     // ── Trim history for model context window ──────────────────────────────
@@ -802,6 +828,70 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     this._session.messages = [...this._messages];
     this._post({ type: 'assistantDone', model: modelToUse });
     this._saveCurrentSession();
+  }
+
+  // ── Agent loop integration ─────────────────────────────────────────────────
+
+  private async _runAgentLoop(userMessage: string, model: string, systemPrompt: string) {
+    const cfg = getConfig();
+
+    const loop = new AgentLoop({
+      model,
+      systemPrompt,
+      userMessage,
+      history: this._messages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+      maxIterations: cfg.agentMaxIterations,
+      onChunk: (delta) => this._post({ type: 'assistantChunk', delta }),
+      onToolCall: (call) => this._post({
+        type: 'agentToolCall',
+        id: call.id,
+        tool: call.name,
+        args: call.args,
+        permission: call.permission,
+        needsConfirmation: call.permission === 'destructive' && !cfg.agentAutoApprove,
+      }),
+      onToolResult: (result) => this._post({
+        type: 'agentToolResult',
+        id: result.id,
+        status: result.status,
+        output: result.output.slice(0, 500),
+      }),
+      onIteration: (current, max) => this._post({ type: 'agentIteration', current, max }),
+      onComplete: (response, iterations) => {
+        this._outputTokens += Math.ceil(response.length / 4);
+        const assistantMsg: ChatMessage = {
+          role: 'assistant',
+          content: response,
+          model,
+          timestamp: Date.now(),
+          tokenEstimate: Math.ceil(response.length / 4),
+        };
+        this._messages.push(assistantMsg);
+        this._session.messages = [...this._messages];
+        this._post({ type: 'assistantDone', model, iterations });
+        this._saveCurrentSession();
+        this._activeAgentLoop = null;
+      },
+      onError: (error) => {
+        this._post({ type: 'assistantChunk', delta: `\n\n**Agent Error:** ${error}` });
+        this._post({ type: 'assistantDone', model });
+        this._activeAgentLoop = null;
+      },
+      confirmDestructive: (call) => {
+        if (cfg.agentAutoApprove) return Promise.resolve(true);
+        return this._awaitConfirmation(call);
+      },
+    });
+
+    this._activeAgentLoop = loop;
+    await loop.run();
+  }
+
+  private _awaitConfirmation(call: ToolCall): Promise<boolean> {
+    return new Promise(resolve => {
+      this._pendingConfirmations.set(call.id, resolve);
+      // The tool call card with buttons is already shown via onToolCall
+    });
   }
 
   // ── Data senders ──────────────────────────────────────────────────────────
@@ -1054,6 +1144,33 @@ body {
 .agent-step-body p { margin:0; }
 .agent-step-body .md-break { height:6px; }
 
+/* Agent tool call cards */
+.agent-tool-card { margin:6px 0; border-radius:6px; overflow:hidden; font-size:11px; }
+.agent-tool-card.tool-safe { border:1px solid var(--vscode-charts-blue,#3794ff); background:rgba(55,148,255,0.06); }
+.agent-tool-card.tool-destructive { border:1px solid var(--vscode-charts-orange,#cca700); background:rgba(204,167,0,0.06); }
+.agent-tool-card.tool-denied { opacity:0.5; border-style:dashed; }
+.tool-card-header { display:flex; align-items:center; gap:6px; padding:6px 10px; font-weight:600; }
+.tool-card-header .tool-icon { font-size:13px; }
+.tool-card-header .tool-name { flex:1; }
+.tool-card-header .tool-status { font-size:10px; font-weight:400; }
+.tool-card-args { padding:2px 10px 6px; font-family:var(--vscode-editor-font-family); font-size:10px; color:var(--vscode-descriptionForeground); white-space:pre-wrap; word-break:break-all; max-height:80px; overflow-y:auto; }
+.tool-card-actions { display:flex; gap:6px; padding:4px 10px 6px; }
+.tool-card-actions button { font-size:11px; padding:3px 10px; border-radius:3px; cursor:pointer; border:none; }
+.tool-card-actions .approve-btn { background:var(--vscode-button-background); color:var(--vscode-button-foreground); }
+.tool-card-actions .approve-btn:hover { background:var(--vscode-button-hoverBackground); }
+.tool-card-actions .deny-btn { background:var(--vscode-button-secondaryBackground,rgba(255,255,255,0.1)); color:var(--vscode-button-secondaryForeground,var(--vscode-foreground)); }
+.tool-card-actions .deny-btn:hover { opacity:0.8; }
+.tool-card-result { padding:4px 10px 6px; font-size:10px; font-family:var(--vscode-editor-font-family); max-height:100px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; border-top:1px solid var(--vscode-panel-border); color:var(--vscode-descriptionForeground); }
+.tool-card-result.result-error { color:var(--vscode-errorForeground,#f48771); }
+.tool-card-result.result-denied { color:var(--vscode-charts-orange,#cca700); font-style:italic; }
+
+/* Agent iteration badge */
+.agent-iter-badge { display:inline-flex; align-items:center; gap:3px; font-size:9px; padding:1px 5px; border-radius:8px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground); margin-left:6px; }
+
+/* Stop button (replaces send during agent) */
+#send-btn.stop-mode { background:var(--vscode-inputValidation-errorBackground,#5a1d1d); }
+#send-btn.stop-mode:hover { opacity:0.8; }
+
 /* Mode warning banner */
 .mode-warning { display:flex; align-items:center; gap:6px; padding:6px 10px; margin:0 var(--pad); border-radius:var(--radius); background:var(--vscode-inputValidation-warningBackground,rgba(200,150,0,0.15)); border:1px solid var(--vscode-inputValidation-warningBorder,rgba(200,150,0,0.4)); font-size:11px; color:var(--vscode-foreground); }
 .mode-warning .warn-text { flex:1; }
@@ -1138,6 +1255,7 @@ let currentBubble = null, currentText = '', streaming = false, hasMessages = fal
 let currentMode = 'ask', currentModel = '', currentSessionId = null;
 let attachments = [];
 let cmdSuggestIdx = -1;
+let agentMode = false;
 
 const MODES = {
   ask: { label:'Ask', ph:'Ask a question...' },
@@ -1174,9 +1292,12 @@ window.addEventListener('message', e => {
     case 'modelChanged': currentModel=m.model; updateModelLabel(); $('mode-warning-bar').style.display='none'; break;
     case 'modeChanged': setMode(m.mode); $('mode-warning-bar').style.display='none'; break;
     case 'userMessage': hideEmpty(); appendMsg('user', m.text); break;
-    case 'assistantStart': streaming=true; sendBtn.disabled=true; currentText=''; currentBubble=appendMsg('assistant','',m.model); showTyping(currentBubble); break;
+    case 'assistantStart': streaming=true; agentMode=!!m.agentMode; sendBtn.disabled=!agentMode; if(agentMode){sendBtn.classList.add('stop-mode');sendBtn.innerHTML='&#9632;';sendBtn.title='Stop agent';} currentText=''; currentBubble=appendMsg('assistant','',m.model); showTyping(currentBubble); break;
     case 'assistantChunk': hideTyping(currentBubble); currentText+=m.delta; if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;} break;
-    case 'assistantDone': streaming=false; updateSendBtn(); addActions(currentBubble,currentText,m.model); currentBubble=null; break;
+    case 'assistantDone': streaming=false; agentMode=false; sendBtn.classList.remove('stop-mode'); sendBtn.innerHTML='&#8593;'; sendBtn.title='Send (Enter)'; updateSendBtn(); addActions(currentBubble,currentText,m.model); if(m.iterations>1){addIterBadge(currentBubble,m.iterations);} currentBubble=null; break;
+    case 'agentToolCall': appendToolCard(m); break;
+    case 'agentToolResult': updateToolResult(m); break;
+    case 'agentIteration': updateIterBadge(m.current,m.max); break;
     case 'cleared': messagesEl.innerHTML=''; hasMessages=false; showEmpty(); attachments=[]; renderAttach(); break;
     case 'context': if(m.fileName) ctxIndicator.innerHTML='<span class="ctx-label">'+esc(m.fileName)+(m.hasSelection?' (sel)':'')+'</span>'; break;
     case 'sessionLoaded': messagesEl.innerHTML=''; hasMessages=false; for(const x of m.messages){hideEmpty();appendMsg(x.role,x.content,x.model);} if(m.model){currentModel=m.model;updateModelLabel();} if(m.mode)setMode(m.mode); break;
@@ -1248,8 +1369,8 @@ attachMenu.querySelectorAll('.dm-item').forEach(el=>el.addEventListener('click',
 
 $('settings-btn').addEventListener('click',()=>vscode.postMessage({type:'openSettings'}));
 
-// Send
-sendBtn.addEventListener('click', sendMessage);
+// Send / Stop
+sendBtn.addEventListener('click', () => { if(agentMode && streaming) { vscode.postMessage({type:'agentAbort'}); } else { sendMessage(); } });
 inputEl.addEventListener('keydown', e => {
   // Cmd suggest navigation
   if(cmdSuggest.classList.contains('open')) {
@@ -1519,6 +1640,91 @@ function showModeWarning(reason, suggestion) {
     vscode.postMessage({type:'switchModel',model:switchBtn.dataset.switch});
     bar.style.display='none';
   });
+}
+
+// ── Agent tool cards ──────────────────────────────────────────────────────
+
+function appendToolCard(m) {
+  const card = document.createElement('div');
+  card.className = 'agent-tool-card tool-' + m.permission;
+  card.id = 'tool-card-' + m.id;
+
+  const icon = m.permission === 'destructive' ? '&#9888;' : '&#9881;';
+  let header = '<div class="tool-card-header"><span class="tool-icon">' + icon + '</span>';
+  header += '<span class="tool-name">' + esc(m.tool) + '</span>';
+  header += '<span class="tool-status" id="tool-status-' + m.id + '"><span class="spinner"></span></span>';
+  header += '</div>';
+
+  const argsStr = Object.entries(m.args || {}).map(function(kv) {
+    const val = typeof kv[1] === 'string' && kv[1].length > 120 ? kv[1].slice(0, 120) + '...' : kv[1];
+    return kv[0] + ': ' + (typeof val === 'string' ? val : JSON.stringify(val));
+  }).join('\\n');
+  const argsDiv = '<div class="tool-card-args">' + esc(argsStr) + '</div>';
+
+  let actions = '';
+  if (m.needsConfirmation) {
+    actions = '<div class="tool-card-actions" id="tool-actions-' + m.id + '">';
+    actions += '<button class="approve-btn" data-id="' + m.id + '">Allow</button>';
+    actions += '<button class="deny-btn" data-id="' + m.id + '">Deny</button>';
+    actions += '</div>';
+  }
+
+  const resultDiv = '<div class="tool-card-result" id="tool-result-' + m.id + '" style="display:none"></div>';
+  card.innerHTML = header + argsDiv + actions + resultDiv;
+
+  // Wire up confirmation buttons
+  if (m.needsConfirmation) {
+    card.querySelector('.approve-btn')?.addEventListener('click', function() {
+      vscode.postMessage({ type: 'agentConfirm', id: m.id, approved: true });
+      const actionsEl = document.getElementById('tool-actions-' + m.id);
+      if (actionsEl) actionsEl.innerHTML = '<span style="font-size:10px;color:var(--vscode-testing-iconPassed,#73c991)">&#10003; Approved</span>';
+    });
+    card.querySelector('.deny-btn')?.addEventListener('click', function() {
+      vscode.postMessage({ type: 'agentConfirm', id: m.id, approved: false });
+      const actionsEl = document.getElementById('tool-actions-' + m.id);
+      if (actionsEl) actionsEl.innerHTML = '<span style="font-size:10px;color:var(--vscode-charts-orange,#cca700)">&#10005; Denied</span>';
+      card.classList.add('tool-denied');
+    });
+  }
+
+  messagesEl.appendChild(card);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function updateToolResult(m) {
+  const statusEl = document.getElementById('tool-status-' + m.id);
+  if (statusEl) {
+    if (m.status === 'success') statusEl.innerHTML = '<span style="color:var(--vscode-testing-iconPassed,#73c991)">&#10003;</span>';
+    else if (m.status === 'denied') statusEl.innerHTML = '<span style="color:var(--vscode-charts-orange,#cca700)">&#10005;</span>';
+    else statusEl.innerHTML = '<span style="color:var(--vscode-errorForeground,#f48771)">&#10007;</span>';
+  }
+  const resultEl = document.getElementById('tool-result-' + m.id);
+  if (resultEl && m.output) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'tool-card-result' + (m.status === 'error' ? ' result-error' : m.status === 'denied' ? ' result-denied' : '');
+    resultEl.textContent = m.output;
+  }
+}
+
+function updateIterBadge(current, max) {
+  let badge = document.getElementById('agent-iter');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'agent-iter';
+    badge.className = 'agent-iter-badge';
+    ctxIndicator.appendChild(badge);
+  }
+  badge.textContent = 'Iteration ' + current + '/' + max;
+}
+
+function addIterBadge(bubble, iterations) {
+  if (!bubble) return;
+  const badge = document.createElement('span');
+  badge.className = 'agent-iter-badge';
+  badge.textContent = iterations + ' iterations';
+  const parent = bubble.parentElement;
+  const label = parent?.querySelector('.msg-label');
+  if (label) label.appendChild(badge);
 }
 </script>
 </body>
