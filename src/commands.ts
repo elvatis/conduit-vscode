@@ -13,7 +13,8 @@ export function registerCommands(
 
   // ── Open Chat ────────────────────────────────────────────────────────────────
   disposables.push(vscode.commands.registerCommand('conduit.openChat', () => {
-    ConduitChatPanel.createOrShow(ctx.extensionUri);
+    // Focus the sidebar chat view in the secondary sidebar instead of opening an editor tab
+    vscode.commands.executeCommand('conduit.chatView.focus');
   }));
 
   // ── Switch Model ─────────────────────────────────────────────────────────────

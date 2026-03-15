@@ -45,17 +45,14 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai-codex/gpt-5.2-codex': 'GPT-5.2 Codex',
   'openai-codex/gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
   // Web Grok (IDs from bridge /v1/models)
-  'web-grok/grok-4': 'Grok 4.0',
-  'web-grok/grok-3': 'Grok 3.0',
-  'web-grok/grok-3-fast': 'Grok 3.0 Fast',
-  'web-grok/grok-3-mini': 'Grok 3.0 Mini',
-  'web-grok/grok-3-mini-fast': 'Grok 3.0 Mini Fast',
-  'web-grok/grok-2': 'Grok 2.0',
+  'web-grok/grok-expert': 'Grok Expert',
+  'web-grok/grok-fast': 'Grok Fast',
+  'web-grok/grok-heavy': 'Grok Heavy',
+  'web-grok/grok-4.20-beta': 'Grok 4.20 Beta',
   // Web Gemini
-  'web-gemini/gemini-2-5-pro': 'Gemini 2.5 Pro',
-  'web-gemini/gemini-2-5-flash': 'Gemini 2.5 Flash',
-  'web-gemini/gemini-3-pro': 'Gemini 3.0 Pro',
-  'web-gemini/gemini-3-flash': 'Gemini 3.0 Flash',
+  'web-gemini/gemini-3-fast': 'Gemini 3 Fast',
+  'web-gemini/gemini-3-thinking': 'Gemini 3 Thinking',
+  'web-gemini/gemini-3.1-pro': 'Gemini 3.1 Pro',
   // Web Claude (bridge returns short IDs without version suffix)
   'web-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6',
   'web-claude/claude-opus-4-6': 'Claude Opus 4.6',
@@ -65,16 +62,12 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'web-claude/claude-haiku': 'Claude Haiku 4.5',
   'web-claude/claude-sonnet-4-5': 'Claude Sonnet 4.5',
   'web-claude/claude-opus-4-5': 'Claude Opus 4.5',
-  // Web ChatGPT (bridge returns gpt-o3, gpt-o4-mini with prefix)
-  'web-chatgpt/gpt-5': 'GPT-5.0',
-  'web-chatgpt/gpt-5-mini': 'GPT-5.0 Mini',
-  'web-chatgpt/gpt-4o': 'GPT-4o',
-  'web-chatgpt/gpt-4o-mini': 'GPT-4o Mini',
-  'web-chatgpt/gpt-4.1': 'GPT-4.1',
+  // Web ChatGPT
+  'web-chatgpt/gpt-5.4-pro': 'GPT-5.4 Pro',
+  'web-chatgpt/gpt-5.4-thinking': 'GPT-5.4 Thinking',
+  'web-chatgpt/gpt-5.3-instant': 'GPT-5.3 Instant',
+  'web-chatgpt/gpt-5-thinking-mini': 'GPT-5 Thinking Mini',
   'web-chatgpt/o3': 'o3',
-  'web-chatgpt/o4-mini': 'o4 Mini',
-  'web-chatgpt/gpt-o3': 'o3',
-  'web-chatgpt/gpt-o4-mini': 'o4 Mini',
   // Local
   'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
 };
@@ -140,23 +133,19 @@ export function autoSelectModel(
   // Preference order per complexity
   const preferences: Record<string, string[]> = {
     simple: [
-      'web-grok/grok-3-mini-fast', 'cli-gemini/gemini-3-flash-preview',
-      'cli-gemini/gemini-2.5-flash', 'web-gemini/gemini-3-flash',
-      'web-gemini/gemini-2-5-flash', 'web-grok/grok-3-fast',
-      'web-chatgpt/gpt-4o-mini', 'cli-claude/claude-haiku-4-5',
-      'openai-codex/gpt-5.1-codex-mini',
+      'web-grok/grok-fast', 'web-gemini/gemini-3-fast',
+      'web-chatgpt/gpt-5.3-instant', 'web-claude/claude-haiku',
+      'web-chatgpt/gpt-5-thinking-mini',
     ],
     moderate: [
-      'cli-gemini/gemini-2.5-pro', 'web-grok/grok-3',
-      'cli-claude/claude-sonnet-4-6', 'web-gemini/gemini-2-5-pro',
-      'openai-codex/gpt-5.3-codex', 'web-chatgpt/gpt-5',
-      'web-chatgpt/o3', 'openai-codex/gpt-5.3-codex-spark',
+      'web-gemini/gemini-3-thinking', 'web-grok/grok-expert',
+      'web-claude/claude-sonnet', 'web-chatgpt/gpt-5.4-thinking',
+      'web-gemini/gemini-3.1-pro',
     ],
     complex: [
-      'cli-claude/claude-opus-4-6', 'cli-gemini/gemini-3-pro-preview',
-      'openai-codex/gpt-5.4', 'openai-codex/gpt-5.3-codex',
-      'web-gemini/gemini-3-pro', 'web-chatgpt/gpt-5',
-      'web-grok/grok-3', 'web-claude/claude-opus-4-6',
+      'web-claude/claude-opus', 'web-gemini/gemini-3.1-pro',
+      'web-chatgpt/gpt-5.4-pro', 'web-grok/grok-heavy',
+      'web-grok/grok-4.20-beta', 'web-claude/claude-sonnet',
     ],
   };
 

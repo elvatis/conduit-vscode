@@ -3,6 +3,7 @@ import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { stream } from './proxy-client';
 import { getConfig } from './config';
 import { listModels } from './proxy-client';
+import { getModelRegistry } from './model-registry';
 
 interface ChatSession {
   id: string;
@@ -221,9 +222,9 @@ export class ConduitChatPanel {
   }
 
   private async _sendModelList() {
-    const models = await listModels();
-    const modelIds = models.map(m => m.id);
-    this._postMessage({ type: 'models', list: modelIds, current: this._model });
+    const registry = await getModelRegistry();
+    const modelList = registry.map(m => ({ id: m.id, name: m.name }));
+    this._postMessage({ type: 'models', list: modelList, current: this._model });
   }
 
   private _sendSessionList() {
@@ -401,6 +402,11 @@ export class ConduitChatPanel {
     border-top-color: var(--vscode-progressBar-background);
     border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .typing-indicator { display: flex; align-items: center; gap: 5px; padding: 6px 4px; }
+  .typing-indicator span { width: 7px; height: 7px; border-radius: 50%; background: var(--vscode-descriptionForeground); animation: typing-bounce 1.4s ease-in-out infinite; }
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing-bounce { 0%,60%,100%{ opacity:0.3; transform:translateY(0); } 30%{ opacity:1; transform:translateY(-4px); } }
 </style>
 </head>
 <body>
@@ -461,8 +467,13 @@ window.addEventListener('message', event => {
       sendBtn.disabled = true;
       currentAssistantText = '';
       currentAssistantBubble = appendMessage('assistant', '');
+      { const td = document.createElement('div'); td.className = 'typing-indicator';
+        td.innerHTML = '<span></span><span></span><span></span>';
+        currentAssistantBubble.appendChild(td);
+        messagesEl.scrollTop = messagesEl.scrollHeight; }
       break;
     case 'assistantChunk':
+      { const ti = currentAssistantBubble?.querySelector('.typing-indicator'); if (ti) ti.remove(); }
       currentAssistantText += msg.delta;
       if (currentAssistantBubble) {
         currentAssistantBubble.innerHTML = renderMarkdown(currentAssistantText);
@@ -541,9 +552,11 @@ function escapeHtml(text) {
 
 function renderModelList(list, current) {
   modelSelect.innerHTML = '';
-  for (const id of list) {
+  for (const item of list) {
+    const id = typeof item === 'string' ? item : item.id;
+    const name = typeof item === 'string' ? item : item.name;
     const opt = document.createElement('option');
-    opt.value = id; opt.textContent = id;
+    opt.value = id; opt.textContent = name;
     if (id === current) opt.selected = true;
     modelSelect.appendChild(opt);
   }

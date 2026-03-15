@@ -778,6 +778,13 @@ body {
 
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--vscode-panel-border); border-top-color:var(--vscode-progressBar-background); border-radius:50%; animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* Typing indicator */
+.typing-indicator { display:flex; align-items:center; gap:5px; padding:6px 2px; }
+.typing-indicator span { width:7px; height:7px; border-radius:50%; background:var(--vscode-descriptionForeground); animation:typing-bounce 1.4s ease-in-out infinite; }
+.typing-indicator span:nth-child(2) { animation-delay:0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay:0.4s; }
+@keyframes typing-bounce { 0%,60%,100%{ opacity:0.3; transform:translateY(0); } 30%{ opacity:1; transform:translateY(-4px); } }
 </style>
 </head>
 <body>
@@ -878,12 +885,12 @@ updateSendBtn();
 window.addEventListener('message', e => {
   const m = e.data;
   switch(m.type) {
-    case 'models': currentModel=m.current; updateModelLabel(); break;
+    case 'models': currentModel=m.current; if(m.grouped){for(const g of Object.values(m.grouped)){for(const x of g){modelNames[x.id]=x.name;}}} updateModelLabel(); break;
     case 'modelChanged': currentModel=m.model; updateModelLabel(); break;
     case 'modeChanged': setMode(m.mode); break;
     case 'userMessage': hideEmpty(); appendMsg('user', m.text); break;
-    case 'assistantStart': streaming=true; sendBtn.disabled=true; currentText=''; currentBubble=appendMsg('assistant','',m.model); break;
-    case 'assistantChunk': currentText+=m.delta; if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;} break;
+    case 'assistantStart': streaming=true; sendBtn.disabled=true; currentText=''; currentBubble=appendMsg('assistant','',m.model); showTyping(currentBubble); break;
+    case 'assistantChunk': hideTyping(currentBubble); currentText+=m.delta; if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;} break;
     case 'assistantDone': streaming=false; updateSendBtn(); addActions(currentBubble,currentText,m.model); currentBubble=null; break;
     case 'cleared': messagesEl.innerHTML=''; hasMessages=false; showEmpty(); attachments=[]; renderAttach(); break;
     case 'context': if(m.fileName) ctxIndicator.innerHTML='<span class="ctx-label">'+esc(m.fileName)+(m.hasSelection?' (sel)':'')+'</span>'; break;
@@ -901,9 +908,10 @@ function setMode(mode) {
   inputEl.placeholder=cfg.ph;
 }
 
+const modelNames = {};
 function updateModelLabel() {
   if(currentModel==='auto') { modelLabel.textContent='Auto'; return; }
-  modelLabel.textContent = currentModel.includes('/') ? currentModel.split('/').pop() : (currentModel||'Auto');
+  modelLabel.textContent = modelNames[currentModel] || (currentModel.includes('/') ? currentModel.split('/').pop() : (currentModel||'Auto'));
 }
 
 function renderAttach() {
@@ -1064,6 +1072,19 @@ function renderMd(text) {
   return h;
 }
 function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function showTyping(bubble) {
+  if(!bubble) return;
+  const d=document.createElement('div');d.className='typing-indicator';
+  d.innerHTML='<span></span><span></span><span></span>';
+  bubble.appendChild(d);
+  messagesEl.scrollTop=messagesEl.scrollHeight;
+}
+function hideTyping(bubble) {
+  if(!bubble) return;
+  const t=bubble.querySelector('.typing-indicator');
+  if(t) t.remove();
+}
 </script>
 </body>
 </html>`;

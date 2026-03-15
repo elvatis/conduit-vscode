@@ -286,7 +286,7 @@
       }
     ],
     "viewsContainers": {
-      "panel": [
+      "activitybar": [
         {
           "id": "conduit-panel",
           "title": "Conduit AI",

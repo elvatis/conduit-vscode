@@ -113,21 +113,23 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // ── Move chat view to secondary sidebar on first install ───────────────
+    // ── Move chat view to secondary sidebar ─────────────────────────────────
+    // Always try to move the Conduit chat view to the secondary sidebar
+    // (next to Chat and Claude Code) on activation
+    setTimeout(async () => {
+      try {
+        await vscode.commands.executeCommand('conduit.chatView.focus');
+        await vscode.commands.executeCommand('workbench.action.moveFocusedView', {
+          destination: 'workbench.parts.auxiliarybar',
+        });
+      } catch {
+        // View may already be in the secondary sidebar or command not available
+      }
+    }, 2000);
+
     const isFirstRun = !context.globalState.get('conduit.installed');
     if (isFirstRun) {
       context.globalState.update('conduit.installed', true);
-      // Try to move the chat view to the secondary sidebar (right panel)
-      setTimeout(async () => {
-        try {
-          await vscode.commands.executeCommand('conduit.chatView.focus');
-          await vscode.commands.executeCommand('workbench.action.moveFocusedView', {
-            destination: 'workbench.parts.auxiliarybar',
-          });
-        } catch {
-          // Fallback: stays in panel - user can drag it manually
-        }
-      }, 3000);
       vscode.window.showInformationMessage(
         'Conduit AI is ready! Make sure conduit-bridge is running on port 31338.',
         'Open Chat',
@@ -164,5 +166,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
+  // Stop the bridge when VS Code closes
+  bridgeManager?.dispose();
   statusBar?.dispose();
 }
