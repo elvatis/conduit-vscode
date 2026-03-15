@@ -11,6 +11,8 @@ export interface ConduitConfig {
   maxOpenFilesContext: number;
   terminalIntegration: boolean;
   autoStatusBar: boolean;
+  agentMaxIterations: number;
+  agentAutoApprove: boolean;
 }
 
 export function getConfig(): ConduitConfig {
@@ -26,6 +28,8 @@ export function getConfig(): ConduitConfig {
     maxOpenFilesContext:  cfg.get<number>('maxOpenFilesContext', 3),
     terminalIntegration:  cfg.get<boolean>('terminalIntegration', true),
     autoStatusBar:        cfg.get<boolean>('autoStatusBar', true),
+    agentMaxIterations:   cfg.get<number>('agentMaxIterations', 25),
+    agentAutoApprove:     cfg.get<boolean>('agentAutoApprove', false),
   };
 }
 

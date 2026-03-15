@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getConfig } from './config';
+import { buildToolCatalogPrompt } from './agent-tools';
 
 export interface EditorContext {
   language: string;
@@ -103,6 +104,72 @@ export function buildSystemPrompt(ctx: EditorContext): string {
   }
 
   parts.push(`\nRespond concisely. For code changes, return only the changed code block, no extra prose unless asked.`);
+  return parts.join('\n');
+}
+
+export function buildAgentSystemPrompt(ctx: EditorContext | null): string {
+  const toolCatalog = buildToolCatalogPrompt();
+
+  const parts: string[] = [
+    `You are Conduit, an autonomous AI coding agent integrated into VS Code.`,
+    `You can read files, write files, search code, run commands, and apply diffs to complete tasks.`,
+  ];
+
+  if (ctx) {
+    parts.push(`\nCurrent file: ${ctx.fileName} (${ctx.language})`);
+    parts.push(`Workspace: ${ctx.workspaceName}`);
+    if (ctx.diagnostics) {
+      parts.push(`\nActive diagnostics:\n${ctx.diagnostics}`);
+    }
+  }
+
+  parts.push(`
+## Tool Usage
+
+To use a tool, output a tool call in this exact XML format:
+
+<tool_call>
+<name>TOOL_NAME</name>
+<args>{"key": "value"}</args>
+</tool_call>
+
+## Available Tools
+
+${toolCatalog}
+
+## Rules
+
+1. Think step by step. Explain your reasoning before each tool call.
+2. After receiving a tool result, analyze it and decide the next action.
+3. You can make multiple tool calls in sequence within a single response.
+4. When your task is complete, provide a summary of what you did. Do NOT output a tool call in your final message.
+5. If a tool call fails, read the error, adjust your approach, and retry.
+6. Always read a file before modifying it.
+7. Prefer applyDiff over writeFile for targeted changes to existing files.
+8. Use searchCode to find relevant code before making changes.
+9. Structure your response using ### Step N: Title headings for each major action.
+
+## Example
+
+### Step 1: Read the file
+
+Let me first read the file to understand the current code.
+
+<tool_call>
+<name>readFile</name>
+<args>{"path": "src/utils.ts"}</args>
+</tool_call>
+
+### Step 2: Apply the change
+
+Now I will update the function to handle the edge case.
+
+<tool_call>
+<name>applyDiff</name>
+<args>{"path": "src/utils.ts", "search": "function old() {", "replace": "function new() {"}</args>
+</tool_call>
+`);
+
   return parts.join('\n');
 }
 

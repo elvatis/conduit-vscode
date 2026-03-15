@@ -81,6 +81,18 @@
           "type": "boolean",
           "default": true,
           "description": "Show provider status in status bar"
+        },
+        "conduit.agentMaxIterations": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum number of model calls in a single agent loop run"
+        },
+        "conduit.agentAutoApprove": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-approve destructive agent actions (file writes, terminal commands) without confirmation"
         }
       }
     },
