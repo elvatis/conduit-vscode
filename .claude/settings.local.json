@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(1 --verbose)",
+      "Bash(npm ls:*)",
+      "Bash(npx vitest:*)",
+      "Read(//e/_nextcloud.weloveselfmade.com/_Data/_Development/**)",
+      "Bash(npm config:*)",
+      "Bash(npm cache:*)",
+      "Bash(rm -rf node_modules package-lock.json)",
+      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(''devDeps:'', JSON.stringify\\(pkg.devDependencies\\)\\)\")",
+      "Bash(npx @vscode/vsce package --allow-missing-repository)",
+      "Bash(code --install-extension conduit-vscode-0.1.0.vsix)",
+      "Bash(code --help)",
+      "Bash(where code.cmd)",
+      "Bash(where code:*)",
+      "Bash(\"C:\\\\Users\\\\KohlerEmre\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd\" --install-extension \"e:/_nextcloud.weloveselfmade.com/_Data/_Development/conduit-vscode/conduit-vscode-0.1.0.vsix\")",
+      "Bash(\"C:\\\\Users\\\\KohlerEmre\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd\" --list-extensions)",
+      "Bash(\"C:\\\\Users\\\\KohlerEmre\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd\" --install-extension \"e:/_nextcloud.weloveselfmade.com/_Data/_Development/conduit-vscode/conduit-vscode-0.1.0.vsix\" --force)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(code --list-extensions)",
+      "Bash(npx @vscode/vsce package --no-dependencies)",
+      "Bash(code --install-extension \"e:\\\\_nextcloud.weloveselfmade.com\\\\_Data\\\\_Development\\\\conduit-vscode\\\\conduit-vscode-0.2.0.vsix\" --force)",
+      "Bash(\"C:\\\\Users\\\\KohlerEmre\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd\" --install-extension \"e:\\\\_nextcloud.weloveselfmade.com\\\\_Data\\\\_Development\\\\conduit-vscode\\\\conduit-vscode-0.2.0.vsix\" --force)"
+    ]
+  }
+}

@@ -26,7 +26,6 @@ export interface BridgeStatus {
 export class BridgeManager {
   private _process: cp.ChildProcess | null = null;
   private _outputChannel: vscode.OutputChannel;
-  private _statusBar: vscode.StatusBarItem;
   private _healthTimer: NodeJS.Timeout | null = null;
   private _onStatusChange = new vscode.EventEmitter<BridgeStatus | null>();
   private _lastStatus: BridgeStatus | null = null;
@@ -35,10 +34,6 @@ export class BridgeManager {
 
   constructor() {
     this._outputChannel = vscode.window.createOutputChannel('Conduit Bridge', 'log');
-    this._statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
-    this._statusBar.command = 'conduit.showBridgePanel';
-    this._updateStatusBar(null);
-    this._statusBar.show();
     this._startHealthPoll();
   }
 
@@ -245,20 +240,9 @@ export class BridgeManager {
     this._outputChannel.appendLine(`[${ts}] ${msg}`);
   }
 
-  private _updateStatusBar(status: BridgeStatus | null) {
-    if (!status) {
-      this._statusBar.text = '$(circuit-board) Conduit ✗';
-      this._statusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-      this._statusBar.tooltip = 'Conduit: bridge offline — click to manage';
-      return;
-    }
-    const connected = status.providers.filter(p => p.sessionValid).length;
-    const total = status.providers.length;
-    this._statusBar.text = `$(circuit-board) Conduit ${connected}/${total}`;
-    this._statusBar.backgroundColor = connected > 0
-      ? undefined
-      : new vscode.ThemeColor('statusBarItem.warningBackground');
-    this._statusBar.tooltip = `Conduit v${status.version} — ${connected}/${total} providers active — click to manage`;
+  private _updateStatusBar(_status: BridgeStatus | null) {
+    // Status bar is now managed by ConduitStatusBar (consolidated single item)
+    // This method only emits the event for subscribers
   }
 
   private _apiGet(url: string): Promise<string> {
@@ -297,7 +281,6 @@ export class BridgeManager {
     if (this._healthTimer) clearInterval(this._healthTimer);
     this._process?.kill();
     this._outputChannel.dispose();
-    this._statusBar.dispose();
     this._onStatusChange.dispose();
   }
 }

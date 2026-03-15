@@ -85,8 +85,9 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('conduit.generateCommitMessage', () => generateCommitMessage()),
     );
 
-    // ── Status bar ──────────────────────────────────────────────────────────
+    // ── Status bar (consolidated single item) ───────────────────────────────
     statusBar = new ConduitStatusBar();
+    statusBar.setBridgeManager(bridgeManager);
     context.subscriptions.push({ dispose: () => statusBar?.dispose() });
 
     // ── Inline completion provider ──────────────────────────────────────────
