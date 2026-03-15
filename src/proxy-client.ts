@@ -23,10 +23,21 @@ export interface ModelInfo {
   capabilities?: { tools?: boolean };
 }
 
+/** Provider metadata from conduit-bridge (thinking, tool use, tokens, timing) */
+export interface StreamMeta {
+  thinking?: boolean;
+  toolName?: string | null;
+  toolRunning?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+  elapsedMs?: number;
+}
+
 /** Raw streaming chunk from SSE */
 export interface StreamChunk {
   delta: string;
   done: boolean;
+  meta?: StreamMeta;
 }
 
 /** POST /v1/chat/completions — returns full response text */
@@ -179,7 +190,10 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
           try {
             const json = JSON.parse(data);
             const delta = json.choices?.[0]?.delta?.content ?? '';
-            if (delta) chunks.push({ delta, done: false });
+            const meta = json.conduit_meta as StreamMeta | undefined;
+            const finishReason = json.choices?.[0]?.finish_reason;
+            if (delta) chunks.push({ delta, done: false, meta });
+            else if (finishReason === 'stop' && meta) chunks.push({ delta: '', done: false, meta });
           } catch { /* ignore malformed */ }
         }
       }

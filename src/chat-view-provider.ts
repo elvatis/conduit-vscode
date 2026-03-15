@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
-import { stream, listModels } from './proxy-client';
+import { stream, listModels, type StreamMeta } from './proxy-client';
 import { getConfig } from './config';
 import { BridgeManager } from './bridge-manager';
 import { parseMentions } from './mention-parser';
@@ -611,6 +611,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
         break;
       case 'getContext':
         this._sendContext();
+        this._sendVersionInfo();
         break;
       case 'getSessions':
         this._sendSessionList();
@@ -796,11 +797,18 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
 
     // ── Stream response ────────────────────────────────────────────────────
     let fullResponse = '';
+    let lastMeta: StreamMeta | undefined;
     try {
       for await (const chunk of stream({ messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, model: modelToUse })) {
         if (chunk.done) break;
-        fullResponse += chunk.delta;
-        this._post({ type: 'assistantChunk', delta: chunk.delta });
+        if (chunk.meta) {
+          lastMeta = chunk.meta;
+          this._post({ type: 'streamMeta', meta: chunk.meta });
+        }
+        if (chunk.delta) {
+          fullResponse += chunk.delta;
+          this._post({ type: 'assistantChunk', delta: chunk.delta });
+        }
       }
     } catch (err) {
       const errMsg = `Error: ${(err as Error).message}`;
@@ -826,7 +834,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     };
     this._messages.push(assistantMsg);
     this._session.messages = [...this._messages];
-    this._post({ type: 'assistantDone', model: modelToUse });
+    this._post({ type: 'assistantDone', model: modelToUse, meta: lastMeta });
     this._saveCurrentSession();
   }
 
@@ -1016,6 +1024,13 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _sendVersionInfo() {
+    const extVersion = vscode.extensions.getExtension('elvatis.conduit-vscode')?.packageJSON?.version ?? '?';
+    const bridgeStatus = this._bridgeManager.lastStatus;
+    const bridgeVersion = bridgeStatus?.version ?? '?';
+    this._post({ type: 'versionInfo', extVersion, bridgeVersion });
+  }
+
   private _sendSessionList() {
     const sessions = this._getSessions().map(s => ({
       id: s.id,
@@ -1082,6 +1097,13 @@ body {
 .msg-actions { display:flex; gap:4px; padding:2px 0; }
 .msg-actions button { font-size:10px; cursor:pointer; color:var(--vscode-descriptionForeground); background:none; border:none; padding:2px 6px; border-radius:3px; }
 .msg-actions button:hover { color:var(--vscode-foreground); background:var(--vscode-toolbar-hoverBackground); }
+.msg-timestamp { font-size:9px; color:var(--vscode-descriptionForeground); margin-left:auto; }
+.stream-status { font-size:9px; color:var(--vscode-descriptionForeground); padding:2px 4px; display:flex; align-items:center; gap:4px; min-height:14px; }
+.stream-status .status-dot { width:6px; height:6px; border-radius:50%; background:var(--vscode-charts-yellow); animation:pulse 1s infinite; }
+.stream-status .status-dot.done { background:var(--vscode-charts-green); animation:none; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.msg-stats { font-size:9px; color:var(--vscode-descriptionForeground); display:flex; gap:8px; padding:1px 2px; }
+.msg-stats span { display:flex; align-items:center; gap:2px; }
 
 /* Attachments */
 #attachments { padding:0 var(--pad); display:none; }
@@ -1231,7 +1253,7 @@ body {
       <button id="send-btn" title="Send (Enter)" disabled>&#8593;</button>
     </div>
   </div>
-  <div id="bottom-bar"><span id="ctx-indicator"></span></div>
+  <div id="bottom-bar"><span id="ctx-indicator"></span><span id="version-info" style="margin-left:auto;opacity:0.6"></span></div>
 </div>
 
 <script>
@@ -1256,6 +1278,9 @@ let currentMode = 'ask', currentModel = '', currentSessionId = null;
 let attachments = [];
 let cmdSuggestIdx = -1;
 let agentMode = false;
+let streamStartTime = 0;
+let currentStatusEl = null;
+let statusInterval = null;
 
 const MODES = {
   ask: { label:'Ask', ph:'Ask a question...' },
@@ -1292,9 +1317,33 @@ window.addEventListener('message', e => {
     case 'modelChanged': currentModel=m.model; updateModelLabel(); $('mode-warning-bar').style.display='none'; break;
     case 'modeChanged': setMode(m.mode); $('mode-warning-bar').style.display='none'; break;
     case 'userMessage': hideEmpty(); appendMsg('user', m.text); break;
-    case 'assistantStart': streaming=true; agentMode=!!m.agentMode; sendBtn.disabled=!agentMode; if(agentMode){sendBtn.classList.add('stop-mode');sendBtn.innerHTML='&#9632;';sendBtn.title='Stop agent';} currentText=''; currentBubble=appendMsg('assistant','',m.model); showTyping(currentBubble); break;
-    case 'assistantChunk': hideTyping(currentBubble); currentText+=m.delta; if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;} break;
-    case 'assistantDone': streaming=false; agentMode=false; sendBtn.classList.remove('stop-mode'); sendBtn.innerHTML='&#8593;'; sendBtn.title='Send (Enter)'; updateSendBtn(); addActions(currentBubble,currentText,m.model); if(m.iterations>1){addIterBadge(currentBubble,m.iterations);} currentBubble=null; break;
+    case 'assistantStart':
+      streaming=true; agentMode=!!m.agentMode; sendBtn.disabled=!agentMode;
+      if(agentMode){sendBtn.classList.add('stop-mode');sendBtn.innerHTML='&#9632;';sendBtn.title='Stop agent';}
+      currentText=''; streamStartTime=Date.now();
+      currentBubble=appendMsg('assistant','',m.model);
+      currentStatusEl=addStreamStatus(currentBubble);
+      showTyping(currentBubble);
+      // Live elapsed timer
+      if(statusInterval) clearInterval(statusInterval);
+      statusInterval=setInterval(()=>{ if(currentStatusEl) updateElapsed(currentStatusEl); },1000);
+      break;
+    case 'assistantChunk':
+      hideTyping(currentBubble); currentText+=m.delta;
+      if(currentBubble){currentBubble.innerHTML=renderMd(currentText); messagesEl.scrollTop=messagesEl.scrollHeight;}
+      break;
+    case 'streamMeta':
+      if(currentStatusEl) updateStreamStatus(currentStatusEl, m.meta);
+      break;
+    case 'assistantDone':
+      streaming=false; agentMode=false;
+      sendBtn.classList.remove('stop-mode'); sendBtn.innerHTML='&#8593;'; sendBtn.title='Send (Enter)'; updateSendBtn();
+      if(statusInterval){clearInterval(statusInterval);statusInterval=null;}
+      if(currentStatusEl) finalizeStatus(currentStatusEl, m.meta);
+      addActions(currentBubble,currentText,m.model);
+      if(m.iterations>1){addIterBadge(currentBubble,m.iterations);}
+      currentBubble=null; currentStatusEl=null;
+      break;
     case 'agentToolCall': appendToolCard(m); break;
     case 'agentToolResult': updateToolResult(m); break;
     case 'agentIteration': updateIterBadge(m.current,m.max); break;
@@ -1304,6 +1353,7 @@ window.addEventListener('message', e => {
     case 'sessionInfo': currentSessionId=m.id; break;
     case 'selectionAttached': case 'fileAttached': attachments.push({fileName:m.fileName,language:m.language,text:m.text}); renderAttach(); break;
     case 'autoModelSelected': ctxIndicator.innerHTML='<span class="ctx-label">Auto: '+esc(m.model.split('/').pop())+' ('+m.complexity+')</span>'; break;
+    case 'versionInfo': $('version-info').textContent='ext v'+m.extVersion+' | bridge v'+m.bridgeVersion; break;
     case 'modeWarning': showModeWarning(m.reason, m.suggestion); break;
   }
 });
@@ -1431,6 +1481,10 @@ function appendMsg(role, text, model) {
       label.appendChild(tag);
     }
   }
+  // Timestamp
+  const ts=document.createElement('span');ts.className='msg-timestamp';
+  ts.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  label.appendChild(ts);
   div.appendChild(label);
   const bubble=document.createElement('div');bubble.className='bubble';
   bubble.innerHTML=role==='assistant'?renderMd(text):esc(text);
@@ -1625,6 +1679,50 @@ function hideTyping(bubble) {
   if(!bubble) return;
   const t=bubble.querySelector('.typing-indicator');
   if(t) t.remove();
+}
+
+// Stream status indicator (thinking, tool use, elapsed time, tokens)
+function addStreamStatus(bubble) {
+  if(!bubble||!bubble.parentElement) return null;
+  const el=document.createElement('div');el.className='stream-status';
+  el.innerHTML='<span class="status-dot"></span><span class="status-text">Connecting...</span><span class="elapsed"></span>';
+  bubble.parentElement.insertBefore(el,bubble.nextSibling);
+  return el;
+}
+function updateStreamStatus(el, meta) {
+  if(!el) return;
+  const dot=el.querySelector('.status-dot');
+  const txt=el.querySelector('.status-text');
+  if(!dot||!txt) return;
+  if(meta.thinking) { txt.textContent='Thinking...'; }
+  else if(meta.toolRunning&&meta.toolName) { txt.textContent='Running: '+meta.toolName; }
+  else if(meta.toolRunning) { txt.textContent='Running tool...'; }
+  else { txt.textContent='Generating...'; }
+}
+function updateElapsed(el) {
+  if(!el) return;
+  const span=el.querySelector('.elapsed');
+  if(!span) return;
+  const sec=((Date.now()-streamStartTime)/1000).toFixed(0);
+  span.textContent=sec+'s';
+}
+function finalizeStatus(el, meta) {
+  if(!el) return;
+  const dot=el.querySelector('.status-dot');
+  const txt=el.querySelector('.status-text');
+  if(dot) { dot.classList.add('done'); }
+
+  const elapsed=((Date.now()-streamStartTime)/1000).toFixed(1);
+  let info=elapsed+'s';
+  if(meta) {
+    if(meta.inputTokens||meta.outputTokens) {
+      info+=' | '+((meta.inputTokens||0)+(meta.outputTokens||0))+' tokens';
+      if(meta.inputTokens) info+=' (in:'+meta.inputTokens+' out:'+(meta.outputTokens||0)+')';
+    }
+  }
+  if(txt) txt.textContent='Done';
+  const elSpan=el.querySelector('.elapsed');
+  if(elSpan) elSpan.textContent=info;
 }
 
 function showModeWarning(reason, suggestion) {
