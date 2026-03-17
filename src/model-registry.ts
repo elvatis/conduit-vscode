@@ -67,6 +67,9 @@ const MODEL_LIMITS: Record<string, { ctx: number; max: number }> = {
   'web-grok/grok-expert':            { ctx: 256_000,    max: 131_072 },
   'web-grok/grok-heavy':             { ctx: 256_000,    max: 131_072 },
   'web-grok/grok-4.20-beta':         { ctx: 256_000,    max: 131_072 },
+  // OpenCode / Pi
+  'opencode/default':                { ctx: 128_000,    max: 16_384 },
+  'pi/default':                      { ctx: 128_000,    max: 16_384 },
   // Local
   'local-bitnet/bitnet-2b':          { ctx: 4_096,      max: 2_048 },
 };
@@ -80,6 +83,8 @@ const PROVIDER_FALLBACK_LIMITS: Record<string, { ctx: number; max: number }> = {
   'web-gemini/':    { ctx: 1_000_000, max: 65_536 },
   'web-claude/':    { ctx: 200_000,   max: 64_000 },
   'web-chatgpt/':   { ctx: 128_000,   max: 32_768 },
+  'opencode/':      { ctx: 128_000,   max: 16_384 },
+  'pi/':            { ctx: 128_000,   max: 16_384 },
   'local-bitnet/':  { ctx: 4_096,     max: 2_048 },
 };
 
@@ -124,6 +129,9 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'web-chatgpt/gpt-5.3-instant': 'GPT-5.3 Instant',
   'web-chatgpt/gpt-5-thinking-mini': 'GPT-5 Thinking Mini',
   'web-chatgpt/o3': 'o3',
+  // OpenCode / Pi
+  'opencode/default': 'OpenCode',
+  'pi/default': 'Pi Agent',
   // Local
   'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
 };
@@ -165,6 +173,9 @@ const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
   'cli-gemini/gemini-3-flash-preview': 2,
   'openai-codex/gpt-5.3-codex-spark': 2,
   'openai-codex/gpt-5.2-codex':   2,
+  // OpenCode / Pi - Tier 1 (agent-capable)
+  'opencode/default':              1,
+  'pi/default':                    2,
   // Tier 3 - Fast, mainly ask
   'web-chatgpt/gpt-5-thinking-mini': 3,
   'openai-codex/gpt-5.1-codex-mini': 3,
@@ -181,6 +192,8 @@ const CATEGORY_MAP: Record<string, ModelCapabilities['category']> = {
   'cli-': 'cli',
   'web-': 'web',
   'openai-codex/': 'codex',
+  'opencode/': 'cli',
+  'pi/': 'cli',
   'local-': 'local',
 };
 

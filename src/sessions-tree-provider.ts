@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { ChatMode } from './model-registry';
 import { extractProvider, shortModelName } from './utils';
+import type { CliAgentHandle } from './cli-runner';
 
 interface SessionEntry {
   id: string;
@@ -14,6 +15,84 @@ interface SessionEntry {
   updatedAt: number;
 }
 
+// ── Background agent sessions ─────────────────────────────────────────────────
+
+export type BackgroundSessionStatus = 'running' | 'completed' | 'failed';
+
+export interface BackgroundSession {
+  id: string;
+  title: string;
+  model: string;
+  status: BackgroundSessionStatus;
+  startedAt: number;
+  finishedAt?: number;
+  handle: CliAgentHandle;
+  outputChannel: vscode.OutputChannel;
+}
+
+const _backgroundSessions = new Map<string, BackgroundSession>();
+let _bgIdCounter = 0;
+let _treeRefreshCb: (() => void) | null = null;
+
+export function setBackgroundRefreshCallback(cb: () => void): void {
+  _treeRefreshCb = cb;
+}
+
+export function addBackgroundSession(
+  title: string,
+  model: string,
+  handle: CliAgentHandle,
+): BackgroundSession {
+  const id = `bg-${++_bgIdCounter}-${Date.now()}`;
+  const outputChannel = vscode.window.createOutputChannel(`Conduit Agent: ${title}`);
+  outputChannel.appendLine(`[Agent] Model: ${model}`);
+  outputChannel.appendLine(`[Agent] PID: ${handle.pid}`);
+  outputChannel.appendLine(`[Agent] Started: ${new Date().toLocaleString()}`);
+  outputChannel.appendLine('---');
+
+  const session: BackgroundSession = {
+    id, title, model, status: 'running', startedAt: Date.now(), handle, outputChannel,
+  };
+  _backgroundSessions.set(id, session);
+
+  // Update output and status when done
+  handle.result.then((result) => {
+    session.status = result.exitCode === 0 ? 'completed' : 'failed';
+    session.finishedAt = Date.now();
+    const text = handle.output.join('');
+    outputChannel.appendLine(text);
+    outputChannel.appendLine('\n---');
+    outputChannel.appendLine(`[Agent] ${session.status} (exit code ${result.exitCode})`);
+    _treeRefreshCb?.();
+  }).catch(() => {
+    session.status = 'failed';
+    session.finishedAt = Date.now();
+    _treeRefreshCb?.();
+  });
+
+  _treeRefreshCb?.();
+  return session;
+}
+
+export function killBackgroundSession(id: string): boolean {
+  const session = _backgroundSessions.get(id);
+  if (!session || session.status !== 'running') return false;
+  session.handle.kill();
+  session.status = 'failed';
+  session.finishedAt = Date.now();
+  session.outputChannel.appendLine('\n[Agent] Killed by user');
+  _treeRefreshCb?.();
+  return true;
+}
+
+export function getBackgroundSessions(): BackgroundSession[] {
+  return [..._backgroundSessions.values()];
+}
+
+export function getBackgroundSession(id: string): BackgroundSession | undefined {
+  return _backgroundSessions.get(id);
+}
+
 // ── Provider display metadata ────────────────────────────────────────────────
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -24,6 +103,8 @@ const PROVIDER_LABELS: Record<string, string> = {
   'cli-gemini':    'Gemini (CLI)',
   'web-chatgpt':   'ChatGPT',
   'openai-codex':  'OpenAI Codex',
+  'opencode':      'OpenCode',
+  'pi':            'Pi',
   'local-bitnet':  'BitNet (Local)',
 };
 
@@ -35,12 +116,14 @@ const PROVIDER_ICONS: Record<string, string> = {
   'cli-gemini':    'sparkle',
   'web-chatgpt':   'comment-discussion',
   'openai-codex':  'code',
+  'opencode':      'terminal',
+  'pi':            'terminal',
   'local-bitnet':  'server',
 };
 
 // ── Tree items ───────────────────────────────────────────────────────────────
 
-type TreeNode = ProviderGroupItem | SessionItem;
+type TreeNode = ProviderGroupItem | SessionItem | BackgroundSessionItem;
 
 class ProviderGroupItem extends vscode.TreeItem {
   readonly kind = 'provider' as const;
@@ -100,6 +183,36 @@ class SessionItem extends vscode.TreeItem {
   }
 }
 
+class BackgroundSessionItem extends vscode.TreeItem {
+  readonly kind = 'backgroundSession' as const;
+
+  constructor(public readonly bgSession: BackgroundSession) {
+    super(bgSession.title, vscode.TreeItemCollapsibleState.None);
+
+    const ago = timeAgo(bgSession.startedAt);
+    this.description = `${shortModelName(bgSession.model)} - ${ago}`;
+
+    const statusIcon = bgSession.status === 'running' ? 'sync~spin'
+      : bgSession.status === 'completed' ? 'check'
+      : 'error';
+    const statusColor = bgSession.status === 'running' ? 'charts.blue'
+      : bgSession.status === 'completed' ? 'charts.green'
+      : 'charts.red';
+
+    this.iconPath = new vscode.ThemeIcon(statusIcon, new vscode.ThemeColor(statusColor));
+
+    this.tooltip = new vscode.MarkdownString(
+      `**${bgSession.title}**\n\n` +
+      `Model: ${bgSession.model}\n\n` +
+      `Status: ${bgSession.status}\n\n` +
+      `PID: ${bgSession.handle.pid}\n\n` +
+      `Started: ${new Date(bgSession.startedAt).toLocaleString()}`,
+    );
+
+    this.contextValue = bgSession.status === 'running' ? 'runningAgent' : 'completedAgent';
+  }
+}
+
 // ── Tree data provider ───────────────────────────────────────────────────────
 
 export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -111,6 +224,7 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   constructor(context: vscode.ExtensionContext) {
     this._context = context;
+    setBackgroundRefreshCallback(() => this.refresh());
   }
 
   refresh(activeSessionId?: string): void {
@@ -126,10 +240,19 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     const sessions = this._context.globalState.get<SessionEntry[]>('conduit.chatSessions', []);
+    const bgSessions = getBackgroundSessions();
 
     if (!element) {
+      const items: TreeNode[] = [];
+
+      // Show background agent sessions at the top
+      if (bgSessions.length > 0) {
+        const sorted = [...bgSessions].sort((a, b) => b.startedAt - a.startedAt);
+        items.push(...sorted.map(s => new BackgroundSessionItem(s)));
+      }
+
       // Root level: group by primary provider
-      if (sessions.length === 0) return [];
+      if (sessions.length === 0) return items;
 
       const groups = new Map<string, SessionEntry[]>();
       for (const s of sessions) {
@@ -149,18 +272,20 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         return bRecent - aRecent;
       });
 
-      // If only one provider, skip grouping and show sessions directly
-      if (sorted.length === 1) {
+      // If only one provider and no bg sessions, skip grouping and show sessions directly
+      if (sorted.length === 1 && bgSessions.length === 0) {
         const [, providerSessions] = sorted[0];
         return providerSessions.map(
           s => new SessionItem(s, s.id === this._activeSessionId),
         );
       }
 
-      return sorted.map(([providerId, providerSessions]) => {
+      items.push(...sorted.map(([providerId, providerSessions]) => {
         const hasActive = providerSessions.some(s => s.id === this._activeSessionId);
         return new ProviderGroupItem(providerId, providerSessions, hasActive);
-      });
+      }));
+
+      return items;
     }
 
     if (element instanceof ProviderGroupItem) {

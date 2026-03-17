@@ -2,7 +2,7 @@
   "name": "conduit-vscode",
   "displayName": "Conduit — Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "elvatis",
   "private": true,
   "license": "MIT",
@@ -253,6 +253,26 @@
         "command": "conduit.moveToSecondarySidebar",
         "title": "Conduit: Move to Secondary Sidebar",
         "icon": "$(move)"
+      },
+      {
+        "command": "conduit.spawnAgent",
+        "title": "Conduit: Spawn Background Agent",
+        "icon": "$(play)"
+      },
+      {
+        "command": "conduit.killSession",
+        "title": "Conduit: Kill Agent Session",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "conduit.viewAgentOutput",
+        "title": "Conduit: View Agent Output",
+        "icon": "$(output)"
+      },
+      {
+        "command": "conduit.fixIssue",
+        "title": "Conduit: Fix Issue (Worktree + Agent)",
+        "icon": "$(git-pull-request)"
       }
     ],
     "menus": {
@@ -299,6 +319,16 @@
         {
           "command": "conduit.deleteSessionFromTree",
           "when": "view == conduit.sessionsView && viewItem == session",
+          "group": "inline@2"
+        },
+        {
+          "command": "conduit.killSession",
+          "when": "view == conduit.sessionsView && viewItem == runningAgent",
+          "group": "inline@1"
+        },
+        {
+          "command": "conduit.viewAgentOutput",
+          "when": "view == conduit.sessionsView && viewItem =~ /runningAgent|completedAgent/",
           "group": "inline@2"
         }
       ],

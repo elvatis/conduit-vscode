@@ -72,6 +72,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       replace: { type: 'string', description: 'Text to replace with', required: true },
     },
   },
+  {
+    name: 'createWorktree',
+    description: 'Create a git worktree for a branch (for parallel work)',
+    permission: 'destructive',
+    args: {
+      branch: { type: 'string', description: 'Branch name to create (e.g. fix/issue-42)', required: true },
+      path: { type: 'string', description: 'Relative path for the worktree directory' },
+    },
+  },
+  {
+    name: 'removeWorktree',
+    description: 'Remove a git worktree and optionally its branch',
+    permission: 'destructive',
+    args: {
+      path: { type: 'string', description: 'Path of the worktree to remove', required: true },
+      deleteBranch: { type: 'boolean', description: 'Also delete the branch (default: false)' },
+    },
+  },
 ];
 
 // ── Size limits ───────────────────────────────────────────────────────────────
@@ -111,7 +129,9 @@ export async function executeTool(call: ToolCall): Promise<ToolResult> {
       case 'searchCode':   return { ...base, ...(await toolSearchCode(call.args)) };
       case 'runCommand':   return { ...base, ...(await toolRunCommand(call.args)) };
       case 'readDiagnostics': return { ...base, ...(await toolReadDiagnostics(call.args)) };
-      case 'applyDiff':    return { ...base, ...(await toolApplyDiff(call.args)) };
+      case 'applyDiff':       return { ...base, ...(await toolApplyDiff(call.args)) };
+      case 'createWorktree': return { ...base, ...(await toolCreateWorktree(call.args)) };
+      case 'removeWorktree': return { ...base, ...(await toolRemoveWorktree(call.args)) };
       default:
         return { ...base, status: 'error', output: `Unknown tool: ${call.name}` };
     }
@@ -334,6 +354,71 @@ async function toolApplyDiff(args: Record<string, unknown>): Promise<{ status: '
     status: 'success',
     output: `Applied diff to ${filePath}: replaced ${searchLines} lines with ${replaceLines} lines`,
   };
+}
+
+async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ status: 'success' | 'error'; output: string }> {
+  const root = getWorkspaceRoot();
+  if (!root) return { status: 'error', output: 'No workspace folder open' };
+
+  const branch = args.branch as string;
+  if (!branch) return { status: 'error', output: 'Missing required arg: branch' };
+
+  const worktreePath = (args.path as string) || path.join('..', `worktree-${branch.replace(/\//g, '-')}`);
+  const fullPath = resolveSafe(path.dirname(root), path.basename(root) + '/' + worktreePath)
+    ?? path.resolve(root, worktreePath);
+
+  return new Promise((resolve) => {
+    cp.exec(
+      `git worktree add -b "${branch}" "${fullPath}"`,
+      { cwd: root, timeout: 30_000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          resolve({ status: 'error', output: `Failed to create worktree: ${stderr || err.message}` });
+        } else {
+          resolve({ status: 'success', output: `Created worktree at ${fullPath} on branch ${branch}\n${stdout}`.trim() });
+        }
+      },
+    );
+  });
+}
+
+async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ status: 'success' | 'error'; output: string }> {
+  const root = getWorkspaceRoot();
+  if (!root) return { status: 'error', output: 'No workspace folder open' };
+
+  const worktreePath = args.path as string;
+  if (!worktreePath) return { status: 'error', output: 'Missing required arg: path' };
+
+  const deleteBranch = (args.deleteBranch as boolean) ?? false;
+  const fullPath = path.resolve(root, worktreePath);
+
+  return new Promise((resolve) => {
+    cp.exec(
+      `git worktree remove "${fullPath}" --force`,
+      { cwd: root, timeout: 30_000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          resolve({ status: 'error', output: `Failed to remove worktree: ${stderr || err.message}` });
+          return;
+        }
+
+        let output = `Removed worktree at ${fullPath}\n${stdout}`.trim();
+
+        if (deleteBranch) {
+          // Extract branch name from path
+          const branchName = path.basename(fullPath).replace(/^worktree-/, '').replace(/-/g, '/');
+          try {
+            cp.execSync(`git branch -D "${branchName}"`, { cwd: root, timeout: 10_000 });
+            output += `\nDeleted branch ${branchName}`;
+          } catch {
+            output += `\nNote: could not delete branch (may not exist or already deleted)`;
+          }
+        }
+
+        resolve({ status: 'success', output });
+      },
+    );
+  });
 }
 
 // ── Tool prompt builder ───────────────────────────────────────────────────────

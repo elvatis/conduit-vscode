@@ -193,15 +193,15 @@ describe('agent-tools', () => {
   // ── Tool definitions ────────────────────────────────────────────────────
 
   describe('TOOL_DEFINITIONS', () => {
-    it('has 7 tools defined', () => {
-      expect(TOOL_DEFINITIONS).toHaveLength(7);
+    it('has 9 tools defined', () => {
+      expect(TOOL_DEFINITIONS).toHaveLength(9);
     });
 
     it('classifies permissions correctly', () => {
       const safe = TOOL_DEFINITIONS.filter(t => t.permission === 'safe');
       const destructive = TOOL_DEFINITIONS.filter(t => t.permission === 'destructive');
       expect(safe.map(t => t.name).sort()).toEqual(['listFiles', 'readDiagnostics', 'readFile', 'searchCode']);
-      expect(destructive.map(t => t.name).sort()).toEqual(['applyDiff', 'runCommand', 'writeFile']);
+      expect(destructive.map(t => t.name).sort()).toEqual(['applyDiff', 'createWorktree', 'removeWorktree', 'runCommand', 'writeFile']);
     });
   });
 });

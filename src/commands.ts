@@ -5,6 +5,14 @@ import { getConfig } from './config';
 import { ConduitChatPanel } from './chat-panel';
 import { stripFences } from './utils';
 import { ConduitInlineProvider } from './inline-provider';
+import { CLI_MODELS, spawnCliAgent } from './cli-runner';
+import {
+  addBackgroundSession,
+  killBackgroundSession,
+  getBackgroundSession,
+  getBackgroundSessions,
+  type BackgroundSession,
+} from './sessions-tree-provider';
 
 export function registerCommands(
   ctx: vscode.ExtensionContext,
@@ -228,6 +236,127 @@ export function registerCommands(
     vscode.window.showInformationMessage(
       `Conduit inline suggestions ${newValue ? 'enabled' : 'disabled'}.`,
     );
+  }));
+
+  // ── Spawn Background Agent ─────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.spawnAgent', async () => {
+    const modelItems = CLI_MODELS.map(m => ({ label: m.name, description: m.id, id: m.id }));
+    const picked = await vscode.window.showQuickPick(modelItems, {
+      placeHolder: 'Select a model for the agent',
+      title: 'Conduit — Spawn Agent',
+    });
+    if (!picked) return;
+
+    const prompt = await vscode.window.showInputBox({
+      prompt: 'What should the agent do?',
+      placeHolder: 'e.g. refactor auth module, fix failing tests…',
+    });
+    if (!prompt) return;
+
+    const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const handle = spawnCliAgent(picked.id, messages, 600_000, workdir);
+    const session = addBackgroundSession(prompt.slice(0, 60), picked.id, handle);
+
+    vscode.window.showInformationMessage(
+      `Conduit: agent spawned (PID ${handle.pid})`,
+      'View Output',
+    ).then(action => {
+      if (action === 'View Output') {
+        session.outputChannel.show();
+      }
+    });
+  }));
+
+  // ── Kill Background Session ────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.killSession', async (item?: { bgSession: BackgroundSession }) => {
+    if (item?.bgSession) {
+      killBackgroundSession(item.bgSession.id);
+      vscode.window.showInformationMessage(`Conduit: killed agent "${item.bgSession.title}"`);
+      return;
+    }
+
+    // No context item - show quick pick of running sessions
+    const running = getBackgroundSessions().filter(s => s.status === 'running');
+    if (running.length === 0) {
+      vscode.window.showInformationMessage('Conduit: no running agent sessions.');
+      return;
+    }
+
+    const picked = await vscode.window.showQuickPick(
+      running.map(s => ({ label: s.title, description: `PID ${s.handle.pid}`, id: s.id })),
+      { placeHolder: 'Select session to kill' },
+    );
+    if (picked) {
+      killBackgroundSession(picked.id);
+      vscode.window.showInformationMessage(`Conduit: killed agent "${picked.label}"`);
+    }
+  }));
+
+  // ── View Agent Output ─────────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.viewAgentOutput', (item?: { bgSession: BackgroundSession }) => {
+    if (item?.bgSession) {
+      item.bgSession.outputChannel.show();
+      return;
+    }
+
+    const sessions = getBackgroundSessions();
+    if (sessions.length === 0) {
+      vscode.window.showInformationMessage('Conduit: no agent sessions.');
+      return;
+    }
+
+    // Show the most recent session output
+    const latest = sessions.sort((a, b) => b.startedAt - a.startedAt)[0];
+    latest.outputChannel.show();
+  }));
+
+  // ── Fix Issue (worktree + agent) ──────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.fixIssue', async () => {
+    const issueNumber = await vscode.window.showInputBox({
+      prompt: 'GitHub issue number',
+      placeHolder: 'e.g. 42',
+      validateInput: (v) => /^\d+$/.test(v) ? null : 'Enter a number',
+    });
+    if (!issueNumber) return;
+
+    const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workdir) {
+      vscode.window.showWarningMessage('Conduit: open a workspace folder first.');
+      return;
+    }
+
+    const modelItems = CLI_MODELS.map(m => ({ label: m.name, description: m.id, id: m.id }));
+    const picked = await vscode.window.showQuickPick(modelItems, {
+      placeHolder: 'Select a model for the agent',
+      title: 'Conduit — Fix Issue',
+    });
+    if (!picked) return;
+
+    const branch = `fix/issue-${issueNumber}`;
+    const cp = require('child_process') as typeof import('child_process');
+    const worktreePath = require('path').join(workdir, '..', `worktree-fix-issue-${issueNumber}`);
+
+    try {
+      cp.execSync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: workdir, timeout: 15_000 });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Conduit: failed to create worktree: ${(err as Error).message}`);
+      return;
+    }
+
+    const prompt = `Fix GitHub issue #${issueNumber}. Analyze the codebase, identify the problem, and implement a fix. Create a commit when done.`;
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const handle = spawnCliAgent(picked.id, messages, 600_000, worktreePath);
+    const session = addBackgroundSession(`Fix #${issueNumber}`, picked.id, handle);
+
+    vscode.window.showInformationMessage(
+      `Conduit: agent spawned on branch ${branch} (worktree: ${worktreePath})`,
+      'View Output',
+    ).then(action => {
+      if (action === 'View Output') {
+        session.outputChannel.show();
+      }
+    });
   }));
 
   return disposables;
