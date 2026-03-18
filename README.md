@@ -705,7 +705,7 @@ Open issues tracking planned features:
 | [#9](https://github.com/elvatis/conduit-vscode/issues/9) | Agent output streaming to session panel | Planned |
 | [#10](https://github.com/elvatis/conduit-vscode/issues/10) | Shared agent backend abstraction with aahp-runner | ✅ Done |
 | [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | ✅ Done |
-| [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | Planned |
+| [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | ✅ Done |
 | [#13](https://github.com/elvatis/conduit-vscode/issues/13) | Cost tracking per agent session | Planned |
 
 ---

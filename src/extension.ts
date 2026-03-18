@@ -9,7 +9,7 @@ import { BridgePanel } from './bridge-panel';
 import { HealthPanel } from './health-panel';
 import { checkHealth } from './proxy-client';
 import { ConduitChatViewProvider } from './chat-view-provider';
-import { SessionsTreeProvider } from './sessions-tree-provider';
+import { SessionsTreeProvider, restorePersistedSessions } from './sessions-tree-provider';
 import { inlineChat } from './inline-chat';
 import { generateCommitMessage } from './commit-message';
 
@@ -44,6 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
         HealthPanel.createOrShow(bridgeManager!);
       }),
     );
+
+    // ── Restore persisted agent sessions ──────────────────────────────────────
+    restorePersistedSessions(context);
 
     // ── Sidebar chat view provider ──────────────────────────────────────────
     const chatViewProvider = new ConduitChatViewProvider(context, bridgeManager);
