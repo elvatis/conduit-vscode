@@ -4,7 +4,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Current version:** 0.6.0
 
-> **Status:** Active development. All core features implemented and tested (231 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (244 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -165,11 +165,12 @@ The Sessions tree view shows all background agents:
 - Click to view output, right-click to kill running agents
 
 ### Model Fallback Chain
-`cli-runner.ts` defines fallback chains for when a model is unavailable:
+When a model fails with a transient error (rate limit, timeout, capacity, auth failure), Conduit automatically retries with the next model in the fallback chain:
 - Gemini 2.5 Pro → Gemini 2.5 Flash
 - Gemini 3 Pro Preview → Gemini 3 Flash Preview
-- Claude Opus 4.6 → Claude Sonnet 4.6
-- Claude Sonnet 4.6 → Claude Haiku 4.5
+- Claude Opus 4.6 → Claude Sonnet 4.6 → Claude Haiku 4.5
+
+Fallback is triggered by: 429/503 errors, rate limits, capacity issues, timeouts, and auth failures. Non-transient errors (syntax, missing args) are not retried. The `RouteResult` metadata tracks which model was actually used and why.
 
 ---
 
@@ -515,7 +516,7 @@ Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are co
 
 ## Testing
 
-Conduit has a comprehensive test suite with **231 tests** across **14 test files**.
+Conduit has a comprehensive test suite with **244 tests** across **15 test files**.
 
 ### Running Tests
 
@@ -531,6 +532,7 @@ npm run test:coverage       # run with coverage report
 | `agent-parser.test.ts` | 25 | Agent output parsing, step card extraction |
 | `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
+| `cli-runner-failover.test.ts` | 13 | Model failover chain, fallback pattern matching |
 | `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
@@ -606,7 +608,7 @@ npm install --include=dev
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
 npm run lint    # eslint
-npm test        # run tests (vitest, 231 tests)
+npm test        # run tests (vitest, 244 tests)
 ```
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
@@ -648,7 +650,7 @@ conduit-vscode/
     health-panel.ts           - health dashboard webview
     status-bar.ts             - consolidated status bar item
     utils.ts                  - shared utilities
-  src/__tests__/              - 14 test files, 231 tests (vitest)
+  src/__tests__/              - 15 test files, 244 tests (vitest)
   dist/
     extension.js              - bundled output (esbuild)
   media/
@@ -694,7 +696,7 @@ Open issues tracking planned features:
 - Merge-status aware worktree cleanup
 - Fix Issue command (auto-worktree + agent spawn)
 - Model fallback chain definitions
-- 231 tests across 14 test files
+- 244 tests across 15 test files
 
 ### v0.5.0
 - Reliable agent loop with tool execution

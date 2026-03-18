@@ -265,23 +265,104 @@ async function runPi(prompt: string, _modelId: string, timeoutMs: number, workdi
 
 // ── Router ───────────────────────────────────────────────────────────────────
 
+/** Errors that indicate the model is unavailable and failover should be attempted */
+const FAILOVER_PATTERNS = [
+  /rate.?limit/i,
+  /429/,
+  /503/,
+  /too many requests/i,
+  /capacity/i,
+  /overloaded/i,
+  /unavailable/i,
+  /quota/i,
+  /authentication/i,
+  /auth.?failed/i,
+  /401/,
+  /timeout/i,
+  /ETIMEDOUT/,
+  /ECONNREFUSED/,
+];
+
+function isFailoverEligible(error: Error): boolean {
+  return FAILOVER_PATTERNS.some(p => p.test(error.message));
+}
+
+export interface RouteResult {
+  output: string;
+  model: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+}
+
+async function runModel(prompt: string, normalized: string, timeoutMs: number, workdir?: string): Promise<string> {
+  if (normalized.startsWith('cli-gemini/'))    return runGemini(prompt, normalized, timeoutMs, workdir);
+  if (normalized.startsWith('cli-claude/'))    return runClaude(prompt, normalized, timeoutMs, workdir);
+  if (normalized.startsWith('openai-codex/'))  return runCodex(prompt, normalized, timeoutMs, workdir);
+  if (normalized.startsWith('opencode/'))      return runOpenCode(prompt, normalized, timeoutMs, workdir);
+  if (normalized.startsWith('pi/'))            return runPi(prompt, normalized, timeoutMs, workdir);
+  throw new Error(`Unknown model: "${normalized}". Supported prefixes: cli-gemini/, cli-claude/, openai-codex/, opencode/, pi/`);
+}
+
 export async function routeToCliRunner(
   model: string,
   messages: ChatMessage[],
   timeoutMs: number,
   workdir?: string,
 ): Promise<string> {
+  const result = await routeToCliRunnerWithFallback(model, messages, timeoutMs, workdir);
+  return result.output;
+}
+
+export async function routeToCliRunnerWithFallback(
+  model: string,
+  messages: ChatMessage[],
+  timeoutMs: number,
+  workdir?: string,
+  maxFallbacks: number = 1,
+): Promise<RouteResult> {
   const prompt = formatPrompt(messages);
   let normalized = model.startsWith('vllm/') ? model.slice(5) : model;
   normalized = MODEL_ALIASES[normalized] ?? normalized;
 
-  if (normalized.startsWith('cli-gemini/'))    return runGemini(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('cli-claude/'))    return runClaude(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('openai-codex/'))  return runCodex(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('opencode/'))      return runOpenCode(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('pi/'))            return runPi(prompt, normalized, timeoutMs, workdir);
+  // Try primary model
+  try {
+    const output = await runModel(prompt, normalized, timeoutMs, workdir);
+    return { output, model: normalized, fallbackUsed: false };
+  } catch (primaryError) {
+    if (!isFailoverEligible(primaryError as Error) || maxFallbacks <= 0) {
+      throw primaryError;
+    }
 
-  throw new Error(`Unknown model: "${model}". Supported prefixes: cli-gemini/, cli-claude/, openai-codex/, opencode/, pi/`);
+    // Walk the fallback chain
+    let currentModel = normalized;
+    let lastError = primaryError as Error;
+
+    for (let attempt = 0; attempt < maxFallbacks; attempt++) {
+      const fallback = MODEL_FALLBACKS[currentModel];
+      if (!fallback) break; // no more fallbacks in the chain
+
+      try {
+        const output = await runModel(prompt, fallback, timeoutMs, workdir);
+        return {
+          output,
+          model: fallback,
+          fallbackUsed: true,
+          fallbackReason: `${currentModel} failed (${lastError.message}), fell back to ${fallback}`,
+        };
+      } catch (fallbackError) {
+        lastError = fallbackError as Error;
+        currentModel = fallback;
+        // Continue to next fallback in chain if eligible
+        if (!isFailoverEligible(lastError)) break;
+      }
+    }
+
+    // All fallbacks exhausted, throw the last error with context
+    throw new Error(
+      `All models failed. Primary: ${normalized} (${(primaryError as Error).message}). ` +
+      `Last fallback: ${currentModel} (${lastError.message})`,
+    );
+  }
 }
 
 // ── Background agent spawning ─────────────────────────────────────────────────
