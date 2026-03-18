@@ -4,6 +4,7 @@ import { extractProvider, shortModelName } from './utils';
 import type { CliAgentHandle } from './cli-runner';
 import * as fs from 'fs';
 import * as path from 'path';
+import { estimateCost, formatCost, formatTokens, type CostEstimate } from './cost-tracker';
 
 interface SessionEntry {
   id: string;
@@ -34,6 +35,8 @@ export interface BackgroundSession {
   lastOutputLine: string;
   /** Interval for polling output */
   _outputPollInterval?: ReturnType<typeof setInterval>;
+  /** Cost estimate parsed from agent output */
+  costEstimate?: CostEstimate;
 }
 
 /** Serializable subset of BackgroundSession for persistence */
@@ -202,11 +205,29 @@ export function addBackgroundSession(
       const lines = currentOutput.split('\n').filter(l => l.trim().length > 0);
       if (lines.length > 0) {
         const lastLine = lines[lines.length - 1].trim();
-        // Truncate for tree display
         session.lastOutputLine = lastLine.length > 60
           ? lastLine.slice(0, 57) + '...'
           : lastLine;
         _treeRefreshCb?.();
+      }
+
+      // Live cost check: parse tokens periodically and enforce budget
+      const liveCost = estimateCost(currentOutput, session.model);
+      if (liveCost) {
+        session.costEstimate = liveCost;
+        const budgetLimit = vscode.workspace.getConfiguration('conduit').get<number>('maxSessionCost', 0);
+        if (budgetLimit > 0 && liveCost.costUsd > budgetLimit) {
+          outputChannel.appendLine(`\n[Cost] ⚠️ Budget limit exceeded (${formatCost(liveCost.costUsd)} > ${formatCost(budgetLimit)}). Killing agent.`);
+          handle.kill();
+          session.status = 'failed';
+          session.finishedAt = Date.now();
+          session.lastOutputLine = 'killed: budget exceeded';
+          if (session._outputPollInterval) clearInterval(session._outputPollInterval);
+          _treeRefreshCb?.();
+          vscode.window.showWarningMessage(
+            `Conduit: agent "${title}" killed (cost ${formatCost(liveCost.costUsd)} exceeded budget ${formatCost(budgetLimit)}).`,
+          );
+        }
       }
     }
   }, 1_000);
@@ -225,6 +246,21 @@ export function addBackgroundSession(
     outputChannel.appendLine('\n---');
     outputChannel.appendLine(`[Agent] ${session.status} (exit code ${result.exitCode})`);
 
+    // Parse token usage and estimate cost
+    const fullOutput = handle.output.join('');
+    const cost = estimateCost(fullOutput, session.model);
+    if (cost) {
+      session.costEstimate = cost;
+      outputChannel.appendLine(`[Cost] ${formatTokens(cost.usage)}`);
+      outputChannel.appendLine(`[Cost] Estimated: ${formatCost(cost.costUsd)} (${session.model})`);
+    }
+
+    // Check budget limit
+    const budgetLimit = vscode.workspace.getConfiguration('conduit').get<number>('maxSessionCost', 0);
+    if (budgetLimit > 0 && cost && cost.costUsd > budgetLimit) {
+      outputChannel.appendLine(`[Cost] ⚠️ Session cost (${formatCost(cost.costUsd)}) exceeded budget limit (${formatCost(budgetLimit)})`);
+    }
+
     if (session._outputPollInterval) clearInterval(session._outputPollInterval);
 
     // Persist session log and state
@@ -232,9 +268,10 @@ export function addBackgroundSession(
     persistSessions();
     _treeRefreshCb?.();
 
-    // Completion notification
+    // Completion notification with cost info
+    const costSuffix = cost ? ` [${formatCost(cost.costUsd)}]` : '';
     vscode.window.showInformationMessage(
-      `Conduit: agent "${title}" ${session.status}.`,
+      `Conduit: agent "${title}" ${session.status}.${costSuffix}`,
       'View Output',
     ).then(action => {
       if (action === 'View Output') outputChannel.show();
@@ -423,13 +460,20 @@ class BackgroundSessionItem extends vscode.TreeItem {
       ? `Duration: ${Math.round((bgSession.finishedAt - bgSession.startedAt) / 1000)}s`
       : `Running for: ${Math.round((Date.now() - bgSession.startedAt) / 1000)}s`;
 
+    let costStr = '';
+    if (bgSession.costEstimate) {
+      costStr = `\n\nTokens: ${formatTokens(bgSession.costEstimate.usage)}\n\n` +
+        `Cost: ${formatCost(bgSession.costEstimate.costUsd)}`;
+    }
+
     this.tooltip = new vscode.MarkdownString(
       `**${bgSession.title}**\n\n` +
       `Model: ${bgSession.model}\n\n` +
       `Status: ${bgSession.status}\n\n` +
       `PID: ${bgSession.handle.pid}\n\n` +
       `${durationStr}\n\n` +
-      `Started: ${new Date(bgSession.startedAt).toLocaleString()}`,
+      `Started: ${new Date(bgSession.startedAt).toLocaleString()}` +
+      costStr,
     );
 
     this.contextValue = bgSession.status === 'running' ? 'runningAgent'

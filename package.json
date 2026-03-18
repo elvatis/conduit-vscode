@@ -124,6 +124,12 @@
               }
             }
           }
+        },
+        "conduit.maxSessionCost": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum cost (USD) per agent session before auto-kill. Set to 0 to disable.",
+          "minimum": 0
         }
       }
     },
@@ -295,6 +301,11 @@
       {
         "command": "conduit.clearFinishedSessions",
         "title": "Clear All Finished Sessions",
+        "category": "Conduit"
+      },
+      {
+        "command": "conduit.sessionCostSummary",
+        "title": "Session Cost Summary",
         "category": "Conduit"
       }
     ],
