@@ -7,7 +7,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Current version:** 0.7.0
 
-> **Status:** Active development. All core features implemented and tested (301 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (283 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -528,7 +528,7 @@ Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are co
 
 ## Testing
 
-Conduit has a comprehensive test suite with **301 tests** across **18 test files**.
+Conduit has a comprehensive test suite with **283 tests** across **17 test files**.
 
 ### Running Tests
 
@@ -622,7 +622,7 @@ npm install --include=dev
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
 npm run lint    # eslint
-npm test        # run tests (vitest, 301 tests)
+npm test        # run tests (vitest, 283 tests)
 ```
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
@@ -674,7 +674,7 @@ conduit-vscode/
     health-panel.ts           - health dashboard webview
     status-bar.ts             - consolidated status bar item
     utils.ts                  - shared utilities
-  src/__tests__/              - 18 test files, 301 tests (vitest)
+  src/__tests__/              - 17 test files, 283 tests (vitest)
   dist/
     extension.js              - bundled output (esbuild)
   media/

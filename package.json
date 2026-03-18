@@ -458,5 +458,8 @@
     "eslint": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "@elvatis_com/agent-backends": "^1.0.0"
   }
 }
