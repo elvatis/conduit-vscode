@@ -12,6 +12,8 @@ import {
   killBackgroundSession,
   getBackgroundSession,
   getBackgroundSessions,
+  removeBackgroundSession,
+  clearFinishedSessions,
   type BackgroundSession,
 } from './sessions-tree-provider';
 
@@ -553,6 +555,74 @@ export function registerCommands(
     vscode.window.showInformationMessage(
       `Conduit: batch fix started. ${spawned} agents spawned, ${failed} failed.`,
     );
+  }));
+
+  // ── Resume Interrupted Session ──────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.resumeSession', async (item?: { bgSession: BackgroundSession }) => {
+    let session: BackgroundSession | undefined;
+    if (item?.bgSession) {
+      session = item.bgSession;
+    } else {
+      // Show quick pick of interrupted sessions
+      const interrupted = getBackgroundSessions().filter(s => s.status === 'interrupted');
+      if (interrupted.length === 0) {
+        vscode.window.showInformationMessage('Conduit: no interrupted sessions to resume.');
+        return;
+      }
+      const picked = await vscode.window.showQuickPick(
+        interrupted.map(s => ({ label: s.title, description: `${s.model}`, id: s.id })),
+        { placeHolder: 'Select session to resume' },
+      );
+      if (!picked) return;
+      session = getBackgroundSession(picked.id);
+    }
+
+    if (!session || session.status !== 'interrupted') {
+      vscode.window.showWarningMessage('Conduit: session is not in interrupted state.');
+      return;
+    }
+
+    // Re-run the same prompt with the same model
+    const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const messages: { role: 'user'; content: string }[] = [
+      { role: 'user', content: session.title },
+    ];
+
+    const handle = spawnCliAgent(session.model, messages, 600_000, workdir);
+    const newSession = addBackgroundSession(`${session.title} (resumed)`, session.model, handle);
+
+    // Remove the old interrupted session
+    removeBackgroundSession(session.id);
+
+    vscode.window.showInformationMessage(
+      `Conduit: resumed agent "${session.title}" (PID ${handle.pid})`,
+      'View Output',
+    ).then(action => {
+      if (action === 'View Output') {
+        newSession.outputChannel.show();
+      }
+    });
+  }));
+
+  // ── Remove Finished Session ────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.removeSession', (item?: { bgSession: BackgroundSession }) => {
+    if (item?.bgSession) {
+      if (removeBackgroundSession(item.bgSession.id)) {
+        vscode.window.showInformationMessage(`Conduit: removed session "${item.bgSession.title}"`);
+      }
+      return;
+    }
+    vscode.window.showInformationMessage('Conduit: right-click a finished session to remove it.');
+  }));
+
+  // ── Clear All Finished Sessions ────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.clearFinishedSessions', () => {
+    const count = clearFinishedSessions();
+    if (count > 0) {
+      vscode.window.showInformationMessage(`Conduit: cleared ${count} finished session${count !== 1 ? 's' : ''}.`);
+    } else {
+      vscode.window.showInformationMessage('Conduit: no finished sessions to clear.');
+    }
   }));
 
   return disposables;

@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import type { ChatMode } from './model-registry';
 import { extractProvider, shortModelName } from './utils';
 import type { CliAgentHandle } from './cli-runner';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface SessionEntry {
   id: string;
@@ -17,7 +19,7 @@ interface SessionEntry {
 
 // ── Background agent sessions ─────────────────────────────────────────────────
 
-export type BackgroundSessionStatus = 'running' | 'completed' | 'failed';
+export type BackgroundSessionStatus = 'running' | 'completed' | 'failed' | 'interrupted';
 
 export interface BackgroundSession {
   id: string;
@@ -34,12 +36,136 @@ export interface BackgroundSession {
   _outputPollInterval?: ReturnType<typeof setInterval>;
 }
 
+/** Serializable subset of BackgroundSession for persistence */
+interface PersistedSession {
+  id: string;
+  title: string;
+  model: string;
+  status: BackgroundSessionStatus;
+  startedAt: number;
+  finishedAt?: number;
+  lastOutputLine: string;
+  logFile?: string;
+}
+
 const _backgroundSessions = new Map<string, BackgroundSession>();
 let _bgIdCounter = 0;
 let _treeRefreshCb: (() => void) | null = null;
+let _extensionContext: vscode.ExtensionContext | null = null;
 
 export function setBackgroundRefreshCallback(cb: () => void): void {
   _treeRefreshCb = cb;
+}
+
+/** Get the session log directory, creating it if needed */
+function getSessionLogDir(): string | undefined {
+  const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workdir) return undefined;
+  const dir = path.join(workdir, '.conduit', 'sessions');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // best-effort
+  }
+  return dir;
+}
+
+/** Persist session metadata to globalState */
+function persistSessions(): void {
+  if (!_extensionContext) return;
+  const sessions: PersistedSession[] = [];
+  for (const s of _backgroundSessions.values()) {
+    sessions.push({
+      id: s.id,
+      title: s.title,
+      model: s.model,
+      status: s.status,
+      startedAt: s.startedAt,
+      finishedAt: s.finishedAt,
+      lastOutputLine: s.lastOutputLine,
+      logFile: getSessionLogPath(s.id),
+    });
+  }
+  _extensionContext.globalState.update('conduit.backgroundSessions', sessions);
+}
+
+/** Get path for a session log file */
+function getSessionLogPath(sessionId: string): string | undefined {
+  const dir = getSessionLogDir();
+  if (!dir) return undefined;
+  return path.join(dir, `${sessionId}.log`);
+}
+
+/** Write session output to a log file */
+function writeSessionLog(session: BackgroundSession): void {
+  const logPath = getSessionLogPath(session.id);
+  if (!logPath) return;
+  try {
+    const output = session.handle.output.join('');
+    fs.writeFileSync(logPath, output, 'utf-8');
+  } catch {
+    // best-effort log persistence
+  }
+}
+
+/** Restore sessions from globalState (called during activation) */
+export function restorePersistedSessions(context: vscode.ExtensionContext): void {
+  _extensionContext = context;
+  const persisted = context.globalState.get<PersistedSession[]>('conduit.backgroundSessions', []);
+  for (const p of persisted) {
+    // Mark previously running sessions as interrupted
+    const status: BackgroundSessionStatus = p.status === 'running' ? 'interrupted' : p.status;
+
+    // Load log content if available
+    let logContent = '';
+    if (p.logFile) {
+      try {
+        logContent = fs.readFileSync(p.logFile, 'utf-8');
+      } catch {
+        // log file may have been cleaned up
+      }
+    }
+
+    // Create a read-only output channel with the saved log
+    const outputChannel = vscode.window.createOutputChannel(`Conduit Agent: ${p.title}`);
+    if (logContent) {
+      outputChannel.append(logContent);
+    } else {
+      outputChannel.appendLine(`[Agent] Model: ${p.model}`);
+      outputChannel.appendLine(`[Agent] Status: ${status} (restored from previous session)`);
+      outputChannel.appendLine(`[Agent] Started: ${new Date(p.startedAt).toLocaleString()}`);
+      if (p.finishedAt) {
+        outputChannel.appendLine(`[Agent] Finished: ${new Date(p.finishedAt).toLocaleString()}`);
+      }
+    }
+
+    // Create a dummy handle for the restored session (not runnable)
+    const dummyHandle: CliAgentHandle = {
+      pid: 0,
+      output: logContent ? [logContent] : [],
+      kill: () => {},
+      result: Promise.resolve({ stdout: '', stderr: '', exitCode: status === 'completed' ? 0 : 1 }),
+    };
+
+    const session: BackgroundSession = {
+      id: p.id,
+      title: p.title,
+      model: p.model,
+      status,
+      startedAt: p.startedAt,
+      finishedAt: p.finishedAt ?? (status === 'interrupted' ? Date.now() : undefined),
+      handle: dummyHandle,
+      outputChannel,
+      lastOutputLine: status === 'interrupted' ? 'interrupted (VS Code restarted)' : p.lastOutputLine,
+    };
+
+    _backgroundSessions.set(p.id, session);
+    // Update ID counter to avoid collisions
+    const idNum = parseInt(p.id.replace(/^bg-/, '').split('-')[0], 10);
+    if (!isNaN(idNum) && idNum >= _bgIdCounter) {
+      _bgIdCounter = idNum + 1;
+    }
+  }
 }
 
 export function addBackgroundSession(
@@ -59,6 +185,7 @@ export function addBackgroundSession(
     lastOutputLine: 'starting...',
   };
   _backgroundSessions.set(id, session);
+  persistSessions();
 
   // Live output streaming: poll handle.output and append new chunks
   let lastOutputLength = 0;
@@ -99,6 +226,10 @@ export function addBackgroundSession(
     outputChannel.appendLine(`[Agent] ${session.status} (exit code ${result.exitCode})`);
 
     if (session._outputPollInterval) clearInterval(session._outputPollInterval);
+
+    // Persist session log and state
+    writeSessionLog(session);
+    persistSessions();
     _treeRefreshCb?.();
 
     // Completion notification
@@ -112,6 +243,8 @@ export function addBackgroundSession(
     session.status = 'failed';
     session.finishedAt = Date.now();
     if (session._outputPollInterval) clearInterval(session._outputPollInterval);
+    writeSessionLog(session);
+    persistSessions();
     _treeRefreshCb?.();
   });
 
@@ -128,8 +261,39 @@ export function killBackgroundSession(id: string): boolean {
   session.lastOutputLine = 'killed by user';
   if (session._outputPollInterval) clearInterval(session._outputPollInterval);
   session.outputChannel.appendLine('\n[Agent] Killed by user');
+  writeSessionLog(session);
+  persistSessions();
   _treeRefreshCb?.();
   return true;
+}
+
+/** Remove a completed/failed/interrupted session from the tree */
+export function removeBackgroundSession(id: string): boolean {
+  const session = _backgroundSessions.get(id);
+  if (!session) return false;
+  if (session.status === 'running') return false; // don't remove running sessions
+  session.outputChannel.dispose();
+  _backgroundSessions.delete(id);
+  persistSessions();
+  _treeRefreshCb?.();
+  return true;
+}
+
+/** Clear all completed/failed/interrupted sessions */
+export function clearFinishedSessions(): number {
+  let cleared = 0;
+  for (const [id, session] of _backgroundSessions.entries()) {
+    if (session.status !== 'running') {
+      session.outputChannel.dispose();
+      _backgroundSessions.delete(id);
+      cleared++;
+    }
+  }
+  if (cleared > 0) {
+    persistSessions();
+    _treeRefreshCb?.();
+  }
+  return cleared;
 }
 
 export function getBackgroundSessions(): BackgroundSession[] {
@@ -246,9 +410,11 @@ class BackgroundSessionItem extends vscode.TreeItem {
 
     const statusIcon = bgSession.status === 'running' ? 'sync~spin'
       : bgSession.status === 'completed' ? 'check'
+      : bgSession.status === 'interrupted' ? 'debug-pause'
       : 'error';
     const statusColor = bgSession.status === 'running' ? 'charts.blue'
       : bgSession.status === 'completed' ? 'charts.green'
+      : bgSession.status === 'interrupted' ? 'charts.yellow'
       : 'charts.red';
 
     this.iconPath = new vscode.ThemeIcon(statusIcon, new vscode.ThemeColor(statusColor));
@@ -266,7 +432,9 @@ class BackgroundSessionItem extends vscode.TreeItem {
       `Started: ${new Date(bgSession.startedAt).toLocaleString()}`,
     );
 
-    this.contextValue = bgSession.status === 'running' ? 'runningAgent' : 'completedAgent';
+    this.contextValue = bgSession.status === 'running' ? 'runningAgent'
+      : bgSession.status === 'interrupted' ? 'interruptedAgent'
+      : 'completedAgent';
   }
 }
 
@@ -281,6 +449,7 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   constructor(context: vscode.ExtensionContext) {
     this._context = context;
+    _extensionContext = context;
     setBackgroundRefreshCallback(() => this.refresh());
   }
 

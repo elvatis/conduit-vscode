@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SessionsTreeProvider, timeAgo } from '../sessions-tree-provider';
+import {
+  SessionsTreeProvider,
+  timeAgo,
+  addBackgroundSession,
+  killBackgroundSession,
+  getBackgroundSessions,
+  removeBackgroundSession,
+  clearFinishedSessions,
+  restorePersistedSessions,
+  type BackgroundSessionStatus,
+} from '../sessions-tree-provider';
 
 // ── timeAgo ──────────────────────────────────────────────────────────────────
 
@@ -200,6 +210,137 @@ describe('SessionsTreeProvider', () => {
       expect((claudeGroup as any).description).toBe('2 sessions');
       const grokGroup = children.find((c: any) => c.label === 'Grok');
       expect((grokGroup as any).description).toBe('1 session');
+    });
+  });
+});
+
+// ── Session Persistence ────────────────────────────────────────────────────
+
+describe('session persistence', () => {
+  function makeMockHandle(exitCode = 0) {
+    return {
+      pid: 12345,
+      output: ['line 1\n', 'line 2\n'],
+      kill: vi.fn(),
+      result: Promise.resolve({ stdout: 'done', stderr: '', exitCode }),
+    };
+  }
+
+  describe('restorePersistedSessions', () => {
+    it('restores completed sessions from globalState', () => {
+      const persisted = [
+        {
+          id: 'bg-1-1000',
+          title: 'Fix #42',
+          model: 'cli-claude/claude-sonnet-4-6',
+          status: 'completed' as BackgroundSessionStatus,
+          startedAt: 1000,
+          finishedAt: 2000,
+          lastOutputLine: 'done',
+        },
+      ];
+      const ctx = makeMockContext();
+      ctx.globalState.get = vi.fn((_key: string, defaultValue: any) => {
+        if (_key === 'conduit.backgroundSessions') return persisted;
+        return defaultValue;
+      });
+      restorePersistedSessions(ctx);
+
+      const sessions = getBackgroundSessions();
+      const restored = sessions.find(s => s.id === 'bg-1-1000');
+      expect(restored).toBeDefined();
+      expect(restored!.status).toBe('completed');
+      expect(restored!.title).toBe('Fix #42');
+    });
+
+    it('marks previously running sessions as interrupted', () => {
+      const persisted = [
+        {
+          id: 'bg-2-2000',
+          title: 'Running task',
+          model: 'cli-gemini/gemini-2.5-flash',
+          status: 'running' as BackgroundSessionStatus,
+          startedAt: 2000,
+          lastOutputLine: 'processing...',
+        },
+      ];
+      const ctx = makeMockContext();
+      ctx.globalState.get = vi.fn((_key: string, defaultValue: any) => {
+        if (_key === 'conduit.backgroundSessions') return persisted;
+        return defaultValue;
+      });
+      restorePersistedSessions(ctx);
+
+      const sessions = getBackgroundSessions();
+      const restored = sessions.find(s => s.id === 'bg-2-2000');
+      expect(restored).toBeDefined();
+      expect(restored!.status).toBe('interrupted');
+      expect(restored!.lastOutputLine).toContain('interrupted');
+    });
+
+    it('handles empty persisted state', () => {
+      const ctx = makeMockContext();
+      ctx.globalState.get = vi.fn(() => []);
+      // Should not throw
+      restorePersistedSessions(ctx);
+    });
+  });
+
+  describe('removeBackgroundSession', () => {
+    it('removes a completed session', () => {
+      const ctx = makeMockContext();
+      const provider = new SessionsTreeProvider(ctx);
+
+      const handle = makeMockHandle(0);
+      const session = addBackgroundSession('test-remove', 'cli-claude/claude-sonnet-4-6', handle);
+
+      // Wait for it to complete
+      return handle.result.then(() => {
+        // Give the handler time to update status
+        return new Promise(resolve => setTimeout(resolve, 50));
+      }).then(() => {
+        const removed = removeBackgroundSession(session.id);
+        expect(removed).toBe(true);
+        expect(getBackgroundSessions().find(s => s.id === session.id)).toBeUndefined();
+      });
+    });
+
+    it('refuses to remove a running session', () => {
+      const ctx = makeMockContext();
+      const provider = new SessionsTreeProvider(ctx);
+
+      const neverResolves = new Promise<any>(() => {}); // never resolves
+      const handle = {
+        pid: 999,
+        output: [],
+        kill: vi.fn(),
+        result: neverResolves,
+      };
+      const session = addBackgroundSession('test-running', 'cli-claude/claude-sonnet-4-6', handle);
+      const removed = removeBackgroundSession(session.id);
+      expect(removed).toBe(false);
+
+      // Cleanup
+      killBackgroundSession(session.id);
+    });
+  });
+
+  describe('clearFinishedSessions', () => {
+    it('clears completed and failed sessions', () => {
+      const ctx = makeMockContext();
+      const provider = new SessionsTreeProvider(ctx);
+
+      const h1 = makeMockHandle(0);
+      const h2 = makeMockHandle(1);
+      addBackgroundSession('task-1', 'cli-claude/claude-sonnet-4-6', h1);
+      addBackgroundSession('task-2', 'cli-claude/claude-sonnet-4-6', h2);
+
+      return Promise.all([h1.result, h2.result]).then(() => {
+        return new Promise(resolve => setTimeout(resolve, 50));
+      }).then(() => {
+        const cleared = clearFinishedSessions();
+        expect(cleared).toBeGreaterThanOrEqual(2);
+      });
     });
   });
 });

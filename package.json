@@ -1,6 +1,6 @@
 {
   "name": "conduit-vscode",
-  "displayName": "Conduit — Universal AI Bridge",
+  "displayName": "Conduit \u2014 Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
   "version": "0.6.0",
   "publisher": "elvatis",
@@ -105,7 +105,10 @@
           "description": "Local OpenAI-compatible endpoints (Ollama, LM Studio, llama.cpp). Each entry: {name, url, apiKey?}",
           "items": {
             "type": "object",
-            "required": ["name", "url"],
+            "required": [
+              "name",
+              "url"
+            ],
             "properties": {
               "name": {
                 "type": "string",
@@ -196,19 +199,19 @@
       },
       {
         "command": "conduit.loginGrok",
-        "title": "Conduit: Login — Grok"
+        "title": "Conduit: Login \u2014 Grok"
       },
       {
         "command": "conduit.loginClaude",
-        "title": "Conduit: Login — Claude"
+        "title": "Conduit: Login \u2014 Claude"
       },
       {
         "command": "conduit.loginGemini",
-        "title": "Conduit: Login — Gemini"
+        "title": "Conduit: Login \u2014 Gemini"
       },
       {
         "command": "conduit.loginChatGPT",
-        "title": "Conduit: Login — ChatGPT"
+        "title": "Conduit: Login \u2014 ChatGPT"
       },
       {
         "command": "conduit.refreshModels",
@@ -278,6 +281,21 @@
         "command": "conduit.batchFixIssues",
         "title": "Conduit: Batch Fix Issues (Label Filter + Parallel Agents)",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "conduit.resumeSession",
+        "title": "Resume Interrupted Session",
+        "category": "Conduit"
+      },
+      {
+        "command": "conduit.removeSession",
+        "title": "Remove Finished Session",
+        "category": "Conduit"
+      },
+      {
+        "command": "conduit.clearFinishedSessions",
+        "title": "Clear All Finished Sessions",
+        "category": "Conduit"
       }
     ],
     "menus": {
@@ -335,6 +353,16 @@
           "command": "conduit.viewAgentOutput",
           "when": "view == conduit.sessionsView && viewItem =~ /runningAgent|completedAgent/",
           "group": "inline@2"
+        },
+        {
+          "command": "conduit.resumeSession",
+          "when": "viewItem == 'interruptedAgent'",
+          "group": "inline"
+        },
+        {
+          "command": "conduit.removeSession",
+          "when": "viewItem == 'completedAgent' || viewItem == 'interruptedAgent'",
+          "group": "2_manage"
         }
       ],
       "editor/title": [
