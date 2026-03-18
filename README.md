@@ -1,5 +1,8 @@
 # Conduit - Universal AI Bridge for VS Code
 
+[![CI](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml)
+[![LLM Validation](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml)
+
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
 **Current version:** 0.6.0
@@ -623,6 +626,13 @@ npm test        # run tests (vitest, 254 tests)
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
 
+### CI
+
+Two GitHub Actions workflows run automatically:
+
+- **CI** (`.github/workflows/ci.yml`): Runs on every push/PR to `main`. Builds, runs all tests, uploads coverage artifacts.
+- **LLM Validation** (`.github/workflows/llm-validation.yml`): Weekly smoke test (Mondays 06:00 UTC) that runs `llm-tool-validation.test.ts` against Claude Sonnet, Gemini Flash, and GPT-5.3 Codex. Can also be triggered manually via `workflow_dispatch`. Requires `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_APPLICATION_CREDENTIALS` secrets.
+
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
@@ -691,7 +701,7 @@ Open issues tracking planned features:
 | [#8](https://github.com/elvatis/conduit-vscode/issues/8) | Multi-issue batch mode (aahp-cron pattern) | Planned |
 | [#9](https://github.com/elvatis/conduit-vscode/issues/9) | Agent output streaming to session panel | Planned |
 | [#10](https://github.com/elvatis/conduit-vscode/issues/10) | Shared agent backend abstraction with aahp-runner | Planned |
-| [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | Planned |
+| [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | ✅ Done |
 | [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | Planned |
 | [#13](https://github.com/elvatis/conduit-vscode/issues/13) | Cost tracking per agent session | Planned |
 
