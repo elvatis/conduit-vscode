@@ -1,11 +1,11 @@
 {
   "name": "conduit-vscode",
-  "displayName": "Conduit \u2014 Universal AI Bridge",
+  "displayName": "Conduit — Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
   "version": "0.7.0",
   "publisher": "elvatis",
   "private": true,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/elvatis/conduit-vscode"
@@ -205,19 +205,19 @@
       },
       {
         "command": "conduit.loginGrok",
-        "title": "Conduit: Login \u2014 Grok"
+        "title": "Conduit: Login — Grok"
       },
       {
         "command": "conduit.loginClaude",
-        "title": "Conduit: Login \u2014 Claude"
+        "title": "Conduit: Login — Claude"
       },
       {
         "command": "conduit.loginGemini",
-        "title": "Conduit: Login \u2014 Gemini"
+        "title": "Conduit: Login — Gemini"
       },
       {
         "command": "conduit.loginChatGPT",
-        "title": "Conduit: Login \u2014 ChatGPT"
+        "title": "Conduit: Login — ChatGPT"
       },
       {
         "command": "conduit.refreshModels",
