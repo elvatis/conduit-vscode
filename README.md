@@ -157,6 +157,15 @@ Background agents have access to these workspace tools:
 | `createWorktree` | destructive | Create a git worktree for parallel work |
 | `removeWorktree` | destructive | Remove a worktree (merge-status aware) |
 
+### Batch Fix Issues
+`Conduit: Batch Fix Issues` - fix multiple GitHub issues in parallel:
+1. Enter a label filter (e.g. `bug`, `good-first-issue`) or leave empty for all open issues
+2. Set max issues to process
+3. Select a model
+4. Conduit fetches matching issues via `gh`, shows a confirmation dialog, then spawns agents with worktree isolation
+5. Max 3 concurrent agents (serialized worktree creation via lock)
+6. Progress and summary shown in a dedicated "Conduit Batch Fix" output channel
+
 ### Session Panel
 The Sessions tree view shows all background agents:
 - **Running:** animated spinner icon (blue)

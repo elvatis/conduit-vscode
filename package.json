@@ -273,6 +273,11 @@
         "command": "conduit.fixIssue",
         "title": "Conduit: Fix Issue (Worktree + Agent)",
         "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "conduit.batchFixIssues",
+        "title": "Conduit: Batch Fix Issues (Label Filter + Parallel Agents)",
+        "icon": "$(checklist)"
       }
     ],
     "menus": {

@@ -414,6 +414,147 @@ export function registerCommands(
     });
   }));
 
+  // ── Batch Fix Issues ──────────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.batchFixIssues', async () => {
+    const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workdir) {
+      vscode.window.showWarningMessage('Conduit: open a workspace folder first.');
+      return;
+    }
+
+    const label = await vscode.window.showInputBox({
+      prompt: 'GitHub label to filter issues (leave empty for all open issues)',
+      placeHolder: 'e.g. bug, good-first-issue',
+    });
+    if (label === undefined) return; // cancelled
+
+    const maxStr = await vscode.window.showInputBox({
+      prompt: 'Max issues to process',
+      placeHolder: '5',
+      value: '5',
+      validateInput: (v) => /^\d+$/.test(v) && parseInt(v) > 0 ? null : 'Enter a positive number',
+    });
+    if (!maxStr) return;
+    const maxIssues = parseInt(maxStr);
+
+    const modelItems = CLI_MODELS.map(m => ({ label: m.name, description: m.id, id: m.id }));
+    const picked = await vscode.window.showQuickPick(modelItems, {
+      placeHolder: 'Select a model for the agents',
+      title: 'Conduit — Batch Fix Issues',
+    });
+    if (!picked) return;
+
+    // Fetch issues via gh CLI
+    const cp = require('child_process') as typeof import('child_process');
+    const pathMod = require('path') as typeof import('path');
+    const fsMod = require('fs') as typeof import('fs');
+
+    let issueNumbers: number[];
+    try {
+      const labelArg = label ? `--label "${label}"` : '';
+      const ghOutput = cp.execSync(
+        `gh issue list --state open ${labelArg} --limit ${maxIssues} --json number,title`,
+        { cwd: workdir, timeout: 15_000, encoding: 'utf-8' },
+      );
+      const issues = JSON.parse(ghOutput) as Array<{ number: number; title: string }>;
+      if (issues.length === 0) {
+        vscode.window.showInformationMessage(`Conduit: no open issues found${label ? ` with label "${label}"` : ''}.`);
+        return;
+      }
+
+      // Show confirmation
+      const issueList = issues.map(i => `#${i.number}: ${i.title}`).join('\n');
+      const confirm = await vscode.window.showInformationMessage(
+        `Conduit: found ${issues.length} issues. Spawn agents for all?`,
+        { modal: true, detail: issueList },
+        'Start All',
+      );
+      if (confirm !== 'Start All') return;
+
+      issueNumbers = issues.map(i => i.number);
+    } catch (err) {
+      vscode.window.showErrorMessage(`Conduit: failed to fetch issues: ${(err as Error).message}`);
+      return;
+    }
+
+    // Spawn agents with concurrency limit
+    const MAX_CONCURRENT = 3;
+    const results: Array<{ issue: number; status: 'spawned' | 'failed'; error?: string }> = [];
+    const outputChannel = vscode.window.createOutputChannel('Conduit Batch Fix');
+    outputChannel.show();
+    outputChannel.appendLine(`[Batch] Starting ${issueNumbers.length} issue fixes with ${picked.label}`);
+    outputChannel.appendLine(`[Batch] Max concurrent: ${MAX_CONCURRENT}`);
+    outputChannel.appendLine('---');
+
+    const aahpCtx = loadAahpContext(workdir);
+
+    // Process in batches
+    for (let i = 0; i < issueNumbers.length; i += MAX_CONCURRENT) {
+      const batch = issueNumbers.slice(i, i + MAX_CONCURRENT);
+      const batchPromises = batch.map(async (issueNum) => {
+        const branch = `fix/issue-${issueNum}`;
+        const worktreePath = pathMod.join(workdir, '..', `worktree-fix-issue-${issueNum}`);
+
+        // Acquire lock for worktree creation
+        const lockPath = pathMod.join(workdir, '.git', 'worktree-create.lock');
+        const lockDeadline = Date.now() + 30_000;
+        let lockFd: number | null = null;
+        while (Date.now() < lockDeadline) {
+          try {
+            lockFd = fsMod.openSync(lockPath, fsMod.constants.O_CREAT | fsMod.constants.O_EXCL | fsMod.constants.O_WRONLY);
+            break;
+          } catch (e: unknown) {
+            if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+              try {
+                const stat = fsMod.statSync(lockPath);
+                if (Date.now() - stat.mtimeMs > 30_000) { fsMod.unlinkSync(lockPath); continue; }
+              } catch { /* gone */ }
+              await new Promise(r => setTimeout(r, 500));
+              continue;
+            }
+            break;
+          }
+        }
+
+        try {
+          cp.execSync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: workdir, timeout: 15_000 });
+        } catch (err) {
+          results.push({ issue: issueNum, status: 'failed', error: (err as Error).message });
+          outputChannel.appendLine(`[#${issueNum}] FAILED: ${(err as Error).message}`);
+          return;
+        } finally {
+          await new Promise(r => setTimeout(r, 2_500));
+          if (lockFd !== null) { try { fsMod.closeSync(lockFd); } catch { /* */ } }
+          try { fsMod.unlinkSync(lockPath); } catch { /* */ }
+        }
+
+        const prompt = `Fix GitHub issue #${issueNum}. Analyze the codebase, identify the problem, and implement a fix. Create a commit when done.`;
+        const messages: { role: 'system' | 'user'; content: string }[] = [];
+        if (aahpCtx) {
+          messages.push({ role: 'system', content: buildAahpContextBlock(aahpCtx) });
+        }
+        messages.push({ role: 'user', content: prompt });
+
+        const handle = spawnCliAgent(picked.id, messages, 600_000, worktreePath);
+        const session = addBackgroundSession(`Fix #${issueNum}`, picked.id, handle);
+        results.push({ issue: issueNum, status: 'spawned' });
+        outputChannel.appendLine(`[#${issueNum}] Agent spawned on branch ${branch} (PID ${handle.pid})`);
+      });
+
+      // Wait for current batch of worktree creations before starting next
+      await Promise.all(batchPromises);
+    }
+
+    // Summary
+    const spawned = results.filter(r => r.status === 'spawned').length;
+    const failed = results.filter(r => r.status === 'failed').length;
+    outputChannel.appendLine('---');
+    outputChannel.appendLine(`[Batch] Done. Spawned: ${spawned}, Failed: ${failed}`);
+    vscode.window.showInformationMessage(
+      `Conduit: batch fix started. ${spawned} agents spawned, ${failed} failed.`,
+    );
+  }));
+
   return disposables;
 }
 
