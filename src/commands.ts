@@ -335,13 +335,42 @@ export function registerCommands(
 
     const branch = `fix/issue-${issueNumber}`;
     const cp = require('child_process') as typeof import('child_process');
-    const worktreePath = require('path').join(workdir, '..', `worktree-fix-issue-${issueNumber}`);
+    const pathMod = require('path') as typeof import('path');
+    const fsMod = require('fs') as typeof import('fs');
+    const worktreePath = pathMod.join(workdir, '..', `worktree-fix-issue-${issueNumber}`);
+
+    // Serialize worktree creation to avoid .git/config.lock contention
+    // when multiple Fix Issue commands run in parallel (hat tip: @m13v)
+    const lockPath = pathMod.join(workdir, '.git', 'worktree-create.lock');
+    const lockDeadline = Date.now() + 30_000;
+    let lockFd: number | null = null;
+    while (Date.now() < lockDeadline) {
+      try {
+        lockFd = fsMod.openSync(lockPath, fsMod.constants.O_CREAT | fsMod.constants.O_EXCL | fsMod.constants.O_WRONLY);
+        break;
+      } catch (e: unknown) {
+        if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+          try {
+            const stat = fsMod.statSync(lockPath);
+            if (Date.now() - stat.mtimeMs > 30_000) { fsMod.unlinkSync(lockPath); continue; }
+          } catch { /* gone, retry */ }
+          await new Promise(r => setTimeout(r, 500));
+          continue;
+        }
+        break;
+      }
+    }
 
     try {
       cp.execSync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: workdir, timeout: 15_000 });
     } catch (err) {
       vscode.window.showErrorMessage(`Conduit: failed to create worktree: ${(err as Error).message}`);
       return;
+    } finally {
+      // Release lock with stagger delay
+      await new Promise(r => setTimeout(r, 2_500));
+      if (lockFd !== null) { try { fsMod.closeSync(lockFd); } catch { /* ignore */ } }
+      try { fsMod.unlinkSync(lockPath); } catch { /* ignore */ }
     }
 
     const prompt = `Fix GitHub issue #${issueNumber}. Analyze the codebase, identify the problem, and implement a fix. Create a commit when done.`;

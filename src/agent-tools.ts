@@ -83,11 +83,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: 'removeWorktree',
-    description: 'Remove a git worktree and optionally its branch',
+    description: 'Remove a git worktree and optionally its branch. Refuses to remove worktrees with unmerged, recently active branches unless force is set.',
     permission: 'destructive',
     args: {
       path: { type: 'string', description: 'Path of the worktree to remove', required: true },
       deleteBranch: { type: 'boolean', description: 'Also delete the branch (default: false)' },
+      force: { type: 'boolean', description: 'Force removal even if branch is unmerged with recent activity (default: false)' },
     },
   },
 ];
@@ -99,6 +100,9 @@ const MAX_SEARCH_CHARS = 5_000;
 const MAX_COMMAND_CHARS = 3_000;
 const MAX_LIST_CHARS = 2_000;
 const COMMAND_TIMEOUT_MS = 30_000;
+const WORKTREE_LOCK_TIMEOUT_MS = 30_000;
+const WORKTREE_LOCK_RETRY_MS = 500;
+const WORKTREE_STAGGER_MS = 2_500;
 
 // ── Workspace root ────────────────────────────────────────────────────────────
 
@@ -356,6 +360,46 @@ async function toolApplyDiff(args: Record<string, unknown>): Promise<{ status: '
   };
 }
 
+/**
+ * Acquire a file lock to serialize worktree creation.
+ * Multiple parallel agents calling `git worktree add` simultaneously fight
+ * over .git/config.lock. We serialize through a lockfile with retry logic.
+ * Hat tip: @m13v (https://github.com/m13v/browser-lock)
+ */
+async function acquireWorktreeLock(gitDir: string): Promise<{ fd: number; lockPath: string } | null> {
+  const lockPath = path.join(gitDir, 'worktree-create.lock');
+  const deadline = Date.now() + WORKTREE_LOCK_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      const fd = fs.openSync(lockPath, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+      fs.writeFileSync(lockPath, `${process.pid}\n${Date.now()}\n`);
+      return { fd, lockPath };
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+        // Check for stale lock (older than lock timeout)
+        try {
+          const stat = fs.statSync(lockPath);
+          if (Date.now() - stat.mtimeMs > WORKTREE_LOCK_TIMEOUT_MS) {
+            fs.unlinkSync(lockPath);
+            continue;
+          }
+        } catch { /* file gone, retry */ }
+
+        await new Promise(r => setTimeout(r, WORKTREE_LOCK_RETRY_MS));
+        continue;
+      }
+      return null; // unexpected error
+    }
+  }
+  return null; // timed out
+}
+
+function releaseWorktreeLock(lock: { fd: number; lockPath: string }): void {
+  try { fs.closeSync(lock.fd); } catch { /* ignore */ }
+  try { fs.unlinkSync(lock.lockPath); } catch { /* ignore */ }
+}
+
 async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ status: 'success' | 'error'; output: string }> {
   const root = getWorkspaceRoot();
   if (!root) return { status: 'error', output: 'No workspace folder open' };
@@ -367,19 +411,64 @@ async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ stat
   const fullPath = resolveSafe(path.dirname(root), path.basename(root) + '/' + worktreePath)
     ?? path.resolve(root, worktreePath);
 
-  return new Promise((resolve) => {
-    cp.exec(
-      `git worktree add -b "${branch}" "${fullPath}"`,
-      { cwd: root, timeout: 30_000 },
-      (err, stdout, stderr) => {
-        if (err) {
-          resolve({ status: 'error', output: `Failed to create worktree: ${stderr || err.message}` });
-        } else {
-          resolve({ status: 'success', output: `Created worktree at ${fullPath} on branch ${branch}\n${stdout}`.trim() });
-        }
-      },
-    );
-  });
+  // Serialize worktree creation to avoid .git/config.lock contention
+  const gitDir = path.join(root, '.git');
+  const lock = await acquireWorktreeLock(gitDir);
+  if (!lock) {
+    return { status: 'error', output: 'Timed out waiting for worktree creation lock. Another agent may be creating a worktree.' };
+  }
+
+  try {
+    return await new Promise((resolve) => {
+      cp.exec(
+        `git worktree add -b "${branch}" "${fullPath}"`,
+        { cwd: root, timeout: 30_000 },
+        (err, stdout, stderr) => {
+          if (err) {
+            resolve({ status: 'error', output: `Failed to create worktree: ${stderr || err.message}` });
+          } else {
+            resolve({ status: 'success', output: `Created worktree at ${fullPath} on branch ${branch}\n${stdout}`.trim() });
+          }
+        },
+      );
+    });
+  } finally {
+    // Stagger: wait before releasing lock so next agent doesn't collide
+    await new Promise(r => setTimeout(r, WORKTREE_STAGGER_MS));
+    releaseWorktreeLock(lock);
+  }
+}
+
+/**
+ * Check if a branch has been merged into the default branch (main/master).
+ * Also checks if the branch has recent commits (within 24h) to avoid
+ * deleting worktrees with uncommitted review feedback.
+ * Hat tip: @m13v for the merge-before-cleanup pattern.
+ */
+function getBranchStatus(root: string, branchName: string): { merged: boolean; recentActivity: boolean; lastCommitAge: string } {
+  try {
+    // Check if branch is merged into HEAD
+    const mergedBranches = cp.execSync('git branch --merged HEAD', { cwd: root, timeout: 10_000 }).toString();
+    const merged = mergedBranches.split('\n').some(b => b.trim() === branchName);
+
+    // Check last commit age
+    let recentActivity = false;
+    let lastCommitAge = 'unknown';
+    try {
+      const lastCommit = cp.execSync(
+        `git log -1 --format="%ar|%ct" "${branchName}" --`,
+        { cwd: root, timeout: 10_000 },
+      ).toString().trim();
+      const [relativeTime, unixTime] = lastCommit.split('|');
+      lastCommitAge = relativeTime;
+      const ageMs = Date.now() - (parseInt(unixTime, 10) * 1000);
+      recentActivity = ageMs < 24 * 60 * 60 * 1000; // within 24h
+    } catch { /* branch may have no commits */ }
+
+    return { merged, recentActivity, lastCommitAge };
+  } catch {
+    return { merged: false, recentActivity: false, lastCommitAge: 'unknown' };
+  }
 }
 
 async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ status: 'success' | 'error'; output: string }> {
@@ -390,7 +479,26 @@ async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ stat
   if (!worktreePath) return { status: 'error', output: 'Missing required arg: path' };
 
   const deleteBranch = (args.deleteBranch as boolean) ?? false;
+  const force = (args.force as boolean) ?? false;
   const fullPath = path.resolve(root, worktreePath);
+
+  // Extract branch name from worktree path
+  const branchName = path.basename(fullPath).replace(/^worktree-/, '').replace(/-/g, '/');
+
+  // Safety check: don't delete worktrees with unmerged, recently active branches
+  if (!force) {
+    const status = getBranchStatus(root, branchName);
+    if (!status.merged && status.recentActivity) {
+      return {
+        status: 'error',
+        output: [
+          `Refusing to remove worktree: branch "${branchName}" is not merged and has recent activity (last commit: ${status.lastCommitAge}).`,
+          'This prevents losing uncommitted review feedback or work-in-progress.',
+          'To force removal, set force: true.',
+        ].join('\n'),
+      };
+    }
+  }
 
   return new Promise((resolve) => {
     cp.exec(
@@ -405,13 +513,25 @@ async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ stat
         let output = `Removed worktree at ${fullPath}\n${stdout}`.trim();
 
         if (deleteBranch) {
-          // Extract branch name from path
-          const branchName = path.basename(fullPath).replace(/^worktree-/, '').replace(/-/g, '/');
-          try {
-            cp.execSync(`git branch -D "${branchName}"`, { cwd: root, timeout: 10_000 });
-            output += `\nDeleted branch ${branchName}`;
-          } catch {
-            output += `\nNote: could not delete branch (may not exist or already deleted)`;
+          const branchStatus = getBranchStatus(root, branchName);
+          if (branchStatus.merged) {
+            // Safe to delete: branch is merged
+            try {
+              cp.execSync(`git branch -d "${branchName}"`, { cwd: root, timeout: 10_000 });
+              output += `\nDeleted merged branch ${branchName}`;
+            } catch {
+              output += `\nNote: could not delete branch (may not exist or already deleted)`;
+            }
+          } else if (force) {
+            // Force delete even if unmerged
+            try {
+              cp.execSync(`git branch -D "${branchName}"`, { cwd: root, timeout: 10_000 });
+              output += `\nForce-deleted unmerged branch ${branchName}`;
+            } catch {
+              output += `\nNote: could not delete branch (may not exist or already deleted)`;
+            }
+          } else {
+            output += `\nBranch ${branchName} preserved (not merged, last activity: ${getBranchStatus(root, branchName).lastCommitAge}). Use force: true to delete.`;
           }
         }
 
