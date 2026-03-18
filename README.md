@@ -1,8 +1,10 @@
 # Conduit - Universal AI Bridge for VS Code
 
-Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, and local models - powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
+Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-> **Status:** Early development - private repo. Requires conduit-bridge running locally.
+**Current version:** 0.6.0
+
+> **Status:** Active development. All core features implemented and tested (231 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -10,6 +12,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 - [Quick Start](#quick-start)
 - [Features](#features)
+- [Background Agents](#background-agents)
 - [Supported Models](#supported-models)
 - [Chat Interface](#chat-interface)
 - [Chat Modes](#chat-modes)
@@ -24,8 +27,10 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Configuration](#configuration)
 - [Provider Setup](#provider-setup)
+- [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -40,7 +45,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.3.1.vsix
+code --install-extension conduit-vscode-0.6.0.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -50,13 +55,13 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.3.1.vsix
+code --install-extension conduit-vscode-0.6.0.vsix
 ```
 
 ### First Launch
 
 1. Start the bridge: `conduit-bridge start`
-2. Open VS Code - the extension activates automatically
+2. Open VS Code, the extension activates automatically
 3. The **Conduit AI** panel appears in the bottom panel area
 4. **Drag the Conduit AI tab** to the secondary sidebar (right side) to place it next to Copilot / Claude Code
 5. Click the model name in the toolbar to select your preferred model
@@ -72,7 +77,7 @@ code --install-extension conduit-vscode-0.3.1.vsix
 - Streaming responses with full Markdown rendering (headings, code blocks, tables, lists, blockquotes, bold, italic, links)
 - Copy and insert-code actions on every response
 - Per-message model tag showing which model generated each response
-- Automatic context window management - trims conversation history to fit model limits
+- Automatic context window management, trims conversation history to fit model limits
 - Token usage tracking via `/cost`
 
 ### Agent Step Cards
@@ -90,28 +95,81 @@ code --install-extension conduit-vscode-0.3.1.vsix
 - Sessions auto-save after each message exchange
 
 ### Model Selection
-- **Native VS Code QuickPick** - opens a full-width, searchable picker at the top of the editor
+- **Native VS Code QuickPick**, opens a full-width, searchable picker at the top of the editor
 - Models grouped by provider (WEB-GROK, WEB-CLAUDE, WEB-GEMINI, etc.)
 - Tier icons: star for flagship models, half-star for mid-tier
 - Context window size shown next to each model (131K, 200K, 1M)
 - Friendly display names with version numbers (e.g. "Claude Sonnet 4.6", "Grok Expert")
-- **Auto mode** - automatically selects the best model based on task complexity
+- **Auto mode**, automatically selects the best model based on task complexity
 - Model-mode compatibility warnings when a model doesn't support the current chat mode
 
 ### Code Intelligence
-- **Inline completions** (ghost text) - language-aware for 20+ languages
-- **Inline Chat** (`Ctrl+I`) - describe a change at the cursor, review as a diff
-- **Explain / Refactor / Generate Tests** - right-click context menu on selections
-- **Fix diagnostics** - send all file errors/warnings to the AI
-- **Terminal command suggestions** - describe what you want, get a shell command
-- **Commit message generation** (`Ctrl+Shift+M`) - generates from staged git diff
+- **Inline completions** (ghost text), language-aware for 20+ languages
+- **Inline Chat** (`Ctrl+I`), describe a change at the cursor, review as a diff
+- **Explain / Refactor / Generate Tests**, right-click context menu on selections
+- **Fix diagnostics**, send all file errors/warnings to the AI
+- **Terminal command suggestions**, describe what you want, get a shell command
+- **Commit message generation** (`Ctrl+Shift+M`), generates from staged git diff
 
 ### Infrastructure
-- **Health dashboard** (`Conduit: Health Dashboard`) - real-time provider status
-- **Bridge manager** - start/stop/restart conduit-bridge from VS Code
-- **Per-provider login** - Grok, Claude, Gemini, ChatGPT login commands
-- **Auto-start bridge** - starts automatically if not running on activation
-- **Consolidated status bar** - bridge status, model count, and current model in one item
+- **Health dashboard** (`Conduit: Health Dashboard`), real-time provider status
+- **Bridge manager**, start/stop/restart conduit-bridge from VS Code
+- **Per-provider login**, Grok, Claude, Gemini, ChatGPT login commands
+- **Auto-start bridge**, starts automatically if not running on activation
+- **Consolidated status bar**, bridge status, model count, and current model in one item
+
+---
+
+## Background Agents
+
+Conduit supports spawning background coding agents that work independently while you continue coding.
+
+### Spawn Agent
+`Conduit: Spawn Agent` - select a model and enter a task. The agent runs in the background with its own output channel.
+
+### Fix Issue (Worktree Isolation)
+`Conduit: Fix Issue` - enter a GitHub issue number. Conduit:
+1. Creates a git worktree on a dedicated branch (`fix/issue-<N>`)
+2. Spawns an agent in the isolated worktree
+3. The agent reads the codebase, implements the fix, and commits
+
+**Parallel safety:** Multiple Fix Issue commands can run simultaneously. Worktree creation is serialized via a file lock (`$REPO/.git/worktree-create.lock`) with 2.5s stagger to prevent `.git/config.lock` contention. ([Credit: @m13v](https://github.com/m13v/tmux-background-agents))
+
+### Safe Worktree Cleanup
+When removing worktrees, Conduit checks branch merge status:
+- **Merged branches:** safe to remove
+- **Unmerged + recently active (within 24h):** removal blocked (prevents losing review feedback)
+- **Unmerged + abandoned (>24h idle):** allowed
+- **Force flag:** overrides all safety checks
+
+### Agent Tools
+Background agents have access to these workspace tools:
+
+| Tool | Permission | Description |
+|------|-----------|-------------|
+| `readFile` | safe | Read file contents (with optional line range) |
+| `writeFile` | destructive | Create or overwrite files |
+| `listFiles` | safe | List files matching a glob pattern |
+| `searchCode` | safe | Regex search across workspace files |
+| `runCommand` | destructive | Execute shell commands |
+| `readDiagnostics` | safe | Read VS Code errors and warnings |
+| `applyDiff` | destructive | Search-and-replace within a file |
+| `createWorktree` | destructive | Create a git worktree for parallel work |
+| `removeWorktree` | destructive | Remove a worktree (merge-status aware) |
+
+### Session Panel
+The Sessions tree view shows all background agents:
+- **Running:** animated spinner icon (blue)
+- **Completed:** checkmark icon (green)
+- **Failed:** error icon (red)
+- Click to view output, right-click to kill running agents
+
+### Model Fallback Chain
+`cli-runner.ts` defines fallback chains for when a model is unavailable:
+- Gemini 2.5 Pro → Gemini 2.5 Flash
+- Gemini 3 Pro Preview → Gemini 3 Flash Preview
+- Claude Opus 4.6 → Claude Sonnet 4.6
+- Claude Sonnet 4.6 → Claude Haiku 4.5
 
 ---
 
@@ -134,6 +192,8 @@ Models are served by conduit-bridge. The extension displays whatever the bridge 
 |---|---|---|
 | **Claude CLI** | Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5 | 200K |
 | **Gemini CLI** | Gemini 2.5 Pro, Gemini 2.5 Flash, Gemini 3.0 Pro Preview, Gemini 3.0 Flash Preview | 1M |
+| **OpenCode** | Default model (auto-detected) | varies |
+| **Pi** | Default model (configurable provider/model) | varies |
 
 ### API Models (requires OAuth / API key)
 
@@ -227,9 +287,9 @@ The QuickPick shows all available models grouped by provider:
 ### Auto Model Selection
 
 When set to **Auto**, Conduit analyzes your message to determine complexity:
-- **Simple** (short questions, "explain this", "fix typo") -> fast models like Grok Fast, Gemini 3 Fast
-- **Moderate** (code changes, debugging) -> mid-tier models like Gemini 3 Thinking, Claude Sonnet
-- **Complex** (architecture, multi-file, "build a system") -> flagship models like Claude Opus, GPT-5.4 Pro
+- **Simple** (short questions, "explain this", "fix typo") → fast models like Grok Fast, Gemini 3 Fast
+- **Moderate** (code changes, debugging) → mid-tier models like Gemini 3 Thinking, Claude Sonnet
+- **Complex** (architecture, multi-file, "build a system") → flagship models like Claude Opus, GPT-5.4 Pro
 
 ---
 
@@ -254,7 +314,7 @@ You can rename any session to keep track of what you were working on:
 When models change mid-conversation (either via Auto mode or manual switch), Conduit automatically injects a compressed summary of the previous context. This means the new model understands what was discussed before and can continue seamlessly.
 
 ### Working Context Persistence
-Each session stores a "working summary" - a compressed snapshot of what you were working on. When you switch between sessions, this summary is restored so no context is lost.
+Each session stores a "working summary", a compressed snapshot of what you were working on. When you switch between sessions, this summary is restored so no context is lost.
 
 Sessions are stored in VS Code's global state and persist across restarts. Up to 50 sessions are kept.
 
@@ -310,8 +370,8 @@ Refactor #selection based on patterns in #file:src/helpers.ts
 
 ### #workspace vs #codebase
 
-- **#workspace** is lightweight - just the folder structure. Use it when you need a quick overview of where things are.
-- **#codebase** is deep - includes the folder structure PLUS the actual contents of up to 30 prioritized source files. Use it when the model needs to understand how your code works. Files are prioritized: config files first, then entry points, then by directory depth.
+- **#workspace** is lightweight, just the folder structure. Use it when you need a quick overview of where things are.
+- **#codebase** is deep, includes the folder structure PLUS the actual contents of up to 30 prioritized source files. Use it when the model needs to understand how your code works. Files are prioritized: config files first, then entry points, then by directory depth.
 
 ---
 
@@ -416,18 +476,20 @@ Each AI provider needs to be authenticated through the bridge. The extension pro
 
 ### Web Session Providers (Grok, Claude, Gemini, ChatGPT)
 
-These use browser session cookies - no API keys needed.
+These use browser session cookies, no API keys needed.
 
-1. Run the login command: `Ctrl+Shift+P` -> `Conduit: Login - Grok` (or Claude, Gemini, ChatGPT)
+1. Run the login command: `Ctrl+Shift+P` → `Conduit: Login - Grok` (or Claude, Gemini, ChatGPT)
 2. A browser window opens to the provider's website
 3. Log in with your account
 4. The bridge captures the session and the models become available
 
-### CLI Providers (Claude CLI, Gemini CLI)
+### CLI Providers (Claude CLI, Gemini CLI, OpenCode, Pi)
 
 These require the respective CLI tools to be installed:
 - **Claude CLI**: Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and authenticate
 - **Gemini CLI**: Install the [Gemini CLI](https://github.com/google-gemini/gemini-cli) and authenticate
+- **OpenCode**: Install [OpenCode](https://github.com/opencode-ai/opencode) (auto-detected)
+- **Pi**: Install [Pi](https://github.com/pi-ai/pi) with `--provider` and `--model` flags for different backends
 
 The bridge automatically detects installed CLIs.
 
@@ -447,7 +509,51 @@ Local CPU inference, no authentication needed:
 
 ### Checking Provider Status
 
-Use `Ctrl+Shift+P` -> `Conduit: Health Dashboard` to see which providers are connected and which models are available.
+Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are connected and which models are available.
+
+---
+
+## Testing
+
+Conduit has a comprehensive test suite with **231 tests** across **14 test files**.
+
+### Running Tests
+
+```bash
+npm test                    # run all tests
+npm run test:coverage       # run with coverage report
+```
+
+### Test Categories
+
+| Test File | Tests | Coverage |
+|-----------|-------|---------|
+| `agent-parser.test.ts` | 25 | Agent output parsing, step card extraction |
+| `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
+| `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
+| `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
+| `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
+| `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
+| `proxy-client.test.ts` | 19 | HTTP streaming, error handling |
+| `chat-view-provider.test.ts` | 17 | Chat webview, slash commands |
+| `context-builder.test.ts` | 16 | Editor context collection |
+| `mention-parser.test.ts` | 11 | #file, #selection, #codebase parsing |
+| `custom-instructions.test.ts` | 8 | Instruction file loading |
+| `utils.test.ts` | 17 | Shared utilities |
+| `config.test.ts` | 4 | Settings reader |
+| `inline-provider.test.ts` | 7 | Ghost-text completions |
+
+### LLM Tool-Call Validation
+
+The `llm-tool-validation.test.ts` suite includes a live LLM test that sends a sample prompt to a model and validates the response contains correct tool calls. Run against a specific model:
+
+```bash
+LLM_MODEL=cli-claude/claude-sonnet-4-6 npx vitest run src/__tests__/llm-tool-validation.test.ts
+LLM_MODEL=cli-gemini/gemini-2.5-flash npx vitest run src/__tests__/llm-tool-validation.test.ts
+LLM_MODEL=openai-codex/gpt-5.3-codex npx vitest run src/__tests__/llm-tool-validation.test.ts
+```
+
+The test validates: correct tool names, required args present, expected values, no hallucinated tools.
 
 ---
 
@@ -463,7 +569,7 @@ The model list comes from the bridge (`/v1/models`). Check:
 3. Check the Health Dashboard for provider status
 
 ### Empty responses / "No response received"
-- The provider may not be authenticated - run the login command
+- The provider may not be authenticated, run the login command
 - The model may not support your request type
 - Check the bridge logs: `Conduit: Show Bridge Logs`
 
@@ -500,7 +606,7 @@ npm install --include=dev
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
 npm run lint    # eslint
-npm test        # run tests (vitest)
+npm test        # run tests (vitest, 231 tests)
 ```
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
@@ -508,7 +614,7 @@ Press **F5** in VS Code to launch the Extension Development Host for debugging.
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-X.Y.Z.vsix
+# produces conduit-vscode-0.6.0.vsix
 ```
 
 ### Project Structure
@@ -516,22 +622,33 @@ npx @vscode/vsce package --no-dependencies
 conduit-vscode/
   src/
     extension.ts              - activation, command registration
-    chat-view-provider.ts     - main chat webview (sidebar), slash commands, agent steps, markdown rendering
-    sessions-tree-provider.ts - native sessions tree view
+    commands.ts               - command palette registrations (spawn, fix issue, etc.)
+    chat-view-provider.ts     - main chat webview (sidebar), slash commands, markdown
+    chat-panel.ts             - chat panel webview host
+    sessions-tree-provider.ts - native sessions tree view + background agent sessions
+    models-tree-provider.ts   - model picker tree view
     model-registry.ts         - model capabilities, display names, tiers, auto-selection
     proxy-client.ts           - HTTP/streaming client for the bridge
+    embedded-proxy.ts         - embedded proxy server (bridgeless mode)
+    cli-runner.ts             - CLI subprocess routing (Claude, Gemini, Codex, OpenCode, Pi)
+    agent-loop.ts             - multi-turn agent loop with tool execution
+    agent-parser.ts           - agent output parsing (step cards, tool calls)
+    agent-tools.ts            - workspace tools (read/write/search/worktree/diff)
+    agent-types.ts            - shared type definitions for the agent system
     mention-parser.ts         - #file, #selection, #workspace, #codebase parsing
     context-builder.ts        - editor context collection
     bridge-manager.ts         - bridge lifecycle management
+    bridge-panel.ts           - bridge manager webview
+    browser-session.ts        - browser automation for web providers
     inline-provider.ts        - ghost-text inline completions
     inline-chat.ts            - Ctrl+I inline chat with diff
     custom-instructions.ts    - .conduit/instructions.md loader
     commit-message.ts         - git commit message generation
     config.ts                 - settings reader
-    commands.ts               - command registrations
     health-panel.ts           - health dashboard webview
-    bridge-panel.ts           - bridge manager webview
     status-bar.ts             - consolidated status bar item
+    utils.ts                  - shared utilities
+  src/__tests__/              - 14 test files, 231 tests (vitest)
   dist/
     extension.js              - bundled output (esbuild)
   media/
@@ -539,3 +656,58 @@ conduit-vscode/
     icon.svg                  - extension icon (vector)
     sidebar-icon.svg          - panel icon
 ```
+
+### Related Projects
+
+| Project | Description | Overlap |
+|---------|-------------|---------|
+| [aahp-orchestrator](https://github.com/homeofe/aahp-orchestrator) | VS Code extension for AAHP v3 context injection | Context building for coding agents |
+| [aahp-runner](https://github.com/homeofe/aahp-runner) | Autonomous CLI agent runner | CLI agent spawning, backend routing |
+| [aahp-cron](https://github.com/homeofe/aahp-cron) | Pipeline orchestrator for multi-repo agent runs | Batch agent execution pattern |
+
+---
+
+## Roadmap
+
+Open issues tracking planned features:
+
+| # | Feature | Status |
+|---|---------|--------|
+| [#6](https://github.com/elvatis/conduit-vscode/issues/6) | Model failover chain for agent sessions | Planned |
+| [#7](https://github.com/elvatis/conduit-vscode/issues/7) | AAHP context integration for agent sessions | Planned |
+| [#8](https://github.com/elvatis/conduit-vscode/issues/8) | Multi-issue batch mode (aahp-cron pattern) | Planned |
+| [#9](https://github.com/elvatis/conduit-vscode/issues/9) | Agent output streaming to session panel | Planned |
+| [#10](https://github.com/elvatis/conduit-vscode/issues/10) | Shared agent backend abstraction with aahp-runner | Planned |
+| [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | Planned |
+| [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | Planned |
+| [#13](https://github.com/elvatis/conduit-vscode/issues/13) | Cost tracking per agent session | Planned |
+
+---
+
+## Changelog
+
+### v0.6.0 (2026-03-18)
+- Agent backends: Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi
+- Background agent sessions with spawn/monitor/kill
+- Git worktree isolation for parallel agent work
+- Worktree lock serialization (prevents .git/config.lock contention)
+- Merge-status aware worktree cleanup
+- Fix Issue command (auto-worktree + agent spawn)
+- Model fallback chain definitions
+- 231 tests across 14 test files
+
+### v0.5.0
+- Reliable agent loop with tool execution
+- Multi-model auto-selection
+- Local model support (BitNet)
+- Smart fallback on model errors
+
+### v0.4.0
+- Per-provider sessions with model-aware completions
+- Streaming metadata display (timestamps, duration, tokens)
+- Inline chat with diff preview
+
+### v0.3.0
+- Initial release: chat interface, model picker, inline completions
+- Session management with persistence
+- Custom instructions support
