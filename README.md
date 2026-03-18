@@ -655,6 +655,7 @@ conduit-vscode/
     embedded-proxy.ts         - embedded proxy server (bridgeless mode)
     agent-backends.ts         - shared agent backend abstraction (CLI detection, env, prompt, spawn)
     cli-runner.ts             - CLI subprocess routing (Claude, Gemini, Codex, OpenCode, Pi)
+    cost-tracker.ts           - token usage parsing and cost estimation per agent session
     agent-loop.ts             - multi-turn agent loop with tool execution
     agent-parser.ts           - agent output parsing (step cards, tool calls)
     agent-tools.ts            - workspace tools (read/write/search/worktree/diff)
@@ -706,7 +707,7 @@ Open issues tracking planned features:
 | [#10](https://github.com/elvatis/conduit-vscode/issues/10) | Shared agent backend abstraction with aahp-runner | ✅ Done |
 | [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | ✅ Done |
 | [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | ✅ Done |
-| [#13](https://github.com/elvatis/conduit-vscode/issues/13) | Cost tracking per agent session | Planned |
+| [#13](https://github.com/elvatis/conduit-vscode/issues/13) | Cost tracking per agent session | ✅ Done |
 
 ---
 

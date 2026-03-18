@@ -6,6 +6,7 @@ import { ConduitChatPanel } from './chat-panel';
 import { stripFences } from './utils';
 import { ConduitInlineProvider } from './inline-provider';
 import { CLI_MODELS, spawnCliAgent } from './cli-runner';
+import { formatCost, formatTokens, aggregateCosts, type CostEstimate } from './cost-tracker';
 import { loadAahpContext, buildAahpContextBlock } from './aahp-context';
 import {
   addBackgroundSession,
@@ -557,6 +558,7 @@ export function registerCommands(
     );
   }));
 
+<<<<<<< HEAD
   // ── Resume Interrupted Session ──────────────────────────────────────────
   disposables.push(vscode.commands.registerCommand('conduit.resumeSession', async (item?: { bgSession: BackgroundSession }) => {
     let session: BackgroundSession | undefined;
@@ -623,6 +625,55 @@ export function registerCommands(
     } else {
       vscode.window.showInformationMessage('Conduit: no finished sessions to clear.');
     }
+  }));
+
+  // ── Session Cost Summary ─────────────────────────────────────────────────
+  disposables.push(vscode.commands.registerCommand('conduit.sessionCostSummary', () => {
+    const sessions = getBackgroundSessions();
+    if (sessions.length === 0) {
+      vscode.window.showInformationMessage('Conduit: no agent sessions.');
+      return;
+    }
+
+    const estimates: CostEstimate[] = [];
+    for (const s of sessions) {
+      if (s.costEstimate) {
+        estimates.push(s.costEstimate);
+      }
+    }
+
+    if (estimates.length === 0) {
+      vscode.window.showInformationMessage('Conduit: no cost data available. Token usage is parsed from CLI output when sessions complete.');
+      return;
+    }
+
+    const agg = aggregateCosts(estimates);
+    const outputChannel = vscode.window.createOutputChannel('Conduit: Session Cost Summary');
+    outputChannel.clear();
+    outputChannel.appendLine('═══ Conduit Session Cost Summary ═══');
+    outputChannel.appendLine('');
+    outputChannel.appendLine(`Total cost: ${formatCost(agg.totalCostUsd)}`);
+    outputChannel.appendLine(`Total tokens: ${formatTokens(agg.totalUsage)}`);
+    outputChannel.appendLine(`Sessions with data: ${estimates.length} / ${sessions.length}`);
+    outputChannel.appendLine('');
+
+    // Per-model breakdown
+    outputChannel.appendLine('─── By Model ───');
+    for (const [model, data] of agg.byModel.entries()) {
+      outputChannel.appendLine(`  ${model}: ${formatCost(data.costUsd)} (${formatTokens(data.usage)})`);
+    }
+    outputChannel.appendLine('');
+
+    // Per-session detail
+    outputChannel.appendLine('─── By Session ───');
+    for (const s of sessions) {
+      const status = s.status;
+      const cost = s.costEstimate ? formatCost(s.costEstimate.costUsd) : 'n/a';
+      const tokens = s.costEstimate ? formatTokens(s.costEstimate.usage) : 'no data';
+      outputChannel.appendLine(`  [${status}] ${s.title} (${s.model}): ${cost} | ${tokens}`);
+    }
+
+    outputChannel.show();
   }));
 
   return disposables;
