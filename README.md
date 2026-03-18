@@ -4,7 +4,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Current version:** 0.6.0
 
-> **Status:** Active development. All core features implemented and tested (244 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (254 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -516,7 +516,7 @@ Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are co
 
 ## Testing
 
-Conduit has a comprehensive test suite with **244 tests** across **15 test files**.
+Conduit has a comprehensive test suite with **254 tests** across **16 test files**.
 
 ### Running Tests
 
@@ -533,6 +533,7 @@ npm run test:coverage       # run with coverage report
 | `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
 | `cli-runner-failover.test.ts` | 13 | Model failover chain, fallback pattern matching |
+| `aahp-context.test.ts` | 10 | AAHP v3 context detection, loading, block building |
 | `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
@@ -608,7 +609,7 @@ npm install --include=dev
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
 npm run lint    # eslint
-npm test        # run tests (vitest, 244 tests)
+npm test        # run tests (vitest, 254 tests)
 ```
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
@@ -637,6 +638,7 @@ conduit-vscode/
     agent-parser.ts           - agent output parsing (step cards, tool calls)
     agent-tools.ts            - workspace tools (read/write/search/worktree/diff)
     agent-types.ts            - shared type definitions for the agent system
+    aahp-context.ts           - AAHP v3 context auto-detection and injection
     mention-parser.ts         - #file, #selection, #workspace, #codebase parsing
     context-builder.ts        - editor context collection
     bridge-manager.ts         - bridge lifecycle management
@@ -650,7 +652,7 @@ conduit-vscode/
     health-panel.ts           - health dashboard webview
     status-bar.ts             - consolidated status bar item
     utils.ts                  - shared utilities
-  src/__tests__/              - 15 test files, 244 tests (vitest)
+  src/__tests__/              - 16 test files, 254 tests (vitest)
   dist/
     extension.js              - bundled output (esbuild)
   media/
@@ -696,7 +698,7 @@ Open issues tracking planned features:
 - Merge-status aware worktree cleanup
 - Fix Issue command (auto-worktree + agent spawn)
 - Model fallback chain definitions
-- 244 tests across 15 test files
+- 254 tests across 16 test files
 
 ### v0.5.0
 - Reliable agent loop with tool execution

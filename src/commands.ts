@@ -6,6 +6,7 @@ import { ConduitChatPanel } from './chat-panel';
 import { stripFences } from './utils';
 import { ConduitInlineProvider } from './inline-provider';
 import { CLI_MODELS, spawnCliAgent } from './cli-runner';
+import { loadAahpContext, buildAahpContextBlock } from './aahp-context';
 import {
   addBackgroundSession,
   killBackgroundSession,
@@ -254,12 +255,25 @@ export function registerCommands(
     if (!prompt) return;
 
     const workdir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const messages = [{ role: 'user' as const, content: prompt }];
+
+    // Auto-detect AAHP context and prepend to prompt
+    const aahpCtx = loadAahpContext(workdir);
+    const messages: { role: 'system' | 'user'; content: string }[] = [];
+    if (aahpCtx) {
+      messages.push({ role: 'system', content: buildAahpContextBlock(aahpCtx) });
+    }
+    messages.push({ role: 'user', content: prompt });
+
     const handle = spawnCliAgent(picked.id, messages, 600_000, workdir);
     const session = addBackgroundSession(prompt.slice(0, 60), picked.id, handle);
 
+    // Log AAHP context info
+    if (aahpCtx) {
+      session.outputChannel.appendLine(`[AAHP] Project: ${aahpCtx.project} | Phase: ${aahpCtx.phase} | ~${aahpCtx.tokenEstimate} tokens`);
+    }
+
     vscode.window.showInformationMessage(
-      `Conduit: agent spawned (PID ${handle.pid})`,
+      `Conduit: agent spawned (PID ${handle.pid})${aahpCtx ? ` [AAHP: ${aahpCtx.project}]` : ''}`,
       'View Output',
     ).then(action => {
       if (action === 'View Output') {
@@ -374,12 +388,24 @@ export function registerCommands(
     }
 
     const prompt = `Fix GitHub issue #${issueNumber}. Analyze the codebase, identify the problem, and implement a fix. Create a commit when done.`;
-    const messages = [{ role: 'user' as const, content: prompt }];
+
+    // Auto-detect AAHP context from the worktree (inherits from main repo)
+    const aahpCtx = loadAahpContext(worktreePath) ?? loadAahpContext(workdir);
+    const messages: { role: 'system' | 'user'; content: string }[] = [];
+    if (aahpCtx) {
+      messages.push({ role: 'system', content: buildAahpContextBlock(aahpCtx) });
+    }
+    messages.push({ role: 'user', content: prompt });
+
     const handle = spawnCliAgent(picked.id, messages, 600_000, worktreePath);
     const session = addBackgroundSession(`Fix #${issueNumber}`, picked.id, handle);
 
+    if (aahpCtx) {
+      session.outputChannel.appendLine(`[AAHP] Project: ${aahpCtx.project} | Phase: ${aahpCtx.phase}`);
+    }
+
     vscode.window.showInformationMessage(
-      `Conduit: agent spawned on branch ${branch} (worktree: ${worktreePath})`,
+      `Conduit: agent spawned on branch ${branch} (worktree: ${worktreePath})${aahpCtx ? ` [AAHP: ${aahpCtx.project}]` : ''}`,
       'View Output',
     ).then(action => {
       if (action === 'View Output') {
