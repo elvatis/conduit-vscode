@@ -5,9 +5,9 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.6.0
+**Current version:** 0.7.0
 
-> **Status:** Active development. All core features implemented and tested (277 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (301 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.6.0.vsix
+code --install-extension conduit-vscode-0.7.0.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.6.0.vsix
+code --install-extension conduit-vscode-0.7.0.vsix
 ```
 
 ### First Launch
@@ -528,7 +528,7 @@ Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are co
 
 ## Testing
 
-Conduit has a comprehensive test suite with **277 tests** across **17 test files**.
+Conduit has a comprehensive test suite with **301 tests** across **18 test files**.
 
 ### Running Tests
 
@@ -544,9 +544,9 @@ npm run test:coverage       # run with coverage report
 | `agent-parser.test.ts` | 25 | Agent output parsing, step card extraction |
 | `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
-| `cli-runner-failover.test.ts` | 13 | Model failover chain, fallback pattern matching |
+| `cli-runner-failover.test.ts` | 7 | Model failover chain, fallback pattern matching |
 | `aahp-context.test.ts` | 10 | AAHP v3 context detection, loading, block building |
-| `agent-backends.test.ts` | 23 | Shared backend: prompt formatting, env, CLI config |
+| `agent-backends.test.ts` | 20 | Shared backend: prompt formatting, env, CLI config |
 | `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
@@ -622,7 +622,7 @@ npm install --include=dev
 npm run dev     # watch mode with source maps
 npm run build   # production build (minified)
 npm run lint    # eslint
-npm test        # run tests (vitest, 277 tests)
+npm test        # run tests (vitest, 301 tests)
 ```
 
 Press **F5** in VS Code to launch the Extension Development Host for debugging.
@@ -637,7 +637,7 @@ Two GitHub Actions workflows run automatically:
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.6.0.vsix
+# produces conduit-vscode-0.7.0.vsix
 ```
 
 ### Project Structure
@@ -661,7 +661,6 @@ conduit-vscode/
     agent-tools.ts            - workspace tools (read/write/search/worktree/diff)
     agent-types.ts            - shared type definitions for the agent system
     aahp-context.ts           - AAHP v3 context auto-detection and injection
-    agent-backends.ts         - shared agent backend abstraction (extractable to @elvatis/agent-backends)
     mention-parser.ts         - #file, #selection, #workspace, #codebase parsing
     context-builder.ts        - editor context collection
     bridge-manager.ts         - bridge lifecycle management
@@ -675,7 +674,7 @@ conduit-vscode/
     health-panel.ts           - health dashboard webview
     status-bar.ts             - consolidated status bar item
     utils.ts                  - shared utilities
-  src/__tests__/              - 17 test files, 277 tests (vitest)
+  src/__tests__/              - 18 test files, 301 tests (vitest)
   dist/
     extension.js              - bundled output (esbuild)
   media/
@@ -700,10 +699,10 @@ Open issues tracking planned features:
 
 | # | Feature | Status |
 |---|---------|--------|
-| [#6](https://github.com/elvatis/conduit-vscode/issues/6) | Model failover chain for agent sessions | Planned |
-| [#7](https://github.com/elvatis/conduit-vscode/issues/7) | AAHP context integration for agent sessions | Planned |
-| [#8](https://github.com/elvatis/conduit-vscode/issues/8) | Multi-issue batch mode (aahp-cron pattern) | Planned |
-| [#9](https://github.com/elvatis/conduit-vscode/issues/9) | Agent output streaming to session panel | Planned |
+| [#6](https://github.com/elvatis/conduit-vscode/issues/6) | Model failover chain for agent sessions | ✅ Done |
+| [#7](https://github.com/elvatis/conduit-vscode/issues/7) | AAHP context integration for agent sessions | ✅ Done |
+| [#8](https://github.com/elvatis/conduit-vscode/issues/8) | Multi-issue batch mode (aahp-cron pattern) | ✅ Done |
+| [#9](https://github.com/elvatis/conduit-vscode/issues/9) | Agent output streaming to session panel | ✅ Done |
 | [#10](https://github.com/elvatis/conduit-vscode/issues/10) | Shared agent backend abstraction with aahp-runner | ✅ Done |
 | [#11](https://github.com/elvatis/conduit-vscode/issues/11) | LLM tool-call validation CI (multi-model smoke test) | ✅ Done |
 | [#12](https://github.com/elvatis/conduit-vscode/issues/12) | Agent session persistence and resume | ✅ Done |
@@ -713,6 +712,16 @@ Open issues tracking planned features:
 
 ## Changelog
 
+### v0.7.0 (2026-03-18)
+- CI workflow (build + test on push/PR) and weekly LLM validation workflow (#11)
+- Shared agent backend abstraction, refactored cli-runner.ts (#10)
+- Session persistence and resume: sessions survive VS Code restarts (#12)
+- Cost tracking per agent session with token parsing and budget limits (#13)
+- Resume, Remove, Clear commands for session management (#12)
+- Cost summary command with per-model breakdown (#13)
+- Branch protection enabled on main
+- 295+ tests across 19 test files
+
 ### v0.6.0 (2026-03-18)
 - Agent backends: Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi
 - Background agent sessions with spawn/monitor/kill
@@ -721,6 +730,7 @@ Open issues tracking planned features:
 - Merge-status aware worktree cleanup
 - Fix Issue command (auto-worktree + agent spawn)
 - Model fallback chain definitions
+- Live agent output streaming to session panel (#9)
 - 277 tests across 17 test files
 
 ### v0.5.0

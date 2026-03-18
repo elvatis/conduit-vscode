@@ -558,7 +558,6 @@ export function registerCommands(
     );
   }));
 
-<<<<<<< HEAD
   // ── Resume Interrupted Session ──────────────────────────────────────────
   disposables.push(vscode.commands.registerCommand('conduit.resumeSession', async (item?: { bgSession: BackgroundSession }) => {
     let session: BackgroundSession | undefined;
