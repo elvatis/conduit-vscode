@@ -1,0 +1,77 @@
+name: LLM Tool-Call Validation
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Comma-separated model IDs to test (leave empty for all)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model: cli-claude/claude-sonnet-4-6
+            cli: claude
+          - model: cli-gemini/gemini-2.5-flash
+            cli: gemini
+          - model: openai-codex/gpt-5.3-codex
+            cli: codex
+
+    name: Validate ${{ matrix.model }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check CLI availability
+        id: cli-check
+        run: |
+          if command -v ${{ matrix.cli }} &>/dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::${{ matrix.cli }} CLI not installed, skipping live test"
+          fi
+
+      - name: Run LLM validation test
+        if: steps.cli-check.outputs.available == 'true'
+        env:
+          LLM_MODEL: ${{ matrix.model }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: npx vitest run src/__tests__/llm-tool-validation.test.ts --reporter=verbose
+        timeout-minutes: 5
+
+      - name: Run schema-only validation (fallback)
+        if: steps.cli-check.outputs.available != 'true'
+        run: npx vitest run src/__tests__/llm-tool-validation.test.ts --reporter=verbose
+
+      - name: Store results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-validation-${{ matrix.cli }}
+          path: |
+            test-results/
+          retention-days: 30
