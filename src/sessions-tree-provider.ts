@@ -28,6 +28,10 @@ export interface BackgroundSession {
   finishedAt?: number;
   handle: CliAgentHandle;
   outputChannel: vscode.OutputChannel;
+  /** Last line of agent output (for live tree item description) */
+  lastOutputLine: string;
+  /** Interval for polling output */
+  _outputPollInterval?: ReturnType<typeof setInterval>;
 }
 
 const _backgroundSessions = new Map<string, BackgroundSession>();
@@ -52,21 +56,62 @@ export function addBackgroundSession(
 
   const session: BackgroundSession = {
     id, title, model, status: 'running', startedAt: Date.now(), handle, outputChannel,
+    lastOutputLine: 'starting...',
   };
   _backgroundSessions.set(id, session);
 
-  // Update output and status when done
+  // Live output streaming: poll handle.output and append new chunks
+  let lastOutputLength = 0;
+  session._outputPollInterval = setInterval(() => {
+    if (session.status !== 'running') return;
+
+    const currentOutput = handle.output.join('');
+    if (currentOutput.length > lastOutputLength) {
+      const newChunk = currentOutput.slice(lastOutputLength);
+      lastOutputLength = currentOutput.length;
+      outputChannel.append(newChunk);
+
+      // Update last output line for tree item description
+      const lines = currentOutput.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length > 0) {
+        const lastLine = lines[lines.length - 1].trim();
+        // Truncate for tree display
+        session.lastOutputLine = lastLine.length > 60
+          ? lastLine.slice(0, 57) + '...'
+          : lastLine;
+        _treeRefreshCb?.();
+      }
+    }
+  }, 1_000);
+
+  // Update status when done
   handle.result.then((result) => {
     session.status = result.exitCode === 0 ? 'completed' : 'failed';
     session.finishedAt = Date.now();
-    const text = handle.output.join('');
-    outputChannel.appendLine(text);
+
+    // Flush remaining output
+    const currentOutput = handle.output.join('');
+    if (currentOutput.length > lastOutputLength) {
+      outputChannel.append(currentOutput.slice(lastOutputLength));
+    }
+
     outputChannel.appendLine('\n---');
     outputChannel.appendLine(`[Agent] ${session.status} (exit code ${result.exitCode})`);
+
+    if (session._outputPollInterval) clearInterval(session._outputPollInterval);
     _treeRefreshCb?.();
+
+    // Completion notification
+    vscode.window.showInformationMessage(
+      `Conduit: agent "${title}" ${session.status}.`,
+      'View Output',
+    ).then(action => {
+      if (action === 'View Output') outputChannel.show();
+    });
   }).catch(() => {
     session.status = 'failed';
     session.finishedAt = Date.now();
+    if (session._outputPollInterval) clearInterval(session._outputPollInterval);
     _treeRefreshCb?.();
   });
 
@@ -80,6 +125,8 @@ export function killBackgroundSession(id: string): boolean {
   session.handle.kill();
   session.status = 'failed';
   session.finishedAt = Date.now();
+  session.lastOutputLine = 'killed by user';
+  if (session._outputPollInterval) clearInterval(session._outputPollInterval);
   session.outputChannel.appendLine('\n[Agent] Killed by user');
   _treeRefreshCb?.();
   return true;
@@ -189,8 +236,13 @@ class BackgroundSessionItem extends vscode.TreeItem {
   constructor(public readonly bgSession: BackgroundSession) {
     super(bgSession.title, vscode.TreeItemCollapsibleState.None);
 
-    const ago = timeAgo(bgSession.startedAt);
-    this.description = `${shortModelName(bgSession.model)} - ${ago}`;
+    // Live output line for running agents, model + time for completed
+    if (bgSession.status === 'running' && bgSession.lastOutputLine) {
+      this.description = bgSession.lastOutputLine;
+    } else {
+      const ago = timeAgo(bgSession.startedAt);
+      this.description = `${shortModelName(bgSession.model)} - ${ago}`;
+    }
 
     const statusIcon = bgSession.status === 'running' ? 'sync~spin'
       : bgSession.status === 'completed' ? 'check'
@@ -201,11 +253,16 @@ class BackgroundSessionItem extends vscode.TreeItem {
 
     this.iconPath = new vscode.ThemeIcon(statusIcon, new vscode.ThemeColor(statusColor));
 
+    const durationStr = bgSession.finishedAt
+      ? `Duration: ${Math.round((bgSession.finishedAt - bgSession.startedAt) / 1000)}s`
+      : `Running for: ${Math.round((Date.now() - bgSession.startedAt) / 1000)}s`;
+
     this.tooltip = new vscode.MarkdownString(
       `**${bgSession.title}**\n\n` +
       `Model: ${bgSession.model}\n\n` +
       `Status: ${bgSession.status}\n\n` +
       `PID: ${bgSession.handle.pid}\n\n` +
+      `${durationStr}\n\n` +
       `Started: ${new Date(bgSession.startedAt).toLocaleString()}`,
     );
 
