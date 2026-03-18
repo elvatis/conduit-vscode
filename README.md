@@ -713,6 +713,16 @@ Open issues tracking planned features:
 ## Changelog
 
 ### v0.7.0 (2026-03-18)
+- CI workflow (build + test on push/PR) and weekly LLM validation workflow (#11)
+- Shared agent backend abstraction, refactored cli-runner.ts (#10)
+- Session persistence and resume: sessions survive VS Code restarts (#12)
+- Cost tracking per agent session with token parsing and budget limits (#13)
+- Resume, Remove, Clear commands for session management (#12)
+- Cost summary command with per-model breakdown (#13)
+- Branch protection enabled on main
+- 295+ tests across 19 test files
+
+### v0.6.0 (2026-03-18)
 - Agent backends: Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi
 - Background agent sessions with spawn/monitor/kill
 - Git worktree isolation for parallel agent work
@@ -720,7 +730,8 @@ Open issues tracking planned features:
 - Merge-status aware worktree cleanup
 - Fix Issue command (auto-worktree + agent spawn)
 - Model fallback chain definitions
-- 301 tests across 18 test files
+- Live agent output streaming to session panel (#9)
+- 277 tests across 17 test files
 
 ### v0.5.0
 - Reliable agent loop with tool execution
