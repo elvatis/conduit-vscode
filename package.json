@@ -2,7 +2,7 @@
   "name": "conduit-vscode",
   "displayName": "Conduit \u2014 Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "elvatis",
   "private": true,
   "license": "MIT",
