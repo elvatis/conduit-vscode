@@ -21,7 +21,7 @@ import {
   detectInstalledClis as _detectInstalledClis,
   buildBackendConfig,
   spawnAgent,
-} from './agent-backends';
+} from '@elvatis_com/agent-backends';
 
 // Re-export types and shared functions for backward compatibility
 export type { ChatMessage, CliRunResult, CliInfo };
