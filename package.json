@@ -455,7 +455,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.0",
     "esbuild": "^0.20.0",
-    "eslint": "^8.0.0",
+    "eslint": "^10.1.0",
     "typescript": "^5.4.0",
     "vitest": "^4.1.0"
   },
