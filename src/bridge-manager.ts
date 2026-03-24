@@ -251,16 +251,50 @@ export class BridgeManager {
     }
   }
 
+  /**
+   * Resolve the .cmd wrapper to the actual JS entry script on Windows.
+   * npm global installs create a .cmd shim that calls node with the real script.
+   * We parse the .cmd to extract the JS path so we can spawn node directly.
+   */
+  private _resolveCmd(cmdPath: string): string | null {
+    try {
+      const content = fs.readFileSync(cmdPath, 'utf-8');
+      // npm .cmd files contain a line like: "%~dp0\node_modules\conduit-bridge\dist\cli.js" %*
+      // or: "...\..\conduit-bridge\dist\cli.js" %*
+      const match = content.match(/"([^"]+\.js)"/);
+      if (match) {
+        const jsPath = match[1].replace(/%~dp0/g, path.dirname(cmdPath));
+        const resolved = path.resolve(path.dirname(cmdPath), jsPath);
+        if (fs.existsSync(resolved)) return resolved;
+      }
+      // Also try: node_modules/conduit-bridge/dist/cli.js relative to npm prefix
+      const npmPrefix = path.dirname(cmdPath);
+      const fallback = path.join(npmPrefix, 'node_modules', 'conduit-bridge', 'dist', 'cli.js');
+      if (fs.existsSync(fallback)) return fallback;
+    } catch { /* ignore */ }
+    return null;
+  }
+
   private _findBridgeCli(): string | null {
     const home = process.env.HOME || process.env.USERPROFILE || '';
     const isWin = process.platform === 'win32';
 
-    // Look for conduit-bridge CLI in common locations
-    const candidates = [
-      // npx-resolved (node_modules/.bin)
-      path.join(__dirname, '..', 'node_modules', '.bin', isWin ? 'conduit-bridge.cmd' : 'conduit-bridge'),
+    // Direct JS entry points (preferred, works cross-platform)
+    const jsCandidates = [
       path.join(__dirname, '..', '..', 'conduit-bridge', 'dist', 'cli.js'),
-      // Installed globally via npm
+      path.join(__dirname, '..', 'node_modules', 'conduit-bridge', 'dist', 'cli.js'),
+      ...(isWin ? [
+        path.join(home, 'AppData', 'Roaming', 'npm', 'node_modules', 'conduit-bridge', 'dist', 'cli.js'),
+      ] : []),
+    ];
+
+    for (const p of jsCandidates) {
+      try { if (fs.existsSync(p)) return p; } catch { /* skip */ }
+    }
+
+    // Shell/bin wrappers (Unix: direct executable, Windows: .cmd needs resolving)
+    const binCandidates = [
+      path.join(__dirname, '..', 'node_modules', '.bin', isWin ? 'conduit-bridge.cmd' : 'conduit-bridge'),
       ...(isWin ? [
         path.join(home, 'AppData', 'Roaming', 'npm', 'conduit-bridge.cmd'),
       ] : [
@@ -269,8 +303,16 @@ export class BridgeManager {
       ]),
     ];
 
-    for (const p of candidates) {
-      try { if (fs.existsSync(p)) return p; } catch { /* skip */ }
+    for (const p of binCandidates) {
+      try {
+        if (!fs.existsSync(p)) continue;
+        // On Windows, resolve .cmd to the actual JS file
+        if (isWin && p.endsWith('.cmd')) {
+          const resolved = this._resolveCmd(p);
+          if (resolved) return resolved;
+        }
+        return p;
+      } catch { /* skip */ }
     }
 
     // Try where (Windows) or which (Unix)
@@ -279,7 +321,14 @@ export class BridgeManager {
       const result = cp.execSync(cmd, {
         encoding: 'utf-8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'],
       }).trim().split('\n')[0];
-      if (result && fs.existsSync(result)) return result;
+      if (result && fs.existsSync(result)) {
+        // Resolve .cmd on Windows
+        if (isWin && result.endsWith('.cmd')) {
+          const resolved = this._resolveCmd(result);
+          if (resolved) return resolved;
+        }
+        return result;
+      }
     } catch { /* not found */ }
 
     return null;
