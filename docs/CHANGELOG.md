@@ -2,6 +2,13 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.7.3] - 2026-05-05
+
+### Changed
+- Dev dep `@types/node` major bump 22.x to ^25.5.0
+- Dev dep `eslint` major bump 8.x to ^10.1.0
+- No runtime changes; addresses Dependabot PRs #30 and #34
+
 ## [0.7.2] - 2026-05-05
 
 ### Security
