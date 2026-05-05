@@ -2,6 +2,17 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.7.2] - 2026-05-05
+
+### Security
+- Bump `vite` to 8.0.5 (transitive via vitest) - GHSA-4w7w-66w2-5vf9, GHSA path traversal in `.map` handling
+- Bump `esbuild` to ^0.27.7 - GHSA-67mh-4wv8-2f99 (dev server request bypass)
+- Bump `brace-expansion` (transitive) to fix GHSA-f886-m6hf-6m8v
+
+### Changed
+- Bump `@typescript-eslint/parser` 7.x to ^8.59.2 to align with `@typescript-eslint/eslint-plugin@^8.57.2` and unblock CI peer-dep resolution
+- Bump `vitest` and `@vitest/coverage-v8` to ^4.1.5
+
 ## [0.7.0] - 2026-03-18
 
 ### Added

@@ -5,9 +5,9 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.7.0
+**Current version:** 0.7.2
 
-> **Status:** Active development. All core features implemented and tested (283 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (282 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.7.0.vsix
+code --install-extension conduit-vscode-0.7.2.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.7.0.vsix
+code --install-extension conduit-vscode-0.7.2.vsix
 ```
 
 ### First Launch
@@ -637,7 +637,7 @@ Two GitHub Actions workflows run automatically:
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.7.0.vsix
+# produces conduit-vscode-0.7.2.vsix
 ```
 
 ### Project Structure
@@ -711,6 +711,16 @@ Open issues tracking planned features:
 ---
 
 ## Changelog
+
+### v0.7.2 (2026-05-05)
+- Security: vite 8.0.5 (path traversal in `.map` handling, GHSA-4w7w-66w2-5vf9)
+- Security: esbuild ^0.27.7 (dev server bypass, GHSA-67mh-4wv8-2f99)
+- Security: brace-expansion transitive bump (GHSA-f886-m6hf-6m8v)
+- Aligned `@typescript-eslint/parser` to ^8.59.2 to match the plugin and unblock CI peer-dep resolution
+- Bumped vitest and `@vitest/coverage-v8` to ^4.1.5
+
+### v0.7.1 (2026-03-24)
+- Fix: resolve `.cmd` wrapper to actual JS entry on Windows when spawning the bridge
 
 ### v0.7.0 (2026-03-18)
 - CI workflow (build + test on push/PR) and weekly LLM validation workflow (#11)
