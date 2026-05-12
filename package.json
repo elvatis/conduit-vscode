@@ -449,7 +449,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.7.0",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.59.2",
