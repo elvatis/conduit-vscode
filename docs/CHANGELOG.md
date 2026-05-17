@@ -2,6 +2,15 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.7.4] - 2026-05-17
+
+### Changed
+- Dev dep `typescript` bumped from 5.x to ^6.0.3
+- Dev dep `@types/node` to ^25.7.0
+- Dev dep `@types/vscode` to ^1.118.0
+- Dev dep `@vitest/coverage-v8` and `vitest` to ^4.1.6
+- No runtime changes; addresses Dependabot PRs #40, #41, #42, #43
+
 ## [0.7.3] - 2026-05-05
 
 ### Changed
