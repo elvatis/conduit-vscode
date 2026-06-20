@@ -58,3 +58,6 @@
 | 0.1.0 | 2026-03-12 | Initial build - full feature set + BridgeManager |
 | 0.2.0 | 2026-03-14 | Chat history, model selector, health dashboard, auto-start, tests, .vsix |
 | 0.3.0 | 2026-03-15 | Agent step cards, full markdown rendering, #workspace/#codebase, model selection fix |
+
+<!-- aahp-gate -->
+_AAHP verify gate: v3.0.2 synced 2026-06-20._
