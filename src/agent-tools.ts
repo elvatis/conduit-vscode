@@ -104,6 +104,58 @@ const WORKTREE_LOCK_TIMEOUT_MS = 30_000;
 const WORKTREE_LOCK_RETRY_MS = 500;
 const WORKTREE_STAGGER_MS = 2_500;
 
+// ── Input validation ──────────────────────────────────────────────────────────
+
+/**
+ * Allowlist for git branch names received from LLM tool arguments.
+ * Permits alphanumeric characters, hyphens, underscores, dots, and forward
+ * slashes (for namespaced branches like fix/issue-42). Rejects any shell
+ * metacharacters, leading hyphens (flag injection), and ".." (path traversal).
+ */
+const BRANCH_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$/;
+
+/**
+ * Validate a git branch name received from an LLM tool argument.
+ * Returns null if valid, or an error message string if invalid.
+ */
+export function validateBranchName(branch: string): string | null {
+  if (!branch || branch.length === 0) return 'Branch name is empty';
+  if (branch.startsWith('-')) return 'Branch name must not start with a hyphen';
+  if (branch.includes('..')) return 'Branch name must not contain ".."';
+  if (!BRANCH_NAME_RE.test(branch)) return `Branch name contains disallowed characters: ${branch}`;
+  if (branch.length > 250) return 'Branch name is too long';
+  return null;
+}
+
+/**
+ * Allowlist for individual command tokens (program name and each argument).
+ * Only safe, non-shell tokens pass. Shell metacharacters (;, |, &, $, `, >,
+ * <, (, ), {, }, \, !, ~, #) and leading hyphens are rejected.
+ *
+ * Because runCommand historically accepted an arbitrary shell string, we now
+ * require the LLM to pass a string that matches a safe subset: a sequence of
+ * whitespace-separated tokens each composed of word chars, hyphens, dots,
+ * slashes, colons, equals signs, and at-signs. No quoting or shell operators
+ * are allowed. If the command needs quotes or pipes, the LLM should restructure
+ * the call or chain multiple runCommand calls.
+ */
+const SAFE_COMMAND_RE = /^[a-zA-Z0-9_./:=@\-]+([ ][a-zA-Z0-9_./:=@\-]+)*$/;
+
+/**
+ * Validate a command string coming from LLM tool arguments.
+ * Returns null if valid, or an error message string if invalid.
+ */
+export function validateSafeCommand(command: string): string | null {
+  if (!command || command.trim().length === 0) return 'Command is empty';
+  if (!SAFE_COMMAND_RE.test(command.trim())) {
+    return (
+      'Command contains disallowed characters (shell metacharacters, quotes, or operators are not permitted). ' +
+      'Use simple space-separated tokens only.'
+    );
+  }
+  return null;
+}
+
 // ── Workspace root ────────────────────────────────────────────────────────────
 
 function getWorkspaceRoot(): string | null {
@@ -269,12 +321,24 @@ async function toolRunCommand(args: Record<string, unknown>): Promise<{ status: 
   const command = args.command as string;
   if (!command) return { status: 'error', output: 'Missing required arg: command' };
 
+  // Validate command against allowlist before any execution. This prevents
+  // shell injection from LLM-generated tool arguments. Shell metacharacters,
+  // quoting, pipes, and operators are all rejected.
+  const commandValidationError = validateSafeCommand(command);
+  if (commandValidationError) {
+    return { status: 'error', output: `Command rejected: ${commandValidationError}` };
+  }
+
   const cwdRel = (args.cwd as string) || '';
   const cwd = cwdRel ? resolveSafe(root, cwdRel) : root;
   if (!cwd) return { status: 'error', output: 'Working directory escapes workspace root' };
 
+  // Split the validated command into tokens and run without a shell.
+  const tokens = command.trim().split(/\s+/);
+  const [prog, ...argv] = tokens;
+
   return new Promise((resolve) => {
-    cp.exec(command, { cwd, timeout: COMMAND_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    cp.execFile(prog, argv, { cwd, timeout: COMMAND_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       let output = '';
       if (stdout) output += stdout;
       if (stderr) output += (output ? '\n--- stderr ---\n' : '') + stderr;
@@ -407,6 +471,12 @@ async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ stat
   const branch = args.branch as string;
   if (!branch) return { status: 'error', output: 'Missing required arg: branch' };
 
+  // Validate branch name received from LLM to prevent shell injection.
+  const branchValidationError = validateBranchName(branch);
+  if (branchValidationError) {
+    return { status: 'error', output: `Branch name rejected: ${branchValidationError}` };
+  }
+
   const worktreePath = (args.path as string) || path.join('..', `worktree-${branch.replace(/\//g, '-')}`);
   const fullPath = resolveSafe(path.dirname(root), path.basename(root) + '/' + worktreePath)
     ?? path.resolve(root, worktreePath);
@@ -420,8 +490,11 @@ async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ stat
 
   try {
     return await new Promise((resolve) => {
-      cp.exec(
-        `git worktree add -b "${branch}" "${fullPath}"`,
+      // Use execFile with a list argv so the branch name and path are never
+      // interpreted by a shell, even if they contain unusual characters.
+      cp.execFile(
+        'git',
+        ['worktree', 'add', '-b', branch, fullPath],
         { cwd: root, timeout: 30_000 },
         (err, stdout, stderr) => {
           if (err) {

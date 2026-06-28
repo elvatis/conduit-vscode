@@ -452,13 +452,25 @@ export function registerCommands(
     const pathMod = require('path') as typeof import('path');
     const fsMod = require('fs') as typeof import('fs');
 
+    // Validate the label value from user input before passing to gh CLI.
+    // GitHub labels may contain letters, digits, spaces, hyphens, and a few
+    // punctuation chars. Reject anything that could be interpreted as a shell
+    // operator or flag injection when the value is passed as a CLI argument.
+    if (label && !/^[a-zA-Z0-9 _.,\-:]+$/.test(label)) {
+      vscode.window.showErrorMessage(
+        'Conduit: label contains disallowed characters. Use letters, digits, spaces, hyphens, underscores, dots, commas, and colons only.',
+      );
+      return;
+    }
+
     let issueNumbers: number[];
     try {
-      const labelArg = label ? `--label "${label}"` : '';
-      const ghOutput = cp.execSync(
-        `gh issue list --state open ${labelArg} --limit ${maxIssues} --json number,title`,
-        { cwd: workdir, timeout: 15_000, encoding: 'utf-8' },
-      );
+      // Build argv as an array so no shell expansion occurs on the label value.
+      const ghArgs = ['issue', 'list', '--state', 'open', '--limit', String(maxIssues), '--json', 'number,title'];
+      if (label) {
+        ghArgs.push('--label', label);
+      }
+      const ghOutput = cp.execFileSync('gh', ghArgs, { cwd: workdir, timeout: 15_000, encoding: 'utf-8' });
       const issues = JSON.parse(ghOutput) as Array<{ number: number; title: string }>;
       if (issues.length === 0) {
         vscode.window.showInformationMessage(`Conduit: no open issues found${label ? ` with label "${label}"` : ''}.`);
