@@ -3,17 +3,17 @@
   "project": "conduit-vscode",
   "last_session": {
     "agent": "claude-opus-4-8",
-    "session_id": "cli-1782655674",
-    "timestamp": "2026-06-28T14:07:55Z",
-    "commit": "e6b4d7a",
+    "session_id": "cli-1782656406",
+    "timestamp": "2026-06-28T14:20:06Z",
+    "commit": "b1266e5",
     "phase": "fix",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:4c32248917db21bd70531539f9c81a330f1c81705d00c8a31105aefe55a5d1b3",
-      "updated": "2026-06-28T14:07:48Z",
-      "lines": 73,
+      "checksum": "sha256:244546becf6553b52b3fe23493a969ebd6c862903e987936cb0bb50d28732259",
+      "updated": "2026-06-28T14:19:59Z",
+      "lines": 75,
       "summary": "(no summary available)"
     },
     "NEXT_ACTIONS.md": {
@@ -56,7 +56,7 @@
   "quick_context": "(no summary available) _Last updated: 2026-03-15_ ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 1519,
-    "full_read": 3600
+    "manifest_plus_core": 1590,
+    "full_read": 3671
   }
 }

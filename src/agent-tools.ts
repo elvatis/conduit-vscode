@@ -517,19 +517,23 @@ async function toolCreateWorktree(args: Record<string, unknown>): Promise<{ stat
  * Also checks if the branch has recent commits (within 24h) to avoid
  * deleting worktrees with uncommitted review feedback.
  * Hat tip: @m13v for the merge-before-cleanup pattern.
+ *
+ * Uses execFileSync with argv arrays so branchName is never interpreted
+ * by a shell, mirroring the pattern used by toolCreateWorktree.
  */
 function getBranchStatus(root: string, branchName: string): { merged: boolean; recentActivity: boolean; lastCommitAge: string } {
   try {
-    // Check if branch is merged into HEAD
-    const mergedBranches = cp.execSync('git branch --merged HEAD', { cwd: root, timeout: 10_000 }).toString();
+    // Check if branch is merged into HEAD (no shell: args are a plain argv list)
+    const mergedBranches = cp.execFileSync('git', ['branch', '--merged', 'HEAD'], { cwd: root, timeout: 10_000 }).toString();
     const merged = mergedBranches.split('\n').some(b => b.trim() === branchName);
 
-    // Check last commit age
+    // Check last commit age (no shell: branchName passed as a discrete argv element)
     let recentActivity = false;
     let lastCommitAge = 'unknown';
     try {
-      const lastCommit = cp.execSync(
-        `git log -1 --format="%ar|%ct" "${branchName}" --`,
+      const lastCommit = cp.execFileSync(
+        'git',
+        ['log', '-1', '--format=%ar|%ct', branchName, '--'],
         { cwd: root, timeout: 10_000 },
       ).toString().trim();
       const [relativeTime, unixTime] = lastCommit.split('|');
@@ -553,10 +557,20 @@ async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ stat
 
   const deleteBranch = (args.deleteBranch as boolean) ?? false;
   const force = (args.force as boolean) ?? false;
-  const fullPath = path.resolve(root, worktreePath);
 
-  // Extract branch name from worktree path
+  // Confine the worktree path to the parent of the workspace root, mirroring
+  // the same resolveSafe guard used by toolCreateWorktree.
+  const fullPath =
+    resolveSafe(path.dirname(root), path.basename(root) + '/' + worktreePath)
+    ?? path.resolve(root, worktreePath);
+
+  // Extract branch name from worktree directory name and validate it to
+  // prevent shell injection before any git invocation.
   const branchName = path.basename(fullPath).replace(/^worktree-/, '').replace(/-/g, '/');
+  const branchValidationError = validateBranchName(branchName);
+  if (branchValidationError) {
+    return { status: 'error', output: `Branch name rejected: ${branchValidationError}` };
+  }
 
   // Safety check: don't delete worktrees with unmerged, recently active branches
   if (!force) {
@@ -573,9 +587,12 @@ async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ stat
     }
   }
 
+  // Use execFile with a plain argv list so fullPath is never interpreted by
+  // a shell, mirroring the pattern used by toolCreateWorktree.
   return new Promise((resolve) => {
-    cp.exec(
-      `git worktree remove "${fullPath}" --force`,
+    cp.execFile(
+      'git',
+      ['worktree', 'remove', fullPath, '--force'],
       { cwd: root, timeout: 30_000 },
       (err, stdout, stderr) => {
         if (err) {
@@ -588,17 +605,17 @@ async function toolRemoveWorktree(args: Record<string, unknown>): Promise<{ stat
         if (deleteBranch) {
           const branchStatus = getBranchStatus(root, branchName);
           if (branchStatus.merged) {
-            // Safe to delete: branch is merged
+            // Safe to delete: branch is merged (no shell: args are a plain argv list)
             try {
-              cp.execSync(`git branch -d "${branchName}"`, { cwd: root, timeout: 10_000 });
+              cp.execFileSync('git', ['branch', '-d', branchName], { cwd: root, timeout: 10_000 });
               output += `\nDeleted merged branch ${branchName}`;
             } catch {
               output += `\nNote: could not delete branch (may not exist or already deleted)`;
             }
           } else if (force) {
-            // Force delete even if unmerged
+            // Force delete even if unmerged (no shell: args are a plain argv list)
             try {
-              cp.execSync(`git branch -D "${branchName}"`, { cwd: root, timeout: 10_000 });
+              cp.execFileSync('git', ['branch', '-D', branchName], { cwd: root, timeout: 10_000 });
               output += `\nForce-deleted unmerged branch ${branchName}`;
             } catch {
               output += `\nNote: could not delete branch (may not exist or already deleted)`;

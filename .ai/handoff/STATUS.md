@@ -71,3 +71,5 @@ _AAHP verify gate: v3.0.2 synced 2026-06-20._
 > 2026-06-27 ci: re-pin supply-chain-guard Action to v5.2.37 (be1d718b17cc38e4bce7fa48579b7112e557943b) and enable Dependabot github-actions weekly updates.
 
 > 2026-06-28 security: fix 3 command-injection findings (CWE-78) - validate branch names and command tokens from LLM tool args; switch toolCreateWorktree and toolRunCommand to execFile with no-shell; validate GitHub label in batchFixIssues before passing to execFileSync; add 17 security regression tests.
+
+> 2026-06-28 security: harden 2 residual CWE-78 sinks in toolRemoveWorktree and getBranchStatus - validate extracted branch name before any git call; switch cp.exec to cp.execFile for worktree remove; switch cp.execSync to cp.execFileSync for branch status and branch delete/force-delete; add 5 regression tests (shell metachar, leading hyphen, "..", exec vs execFile, execFileSync vs execSync assertions).

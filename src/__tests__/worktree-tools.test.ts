@@ -46,6 +46,7 @@ vi.mock('child_process', async () => {
     exec: vi.fn(),
     execFile: vi.fn(),
     execSync: vi.fn(),
+    execFileSync: vi.fn(),
   };
 });
 
@@ -350,10 +351,11 @@ describe('worktree tools', () => {
 
     it('refuses to remove worktree with unmerged, recently active branch', async () => {
       // The branch name extracted from path "worktree-fix-issue-42" becomes "fix/issue/42"
-      // (dashes converted to slashes after stripping "worktree-" prefix)
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return '  main\n  develop\n';
-        if (cmd.includes('git log -1')) return `2 hours ago|${Math.floor(Date.now() / 1000) - 7200}`;
+      // (dashes converted to slashes after stripping "worktree-" prefix).
+      // getBranchStatus now uses execFileSync, not execSync.
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return '  main\n  develop\n';
+        if (argv.includes('log')) return `2 hours ago|${Math.floor(Date.now() / 1000) - 7200}`;
         return '';
       });
 
@@ -368,15 +370,16 @@ describe('worktree tools', () => {
     });
 
     it('allows removal of worktree with merged branch', async () => {
-      // Path "worktree-fix-issue-42" => branch "fix/issue/42" after name extraction
+      // Path "worktree-fix-issue-42" => branch "fix/issue/42" after name extraction.
+      // getBranchStatus now uses execFileSync; the worktree remove now uses execFile.
       const extractedBranch = 'fix/issue/42';
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return `  main\n  ${extractedBranch}\n`;
-        if (cmd.includes('git log -1')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return `  main\n  ${extractedBranch}\n`;
+        if (argv.includes('log')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -389,14 +392,14 @@ describe('worktree tools', () => {
     });
 
     it('allows removal of worktree with old unmerged branch (abandoned)', async () => {
-      // Branch NOT merged, but inactive for >24h
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return '  main\n';
-        if (cmd.includes('git log -1')) return `3 days ago|${Math.floor(Date.now() / 1000) - 259200}`;
+      // Branch NOT merged, but inactive for >24h.
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return '  main\n';
+        if (argv.includes('log')) return `3 days ago|${Math.floor(Date.now() / 1000) - 259200}`;
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -408,14 +411,14 @@ describe('worktree tools', () => {
     });
 
     it('force overrides merge check', async () => {
-      // Branch NOT merged, recent activity, but force=true
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return '  main\n';
-        if (cmd.includes('git log -1')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
+      // Branch NOT merged, recent activity, but force=true.
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return '  main\n';
+        if (argv.includes('log')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -429,16 +432,17 @@ describe('worktree tools', () => {
     });
 
     it('deletes merged branch when deleteBranch=true', async () => {
-      // Path "worktree-fix-issue-55" => extracted branch "fix/issue/55"
+      // Path "worktree-fix-issue-55" => extracted branch "fix/issue/55".
+      // Branch delete now uses execFileSync(['git', 'branch', '-d', ...]).
       const extractedBranch = 'fix/issue/55';
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return `  main\n  ${extractedBranch}\n`;
-        if (cmd.includes('git log -1')) return `2 days ago|${Math.floor(Date.now() / 1000) - 172800}`;
-        if (cmd.includes('branch -d')) return `Deleted branch ${extractedBranch}`;
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return `  main\n  ${extractedBranch}\n`;
+        if (argv.includes('log')) return `2 days ago|${Math.floor(Date.now() / 1000) - 172800}`;
+        if (argv.includes('-d')) return `Deleted branch ${extractedBranch}`;
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -452,14 +456,14 @@ describe('worktree tools', () => {
     });
 
     it('preserves unmerged branch when deleteBranch=true but no force', async () => {
-      // Branch NOT merged
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return '  main\n';
-        if (cmd.includes('git log -1')) return `3 days ago|${Math.floor(Date.now() / 1000) - 259200}`;
+      // Branch NOT merged.
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return '  main\n';
+        if (argv.includes('log')) return `3 days ago|${Math.floor(Date.now() / 1000) - 259200}`;
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -474,14 +478,15 @@ describe('worktree tools', () => {
     });
 
     it('force-deletes unmerged branch when both deleteBranch=true and force=true', async () => {
-      (cp.execSync as any).mockImplementation((cmd: string) => {
-        if (cmd.includes('branch --merged')) return '  main\n';
-        if (cmd.includes('git log -1')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
-        if (cmd.includes('branch -D')) return 'Deleted branch';
+      // Branch delete now uses execFileSync(['git', 'branch', '-D', ...]).
+      (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+        if (argv.includes('--merged')) return '  main\n';
+        if (argv.includes('log')) return `1 hour ago|${Math.floor(Date.now() / 1000) - 3600}`;
+        if (argv.includes('-D')) return 'Deleted branch';
         return '';
       });
 
-      (cp.exec as any).mockImplementation((_cmd: string, _opts: any, cb: Function) => {
+      (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
         cb(null, '', '');
       });
 
@@ -494,5 +499,92 @@ describe('worktree tools', () => {
       expect(result.status).toBe('success');
       expect(result.output).toContain('Force-deleted unmerged branch');
     });
+  });
+});
+
+// ── Security regression tests: removeWorktree and getBranchStatus ─────────────
+
+describe('removeWorktree security - branch validation blocks execution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (workspace.workspaceFolders as any) = [{ uri: { fsPath: MOCK_ROOT }, name: 'test', index: 0 }];
+  });
+
+  it('rejects path that extracts to a shell-injected branch name and never calls execFile', async () => {
+    // A path whose basename, after worktree- stripping, contains a semicolon.
+    // e.g. "worktree-fix;rm -rf /" => branchName "fix;rm -rf /"
+    const result = await executeTool(makeCall('removeWorktree', {
+      path: '../worktree-fix;rm -rf /',
+    }));
+    expect(result.status).toBe('error');
+    expect(result.output).toContain('Branch name rejected');
+    expect(cp.execFile).not.toHaveBeenCalled();
+    expect(cp.execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('rejects path whose extracted branch name starts with a leading hyphen and never calls execFile', async () => {
+    // "worktree--D" => branchName starts with "-"
+    const result = await executeTool(makeCall('removeWorktree', {
+      path: '../worktree--D main',
+    }));
+    expect(result.status).toBe('error');
+    expect(result.output).toContain('Branch name rejected');
+    expect(cp.execFile).not.toHaveBeenCalled();
+    expect(cp.execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('rejects path whose extracted branch contains ".." and never calls execFile', async () => {
+    // branchName would contain ".." after extraction
+    const result = await executeTool(makeCall('removeWorktree', {
+      path: '../worktree-feat..escape',
+    }));
+    expect(result.status).toBe('error');
+    expect(result.output).toContain('Branch name rejected');
+    expect(cp.execFile).not.toHaveBeenCalled();
+    expect(cp.execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('uses execFile (not exec) for the worktree remove command', async () => {
+    // Valid branch extracted from path "worktree-fix-ok" => "fix/ok"
+    (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+      if (argv.includes('--merged')) return '  main\n  fix/ok\n';
+      if (argv.includes('log')) return `5 days ago|${Math.floor(Date.now() / 1000) - 432000}`;
+      return '';
+    });
+    (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
+      cb(null, '', '');
+    });
+
+    const result = await executeTool(makeCall('removeWorktree', { path: '../worktree-fix-ok' }));
+
+    expect(result.status).toBe('success');
+    // execFile must have been called with 'git' as the program, no shell involved
+    expect(cp.execFile).toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining(['worktree', 'remove']),
+      expect.any(Object),
+      expect.any(Function),
+    );
+    // exec (shell-based) must NOT have been called
+    expect(cp.exec).not.toHaveBeenCalled();
+  });
+
+  it('getBranchStatus uses execFileSync (not execSync) so branchName never touches a shell', async () => {
+    // Trigger getBranchStatus via removeWorktree with a valid branch
+    (cp.execFileSync as any).mockImplementation((_cmd: string, argv: string[]) => {
+      if (argv.includes('--merged')) return '  main\n  fix/safe\n';
+      if (argv.includes('log')) return `10 days ago|${Math.floor(Date.now() / 1000) - 864000}`;
+      return '';
+    });
+    (cp.execFile as any).mockImplementation((_cmd: string, _argv: string[], _opts: any, cb: Function) => {
+      cb(null, '', '');
+    });
+
+    await executeTool(makeCall('removeWorktree', { path: '../worktree-fix-safe' }));
+
+    // execFileSync must have been called (for branch status checks)
+    expect(cp.execFileSync).toHaveBeenCalled();
+    // execSync (shell-based) must NOT have been called
+    expect(cp.execSync).not.toHaveBeenCalled();
   });
 });
