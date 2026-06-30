@@ -75,3 +75,5 @@ _AAHP verify gate: v3.0.2 synced 2026-06-20._
 > 2026-06-28 security: harden 2 residual CWE-78 sinks in toolRemoveWorktree and getBranchStatus - validate extracted branch name before any git call; switch cp.exec to cp.execFile for worktree remove; switch cp.execSync to cp.execFileSync for branch status and branch delete/force-delete; add 5 regression tests (shell metachar, leading hyphen, "..", exec vs execFile, execFileSync vs execSync assertions).
 
 > 2026-06-30 verify: added reviewed expiring PII allowlist, rolled out from AAHP v3.2.0.
+
+> 2026-06-30 ci: exempt Dependabot from the aahp-verify handoff gate (keep supply-chain-guard/codeql/build).
