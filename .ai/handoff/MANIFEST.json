@@ -3,17 +3,17 @@
   "project": "conduit-vscode",
   "last_session": {
     "agent": "claude-opus-4-8",
-    "session_id": "cli-1782656406",
-    "timestamp": "2026-06-28T14:20:06Z",
-    "commit": "b1266e5",
+    "session_id": "cli-1782810963",
+    "timestamp": "2026-06-30T09:16:11Z",
+    "commit": "2b41eb7",
     "phase": "fix",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:244546becf6553b52b3fe23493a969ebd6c862903e987936cb0bb50d28732259",
-      "updated": "2026-06-28T14:19:59Z",
-      "lines": 75,
+      "checksum": "sha256:73e7b695733ca1a36b72ab7ff341a0df1d96750aecf816d07d05dc055f62e37b",
+      "updated": "2026-06-30T08:35:14Z",
+      "lines": 77,
       "summary": "(no summary available)"
     },
     "NEXT_ACTIONS.md": {
@@ -51,12 +51,18 @@
       "updated": "2026-05-05T16:10:19Z",
       "lines": 49,
       "summary": "(no summary available)"
+    },
+    "pii-allowlist.json": {
+      "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
+      "updated": "2026-06-30T08:33:41Z",
+      "lines": 4,
+      "summary": "{"
     }
   },
   "quick_context": "(no summary available) _Last updated: 2026-03-15_ ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 1590,
-    "full_read": 3671
+    "manifest_plus_core": 1606,
+    "full_read": 3695
   }
 }
