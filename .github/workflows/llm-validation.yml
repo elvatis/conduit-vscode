@@ -69,7 +69,7 @@ jobs:
 
       - name: Store results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: llm-validation-${{ matrix.cli }}
           path: |
