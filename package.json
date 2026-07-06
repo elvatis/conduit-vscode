@@ -457,7 +457,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^10.3.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@elvatis_com/agent-backends": "^1.0.0"
