@@ -3,58 +3,58 @@
   "project": "conduit-vscode",
   "last_session": {
     "agent": "claude-opus-4-8",
-    "session_id": "cli-1784010324",
-    "timestamp": "2026-07-14T06:25:25Z",
-    "commit": "2a1793d",
-    "phase": "implementation",
+    "session_id": "cli-1784032793",
+    "timestamp": "2026-07-14T12:39:53Z",
+    "commit": "3412c29",
+    "phase": "fix",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:baa7e8e7f717d360b59b3c3493923adcb9d2aa7c07d8b38e504057b44681ea8f",
-      "updated": "2026-07-14T06:25:24Z",
-      "lines": 82,
+      "checksum": "sha256:5235ca0fea61c44cd49aef0c91f6c6ed3fd8b160b39db0044e10307b0aa0c8ff",
+      "updated": "2026-07-14T12:39:36Z",
+      "lines": 84,
       "summary": "(no summary available)"
     },
     "NEXT_ACTIONS.md": {
       "checksum": "sha256:3277e705314a045614999221926914b6a73d71a2d263b0f78859937784c1e615",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 63,
       "summary": "_Last updated: 2026-03-15_"
     },
     "LOG.md": {
       "checksum": "sha256:7a44a1e0022732bdbb21a1575a7eec807747f9d82da27c54442f292a0310fb76",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 60,
       "summary": "_Reverse chronological. Latest session first._"
     },
     "DASHBOARD.md": {
       "checksum": "sha256:09f199c1e32b876c6e8e7e699e401abf430a875924f76b4826eb5a7bf0c62b3a",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 49,
       "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-03-15_"
     },
     "TRUST.md": {
       "checksum": "sha256:b57978939e562fddcf2e4825808b2cab01bd5e50ae919414a2242a5042a936ea",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 27,
       "summary": "- TypeScript compiles with zero errors"
     },
     "CONVENTIONS.md": {
       "checksum": "sha256:daf29e79be137d6d995bc12209360d0258437b5a55878fd00b83c6079f21d309",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 78,
       "summary": "- TypeScript strict mode, CommonJS output (VS Code extension requirement)"
     },
     "WORKFLOW.md": {
       "checksum": "sha256:a4d10594d93378225571f8f0c245677a443c00b73caee9734d67ea45cf601783",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 49,
       "summary": "(no summary available)"
     },
     "pii-allowlist.json": {
       "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
-      "updated": "2026-07-14T06:25:24Z",
+      "updated": "2026-07-14T12:37:10Z",
       "lines": 4,
       "summary": "{"
     }
@@ -62,7 +62,7 @@
   "quick_context": "(no summary available) _Last updated: 2026-03-15_ ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 1731,
-    "full_read": 3820
+    "manifest_plus_core": 1777,
+    "full_read": 3866
   }
 }
