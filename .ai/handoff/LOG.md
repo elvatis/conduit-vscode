@@ -17,6 +17,7 @@ _Reverse chronological. Latest session first._
 - Closed issues #52 (done) and #53 (dropped)
 - Reconciled STATUS.md, NEXT_ACTIONS.md, DASHBOARD.md, MANIFEST.json task states with the actual v0.7.4 codebase
 - Added `.ai/logs/` to .gitignore
+- Cut release v0.7.5: first release since 2026-05-17, ships the June CWE-78 hardening + dep sweep; fixed brace-expansion GHSA-jxxr-4gwj-5jf2 via npm audit fix; re-pinned @types/vscode to ~1.90.0 (vsce packaging vs engines.vscode, the Dependabot 1.120 bump had silently undone the v0.7.4 pin) and added a Dependabot ignore rule for it; packaged and attached conduit-vscode-0.7.5.vsix to the GitHub release
 
 ---
 

@@ -2,6 +2,28 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.7.5] - 2026-07-17
+
+### Security
+- Command-injection hardening (CWE-78) in the agent tool executors: validate branch names and command tokens coming from LLM tool args; switch `toolCreateWorktree`, `toolRunCommand`, `toolRemoveWorktree`, `getBranchStatus` and branch delete to `execFile`/`execFileSync` with no shell; validate the GitHub label in `batchFixIssues` before passing it to `execFileSync`. 32 regression tests added (shell metachars, leading hyphen, `..`, exec vs execFile assertions)
+- Transitive `brace-expansion` bump - GHSA-jxxr-4gwj-5jf2 (ReDoS via large numeric range)
+
+### Changed
+- Dev deps: `eslint` ^10.6.0, `vitest` 4.1.10 (with `@vitest/coverage-v8` resolving 4.1.10 via the existing ^4.1.6 range), `@typescript-eslint/eslint-plugin` ^8.63.0, `@typescript-eslint/parser` ^8.64.0, `esbuild` ^0.28.1, `@types/node` ^26.1.0; transitive `vite` now resolves 8.1.3
+- Re-pinned `@types/vscode` to `~1.90.0` to match `engines.vscode ^1.90.0` (vsce refuses to package otherwise) and added a Dependabot ignore rule for it - bump both together deliberately from now on
+
+### Packaging
+- `.vscodeignore` extended (`scripts/**`, `schema/**`, `.scg-history/**`, `.github/**`, `CLAUDE.md`): the AAHP/CI repo tooling had crept into the .vsix; the artifact now ships only extension content
+
+### CI / Infra
+- supply-chain-guard tracks the moving `@v5` release branch instead of stale SHA pins
+- `actions/checkout` 7, `actions/setup-node` 7, `actions/setup-python` 6, `github/codeql-action` 4, `actions/upload-artifact` 7
+- Dependabot exempted from the aahp-verify handoff gate
+- AAHP verify gate tooling synced to v3.5.0 (Layer 3 squash tolerance, hook tooling)
+
+### Docs
+- Handoff docs reconciled with reality: multi-turn agent loop (T-016) confirmed shipped in v0.5.0-v0.7.0, issue #52 closed as done; VS Code Marketplace listing (T-006) dropped by decision 2026-07-17, issue #53 closed
+
 ## [0.7.4] - 2026-05-17
 
 ### Changed

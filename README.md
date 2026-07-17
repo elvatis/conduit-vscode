@@ -5,9 +5,9 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.7.4
+**Current version:** 0.7.5
 
-> **Status:** Active development. All core features implemented and tested (282 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. All core features implemented and tested (314 tests). Requires conduit-bridge running locally.
 
 ---
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.7.4.vsix
+code --install-extension conduit-vscode-0.7.5.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.7.4.vsix
+code --install-extension conduit-vscode-0.7.5.vsix
 ```
 
 ### First Launch
@@ -637,7 +637,7 @@ Two GitHub Actions workflows run automatically:
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.7.4.vsix
+# produces conduit-vscode-0.7.5.vsix
 ```
 
 ### Project Structure
@@ -711,6 +711,16 @@ Open issues tracking planned features:
 ---
 
 ## Changelog
+
+### v0.7.5 (2026-07-17)
+- Security: command-injection hardening (CWE-78) in agent tool executors - branch names and command tokens from LLM tool args are validated, all git/shell sinks moved to `execFile`/`execFileSync` with no shell (`toolCreateWorktree`, `toolRunCommand`, `toolRemoveWorktree`, `getBranchStatus`, `batchFixIssues` label validation); 32 regression tests added
+- Security: transitive `brace-expansion` bump (GHSA-jxxr-4gwj-5jf2, ReDoS)
+- Dev deps: `eslint` ^10.6.0, `vitest` + `@vitest/coverage-v8` 4.1.10, `@typescript-eslint/eslint-plugin` ^8.63.0, `@typescript-eslint/parser` ^8.64.0, `esbuild` ^0.28.1, `@types/node` ^26.1.0; transitive `vite` resolves 8.1.3
+- Re-pinned `@types/vscode` to `~1.90.0` to match `engines.vscode` (vsce packaging requirement) and added a Dependabot ignore rule so it stops re-bumping it
+- Packaging: `.vscodeignore` extended so the .vsix no longer bundles AAHP/CI repo tooling (`scripts/`, `schema/`, `.scg-history/`, `.github/`, `CLAUDE.md`)
+- CI: supply-chain-guard now tracks the moving `@v5` release branch; `actions/checkout` 7, `setup-node` 7, `setup-python` 6, `codeql-action` 4, `upload-artifact` 7; Dependabot exempted from the aahp-verify handoff gate; AAHP gate tooling synced to v3.5.0
+- Docs: handoff docs reconciled with reality (multi-turn agent loop T-016 confirmed shipped, closed #52; Marketplace listing T-006 dropped by decision, closed #53)
+- 314 tests passing
 
 ### v0.7.4 (2026-05-17)
 - Dev deps: `typescript` 5.x to ^6.0.3, `@types/node` to ^25.7.0, `@types/vscode` to ^1.118.0
