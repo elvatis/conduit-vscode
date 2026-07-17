@@ -4,3 +4,4 @@ coverage/
 *.vsix
 .vscode-test/
 *.js.map
+.ai/logs/

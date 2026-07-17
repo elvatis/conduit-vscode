@@ -2,67 +2,69 @@
   "aahp_version": "3.0",
   "project": "conduit-vscode",
   "last_session": {
-    "agent": "claude-opus-4-8",
-    "session_id": "cli-1784032793",
-    "timestamp": "2026-07-14T12:39:53Z",
-    "commit": "3412c29",
-    "phase": "fix",
+    "agent": "claude-fable-5",
+    "session_id": "cli-1784305391",
+    "timestamp": "2026-07-17T16:23:11Z",
+    "commit": "3bd19ac",
+    "phase": "documentation",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:5235ca0fea61c44cd49aef0c91f6c6ed3fd8b160b39db0044e10307b0aa0c8ff",
-      "updated": "2026-07-14T12:39:36Z",
-      "lines": 84,
+      "checksum": "sha256:4f27c4591d72ca521b46fd74948bbd18ad410ed3c1ee7e166a793c17a5239e4e",
+      "updated": "2026-07-17T16:21:04Z",
+      "lines": 96,
       "summary": "(no summary available)"
     },
     "NEXT_ACTIONS.md": {
-      "checksum": "sha256:3277e705314a045614999221926914b6a73d71a2d263b0f78859937784c1e615",
-      "updated": "2026-07-14T12:37:10Z",
-      "lines": 63,
-      "summary": "_Last updated: 2026-03-15_"
+      "checksum": "sha256:a83907ddccb80df5e90c23dd4425887eb005bc4d7f3565cd9898908a070467ff",
+      "updated": "2026-07-17T16:20:30Z",
+      "lines": 58,
+      "summary": "_Last updated: 2026-07-17_"
     },
     "LOG.md": {
-      "checksum": "sha256:7a44a1e0022732bdbb21a1575a7eec807747f9d82da27c54442f292a0310fb76",
-      "updated": "2026-07-14T12:37:10Z",
-      "lines": 60,
+      "checksum": "sha256:9c58f4a3cddf3f2948bef30ec20566bf735b8d0a1afaaf85fb837476df63ff6a",
+      "updated": "2026-07-17T16:21:51Z",
+      "lines": 76,
       "summary": "_Reverse chronological. Latest session first._"
     },
     "DASHBOARD.md": {
-      "checksum": "sha256:09f199c1e32b876c6e8e7e699e401abf430a875924f76b4826eb5a7bf0c62b3a",
-      "updated": "2026-07-14T12:37:10Z",
-      "lines": 49,
-      "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-03-15_"
+      "checksum": "sha256:16f3f7f00a0d39667c57dd0d4efbb0d5a6d9d68c01592bec5d8a6a04c00cd38f",
+      "updated": "2026-07-17T16:21:26Z",
+      "lines": 55,
+      "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-07-17_"
     },
     "TRUST.md": {
       "checksum": "sha256:b57978939e562fddcf2e4825808b2cab01bd5e50ae919414a2242a5042a936ea",
-      "updated": "2026-07-14T12:37:10Z",
+      "updated": "2026-05-05T16:10:19Z",
       "lines": 27,
       "summary": "- TypeScript compiles with zero errors"
     },
     "CONVENTIONS.md": {
       "checksum": "sha256:daf29e79be137d6d995bc12209360d0258437b5a55878fd00b83c6079f21d309",
-      "updated": "2026-07-14T12:37:10Z",
+      "updated": "2026-05-05T16:10:19Z",
       "lines": 78,
       "summary": "- TypeScript strict mode, CommonJS output (VS Code extension requirement)"
     },
     "WORKFLOW.md": {
       "checksum": "sha256:a4d10594d93378225571f8f0c245677a443c00b73caee9734d67ea45cf601783",
-      "updated": "2026-07-14T12:37:10Z",
+      "updated": "2026-05-05T16:10:19Z",
       "lines": 49,
       "summary": "(no summary available)"
     },
     "pii-allowlist.json": {
       "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
-      "updated": "2026-07-14T12:37:10Z",
+      "updated": "2026-06-30T08:33:41Z",
       "lines": 4,
       "summary": "{"
     }
   },
-  "quick_context": "(no summary available) _Last updated: 2026-03-15_ ",
+  "quick_context": "(no summary available) _Last updated: 2026-07-17_ ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 1777,
-    "full_read": 3866
+    "manifest_plus_core": 2077,
+    "full_read": 4455
   }
+  ,"next_task_id": "3"
+  ,"tasks": {"T-001":{"title":"[T-006] [low] - VS Code Marketplace listing","status":"dropped","priority":"low","depends_on":[],"created":"2026-07-03T10:12:20.527Z","notes":"**AAHP Task:** `T-006`  \n**Status:** dropped  \n**Priority:** low  \n\nDropped 2026-07-17: no plan to publish to the VS Code Marketplace (matches the decision to keep conduit tooling unpublished). Issue #53 closed.\n\n---\n*Auto-created from AAHP manifest · project: conduit-vscode*","github_issue":53,"github_repo":"elvatis/conduit-vscode"},"T-002":{"title":"[T-016] [high] - Multi-turn agent loop","status":"done","priority":"high","depends_on":[],"created":"2026-07-03T10:12:20.527Z","notes":"**AAHP Task:** `T-016`  \n**Status:** done  \n**Priority:** high  \n\nShipped incrementally in v0.5.0-v0.7.0 (AgentLoop controller, tool execution, confirmation UI, step cards, error feedback, session persistence, cost tracking). Docs reconciled and issue #52 closed 2026-07-17.\n\n---\n*Auto-created from AAHP manifest · project: conduit-vscode*","github_issue":52,"github_repo":"elvatis/conduit-vscode"}}
 }

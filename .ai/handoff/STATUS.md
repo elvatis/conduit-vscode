@@ -4,7 +4,7 @@
 
 # STATUS - conduit-vscode
 
-## Current Version: 0.3.0 (GitHub only - not yet on VS Code Marketplace)
+## Current Version: 0.7.4 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17)
 
 ## Feature Status
 | Feature | Status | Notes |
@@ -36,6 +36,12 @@
 | Auto-start bridge | Done | Starts conduit-bridge on activate if proxy unreachable |
 | Model-Mode Compatibility | Done | Warnings when model doesn't support current mode |
 | Model Switch Handoff | Done | Context summary when switching models mid-conversation |
+| Multi-turn Agent Loop (T-016) | Done | AgentLoop controller: stream -> parse tool calls -> execute -> feed results back; duplicate-call detection, error feedback loop, destructive-action confirmation, abort |
+| Agent Tools | Done | readFile, writeFile, runCommand, searchCode + worktree tools; command/branch args validated, execFile no-shell (CWE-78 hardening) |
+| Agent Backends | Done | Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi; background sessions with spawn/monitor/kill and model failover chain |
+| Git Worktree Isolation | Done | Parallel agent work in isolated worktrees, serialized creation, merge-aware cleanup |
+| Agent Session Persistence | Done | Sessions survive VS Code restarts; Resume/Remove/Clear commands |
+| Cost Tracking | Done | Per-session token/cost tracking, budget limits, per-model cost summary |
 
 ## Architecture
 - Extension activates on VS Code startup (`onStartupFinished`)
@@ -47,14 +53,13 @@
 - Bridge uses Playwright browser automation (Grok, Claude, Gemini, ChatGPT web UIs)
 
 ## Build Status
-- Build: `npm run build` - `dist/extension.js` (~123kb): Done
-- Tests: `npm test` - vitest: Done
+- Build: `npm run build` - `dist/extension.js` (~201kb): Done
+- Tests: `npm test` - vitest, 314 passing / 1 skipped across 17 files: Done
 - .vsix packaging: `npx @vscode/vsce package --no-dependencies`: Done
 
 ## Known Issues / Gaps
-- No marketplace listing yet (T-006)
-- No multi-turn agent loop yet (planned - T-016)
 - Bridge must be rebuilt separately when models change
+- Marketplace listing (T-006): dropped 2026-07-17 - no plan to publish, distribution stays via GitHub .vsix
 
 ## Release History
 | Version | Date | Notes |
@@ -62,6 +67,11 @@
 | 0.1.0 | 2026-03-12 | Initial build - full feature set + BridgeManager |
 | 0.2.0 | 2026-03-14 | Chat history, model selector, health dashboard, auto-start, tests, .vsix |
 | 0.3.0 | 2026-03-15 | Agent step cards, full markdown rendering, #workspace/#codebase, model selection fix |
+| 0.4.0 | 2026-03-15 | Per-provider sessions, streaming metadata, inline chat diff preview |
+| 0.5.0 | 2026-03-16 | Multi-turn agent loop with tool execution (T-016 core), auto model selection, local models, smart fallback |
+| 0.6.0 | 2026-03-18 | Agent backends (Claude/Gemini/Codex/OpenCode/Pi), background sessions, worktree isolation |
+| 0.7.0 | 2026-03-18 | CI + LLM validation workflows, shared backend abstraction, session persistence/resume, cost tracking |
+| 0.7.1-0.7.4 | 2026-03-24 to 2026-05-17 | Windows bridge spawn fix, security dep updates, dev dep major bumps (see README changelog) |
 
 <!-- aahp-gate -->
 _AAHP verify gate: v3.0.2 synced 2026-06-20._
@@ -82,3 +92,5 @@ _AAHP verify gate: v3.0.2 synced 2026-06-20._
 
 > 2026-06-30 ci: exempt Dependabot from the aahp-verify handoff gate (keep supply-chain-guard/codeql/build).
 - 2026-07-03: ci: supply-chain-guard now tracks the moving @v5 release branch instead of a stale SHA pin (owner rule: consumers pin @v5, the release workflow moves it - currently v5.6.1). Ends the recurring stale/broken-pin churn (v5.2.35 crash wave). Config change only.
+
+> 2026-07-17 docs: reconciled handoff docs with reality - version 0.3.0 -> 0.7.4, T-016 multi-turn agent loop marked done (shipped v0.5.0-v0.7.0, issue #52 closed), T-006 marketplace listing dropped by decision (issue #53 closed), test count 314. Merged Dependabot PRs #62-#66 and #69 the same day. No code changes.

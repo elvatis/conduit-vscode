@@ -4,6 +4,22 @@ _Reverse chronological. Latest session first._
 
 ---
 
+## Session 4 - 2026-07-17 - Backlog close-out + Dependabot sweep (claude-fable-5)
+
+**Goal:** Merge open Dependabot PRs, resolve the two remaining backlog issues, reconcile stale handoff docs.
+
+**Decisions:**
+- T-006 (Marketplace listing, issue #53) dropped: no plan to publish conduit to the VS Code Marketplace, matching the same-day decision to keep conduit tooling off npm. Distribution stays via GitHub .vsix.
+- T-016 (Multi-turn agent loop, issue #52) was already fully shipped in v0.5.0-v0.7.0 (AgentLoop controller, tool executor, confirmation UI, step cards, error feedback, persistence, cost tracking) - the handoff docs were simply stale at v0.3.0. Verified: 314 tests pass, build clean. Closed as done rather than re-implemented.
+
+**What was done:**
+- Merged Dependabot PRs #62-#66, #69 (setup-node 7, eslint 10.6, vitest 4.1.10, typescript-eslint 8.63, coverage-v8) via sequential rebase queue
+- Closed issues #52 (done) and #53 (dropped)
+- Reconciled STATUS.md, NEXT_ACTIONS.md, DASHBOARD.md, MANIFEST.json task states with the actual v0.7.4 codebase
+- Added `.ai/logs/` to .gitignore
+
+---
+
 ## Session 3 - 2026-03-15 - Agent Steps, Markdown, Codebase Search (claude-opus-4-6)
 
 **Goal:** Fix model selection bug, improve output formatting, add workspace context, agent step UI.
