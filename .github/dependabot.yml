@@ -13,6 +13,11 @@ updates:
       # package when @types/vscode exceeds the engine minimum. Bump both
       # together deliberately, never via Dependabot.
       - dependency-name: "@types/vscode"
+      # TypeScript 7 (native port) is not supported by @typescript-eslint yet
+      # (peer range typescript ">=4.8.4 <6.1.0"). Un-ignore the major once
+      # typescript-eslint publishes a version whose peer range includes TS 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

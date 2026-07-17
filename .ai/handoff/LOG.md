@@ -18,6 +18,7 @@ _Reverse chronological. Latest session first._
 - Reconciled STATUS.md, NEXT_ACTIONS.md, DASHBOARD.md, MANIFEST.json task states with the actual v0.7.4 codebase
 - Added `.ai/logs/` to .gitignore
 - Cut release v0.7.5: first release since 2026-05-17, ships the June CWE-78 hardening + dep sweep; fixed brace-expansion GHSA-jxxr-4gwj-5jf2 via npm audit fix; re-pinned @types/vscode to ~1.90.0 (vsce packaging vs engines.vscode, the Dependabot 1.120 bump had silently undone the v0.7.4 pin) and added a Dependabot ignore rule for it; packaged and attached conduit-vscode-0.7.5.vsix to the GitHub release
+- Cut release v0.7.6: the v0.7.5 publish triggered a new Dependabot batch (#72-#75). Merged the 3 green dev-dep bumps (ts-eslint plugin 8.64, eslint 10.7, @types/node 26.1.1). Held #73 (typescript 6->7): ts-eslint plugin 8.64 peers on typescript ">=4.8.4 <6.1.0" so TS 7 fails npm install; closed it and added a Dependabot ignore for the typescript major. Cleaned up two merged-but-lingering remote branches (docs/handoff-refresh, release/v0.7.5). Dev-only, dist unchanged; packaged conduit-vscode-0.7.6.vsix.
 
 ---
 

@@ -2,6 +2,15 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.7.6] - 2026-07-17
+
+### Changed
+- Dev deps: `@typescript-eslint/eslint-plugin` 8.63.0 -> ^8.64.0 (now aligned with `@typescript-eslint/parser` 8.64.0), `eslint` 10.6.0 -> ^10.7.0, `@types/node` 26.1.0 -> ^26.1.1
+- No runtime changes; dev-only bumps, so the packaged `dist/extension.js` is functionally unchanged from v0.7.5
+
+### Held back
+- `typescript` 6 -> 7 (Dependabot #73, closed): `@typescript-eslint/eslint-plugin@8.64` declares a peer of `typescript@">=4.8.4 <6.1.0"`, so the lint toolchain cannot resolve against the TypeScript 7 native port. Added a Dependabot ignore for the `typescript` major; revisit when typescript-eslint's peer range includes TS 7
+
 ## [0.7.5] - 2026-07-17
 
 ### Security

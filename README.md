@@ -5,7 +5,7 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.7.5
+**Current version:** 0.7.6
 
 > **Status:** Active development. All core features implemented and tested (314 tests). Requires conduit-bridge running locally.
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.7.5.vsix
+code --install-extension conduit-vscode-0.7.6.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.7.5.vsix
+code --install-extension conduit-vscode-0.7.6.vsix
 ```
 
 ### First Launch
@@ -637,7 +637,7 @@ Two GitHub Actions workflows run automatically:
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.7.5.vsix
+# produces conduit-vscode-0.7.6.vsix
 ```
 
 ### Project Structure
@@ -711,6 +711,11 @@ Open issues tracking planned features:
 ---
 
 ## Changelog
+
+### v0.7.6 (2026-07-17)
+- Dev deps: `@typescript-eslint/eslint-plugin` ^8.64.0 (aligned with `@typescript-eslint/parser` 8.64.0), `eslint` ^10.7.0, `@types/node` ^26.1.1
+- Held back `typescript` 6 -> 7: `@typescript-eslint/eslint-plugin@8.64` peers on `typescript@">=4.8.4 <6.1.0"`, so the lint toolchain cannot resolve against TS 7 yet; added a Dependabot ignore for the `typescript` major
+- No runtime changes (dev-only bumps; bundled `dist/extension.js` unchanged from v0.7.5)
 
 ### v0.7.5 (2026-07-17)
 - Security: command-injection hardening (CWE-78) in agent tool executors - branch names and command tokens from LLM tool args are validated, all git/shell sinks moved to `execFile`/`execFileSync` with no shell (`toolCreateWorktree`, `toolRunCommand`, `toolRemoveWorktree`, `getBranchStatus`, `batchFixIssues` label validation); 32 regression tests added
