@@ -1,10 +1,15 @@
 .ai/**
 .claude/**
 .git/**
+.github/**
 .gitignore
 src/**
 node_modules/**
 coverage/**
+scripts/**
+schema/**
+.scg-history/**
+CLAUDE.md
 vitest.config.ts
 tsconfig.json
 *.vsix

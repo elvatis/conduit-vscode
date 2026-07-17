@@ -8,6 +8,11 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    ignore:
+      # Must stay in sync with engines.vscode (^1.90.0): vsce refuses to
+      # package when @types/vscode exceeds the engine minimum. Bump both
+      # together deliberately, never via Dependabot.
+      - dependency-name: "@types/vscode"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -6,18 +6,18 @@ _Quick-glance state for autonomous agents. Last updated: 2026-07-17_
 
 | Item | Value |
 |---|---|
-| Version | 0.7.4 |
+| Version | 0.7.5 |
 | Build | passes (`npm run build`, ~201kb) |
 | Tests | 314 passing / 1 skipped (`npm test`, vitest, 17 files) |
-| .vsix packaged | conduit-vscode-0.7.4.vsix |
+| .vsix packaged | conduit-vscode-0.7.5.vsix |
 | Installed locally | elvatis.conduit-vscode |
 | Default proxy | http://127.0.0.1:31338 |
 | Marketplace | dropped by decision 2026-07-17 (no plan to publish; GitHub .vsix only) |
 | GitHub | https://github.com/elvatis/conduit-vscode |
-| Latest release | v0.7.4 |
+| Latest release | v0.7.5 |
 | Next task | none - backlog clear |
 
-## Features (v0.7.4)
+## Features (v0.7.5)
 
 | Feature | Status |
 |---|---|
