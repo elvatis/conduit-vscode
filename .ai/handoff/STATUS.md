@@ -4,7 +4,7 @@
 
 # STATUS - conduit-vscode
 
-## Current Version: 0.7.5 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17)
+## Current Version: 0.7.6 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17)
 
 ## Feature Status
 | Feature | Status | Notes |
@@ -73,6 +73,7 @@
 | 0.7.0 | 2026-03-18 | CI + LLM validation workflows, shared backend abstraction, session persistence/resume, cost tracking |
 | 0.7.1-0.7.4 | 2026-03-24 to 2026-05-17 | Windows bridge spawn fix, security dep updates, dev dep major bumps (see README changelog) |
 | 0.7.5 | 2026-07-17 | CWE-78 hardening in agent tools, brace-expansion GHSA fix, dep sweep, @types/vscode re-pin + Dependabot ignore, CI action bumps, docs reconciliation |
+| 0.7.6 | 2026-07-17 | Dev-dep maintenance: ts-eslint plugin 8.64 / eslint 10.7 / @types/node 26.1.1; held TS 6->7 (toolchain peer conflict) + Dependabot ignore for the typescript major; no runtime change |
 
 <!-- aahp-gate -->
 _AAHP verify gate: v3.0.2 synced 2026-06-20._
@@ -97,3 +98,5 @@ _AAHP verify gate: v3.0.2 synced 2026-06-20._
 > 2026-07-17 docs: reconciled handoff docs with reality - version 0.3.0 -> 0.7.4, T-016 multi-turn agent loop marked done (shipped v0.5.0-v0.7.0, issue #52 closed), T-006 marketplace listing dropped by decision (issue #53 closed), test count 314. Merged Dependabot PRs #62-#66 and #69 the same day. No code changes.
 
 > 2026-07-17 release: cut v0.7.5 (first release since 2026-05-17). Ships the 2026-06-28 CWE-78 agent-tool hardening plus the dep sweep. Also: brace-expansion GHSA-jxxr-4gwj-5jf2 fixed via npm audit fix; @types/vscode re-pinned to ~1.90.0 (the Dependabot bump to 1.120 had silently undone the v0.7.4 pin and broke vsce packaging against engines.vscode ^1.90.0) with a Dependabot ignore rule added so it stays pinned; conduit-vscode-0.7.5.vsix packaged and attached to the GitHub release.
+
+> 2026-07-17 release: cut v0.7.6. Publishing v0.7.5 triggered a fresh Dependabot batch (#72-#75); merged the 3 green dev-dep bumps (ts-eslint plugin 8.64, eslint 10.7, @types/node 26.1.1) and released them. Held #73 (typescript 6->7): @typescript-eslint/eslint-plugin@8.64 peers on typescript ">=4.8.4 <6.1.0", so TS 7 (native port) fails npm install (ERESOLVE); added a Dependabot ignore for the typescript major. Also cleaned up two merged-but-lingering remote branches (docs/handoff-refresh from #70, release/v0.7.5 from #71). Dev-only bumps, dist/extension.js unchanged.
