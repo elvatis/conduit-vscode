@@ -1,41 +1,35 @@
 # NEXT_ACTIONS.md - conduit-vscode
 
-_Last updated: 2026-03-15_
+_Last updated: 2026-07-17_
 
 ## Status Summary
 
 | Status  | Count |
 |---------|-------|
-| Done    | 18    |
-| Ready   | 2     |
+| Done    | 19    |
+| Ready   | 0     |
 | Blocked | 0     |
+| Dropped | 1     |
 
 ---
 
 ## Ready - Work These Next
 
-### T-016: [high] - Multi-turn agent loop
-
-- **Goal:** Autonomous agent that can execute multi-step plans with tool use (file read/write, terminal commands), self-correct on errors, and show each step as a visible sub-process bubble.
-- **Architecture needed:**
-  - Agent loop controller (orchestrates multiple model calls)
-  - Tool definitions (readFile, writeFile, runCommand, searchCode)
-  - User confirmation UI for destructive actions
-  - Step status bubbles in the chat (running/done/failed)
-  - Error feedback loop (agent sees errors and retries)
-- **Definition of done:** Agent can autonomously complete a multi-file task with visible progress.
-
-### T-006: [low] - VS Code Marketplace listing
-
-- **Goal:** Public listing on marketplace.visualstudio.com.
-- **Note:** Requires publisher account + review.
-- **Definition of done:** `vsce publish` successful, extension findable on marketplace.
+_No open tasks. The backlog is clear._
 
 ---
 
 ## Blocked
 
 _No blocked tasks._
+
+---
+
+## Dropped
+
+### T-006: [low] - VS Code Marketplace listing (issue #53, closed)
+
+- Dropped 2026-07-17: there is no plan to publish conduit to the VS Code Marketplace. This matches the decision to keep the conduit tooling unpublished (npm publishing for conduit-bridge was removed the same day). Distribution stays via the .vsix from GitHub.
 
 ---
 
@@ -61,3 +55,4 @@ _No blocked tasks._
 | T-018 | Full markdown rendering (headings, lists, blockquotes, etc.) | 2026-03-15 |
 | T-019 | #workspace and #codebase context mentions | 2026-03-15 |
 | T-020 | Agent step cards with collapsible UI | 2026-03-15 |
+| T-016 | Multi-turn agent loop (issue #52) - shipped incrementally in v0.5.0-v0.7.0, docs reconciled 2026-07-17 | 2026-07-17 |

@@ -1,27 +1,33 @@
 # DASHBOARD - conduit-vscode
 
-_Quick-glance state for autonomous agents. Last updated: 2026-03-15_
+_Quick-glance state for autonomous agents. Last updated: 2026-07-17_
 
 ## Current State
 
 | Item | Value |
 |---|---|
-| Version | 0.3.0 |
-| Build | passes (`npm run build`, ~123kb) |
-| Tests | 30 passing (`npm test`, vitest) |
-| .vsix packaged | conduit-vscode-0.3.0.vsix (49.56 KB) |
+| Version | 0.7.4 |
+| Build | passes (`npm run build`, ~201kb) |
+| Tests | 314 passing / 1 skipped (`npm test`, vitest, 17 files) |
+| .vsix packaged | conduit-vscode-0.7.4.vsix |
 | Installed locally | elvatis.conduit-vscode |
 | Default proxy | http://127.0.0.1:31338 |
-| Marketplace | not yet (T-006) |
+| Marketplace | dropped by decision 2026-07-17 (no plan to publish; GitHub .vsix only) |
 | GitHub | https://github.com/elvatis/conduit-vscode |
-| Latest release | v0.3.0 |
-| Next task | T-016 - Multi-turn agent loop |
+| Latest release | v0.7.4 |
+| Next task | none - backlog clear |
 
-## Features (v0.3.0)
+## Features (v0.7.4)
 
 | Feature | Status |
 |---|---|
 | Chat Panel | Done |
+| Multi-turn Agent Loop (tool calls, confirmation, error feedback) | Done |
+| Agent Tools (readFile/writeFile/runCommand/searchCode/worktrees) | Done |
+| Agent Backends (Claude CLI, Gemini CLI, Codex, OpenCode, Pi) | Done |
+| Background Agent Sessions (spawn/monitor/kill, persistence, resume) | Done |
+| Git Worktree Isolation | Done |
+| Cost Tracking (per session, budget limits) | Done |
 | Agent Step Cards (collapsible) | Done |
 | Full Markdown Rendering | Done |
 | Chat History Persistence | Done |
@@ -41,8 +47,8 @@ _Quick-glance state for autonomous agents. Last updated: 2026-03-15_
 | Model-Mode Compatibility | Done |
 
 ## Unblocked Tasks (priority order)
-1. **T-016** [high] - Multi-turn agent loop architecture
-2. **T-006** [low] - Marketplace listing
+
+_None. T-016 done (issue #52 closed), T-006 dropped (issue #53 closed)._
 
 ## Related Projects
 - `conduit-bridge` - Playwright-based proxy (must be installed separately)
