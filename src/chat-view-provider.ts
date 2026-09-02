@@ -231,7 +231,7 @@ You can combine multiple mentions in a single message:
 | **Ask** | Questions, explanations, code review (CLI read-only) |
 | **Edit** | Modifying and refactoring existing code (CLI read-only) |
 | **Agent** | Host-side tools; CLI stays read-only |
-| **Plan** | CLI native planner (`mode: plan`) |`;
+| **Plan** | CLI native planner (mode: plan) |`;
     },
   },
   {
