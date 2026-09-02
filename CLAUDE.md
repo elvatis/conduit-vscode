@@ -6,7 +6,7 @@ Conduit is a VS Code extension that connects VS Code to any OpenAI-compatible AI
 
 - Publisher: `elvatis`
 - Extension ID: `elvatis.conduit-vscode`
-- Current version: `0.7.6`
+- Current version: `0.8.0`
 
 ## Build & Test
 
@@ -32,7 +32,7 @@ npm test             # vitest run
 - **Runtime**: TypeScript, CommonJS output, ES2022 target
 - **Bundler**: esbuild (single-file `dist/extension.js`, `vscode` is external)
 - **VS Code engine**: `^1.90.0`
-- **Bridge**: conduit-bridge (separate repo) - Playwright-based browser automation proxy
+- **Bridge**: conduit-bridge (separate repo) - OpenAI-compatible gateway for API, CLI, and LM Studio transports on `127.0.0.1:31338`
 
 ### Key Files
 
@@ -106,10 +106,6 @@ In agent mode, the `renderMd` function detects `### Step N:` headings and wraps 
 - Follow existing patterns in the codebase
 - Keep webview JS inline within TypeScript template strings
 
-## Planned: Multi-Turn Agent Loop
+## Agent Loop (T-016)
 
-Next major feature - autonomous agent that can:
-- Execute multi-step plans with tool use (file read/write, terminal commands)
-- Show each step as a visible sub-process bubble in the chat
-- Self-correct by reading errors and retrying
-- Requires new architecture: agent loop controller, tool definitions, confirmation UI
+Shipped. `AgentLoop` runs stream -> parse tool calls -> execute -> feed results back, with destructive-action confirmation and abort. GitHub issue #84 is the resurrected AAHP task for this work.

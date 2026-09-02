@@ -3,9 +3,10 @@ import { extractProvider, shortModelName, stripFences } from '../utils';
 
 describe('extractProvider', () => {
   it('extracts provider prefix before slash', () => {
-    expect(extractProvider('web-claude/claude-opus-4-6')).toBe('web-claude');
-    expect(extractProvider('cli-gemini/gemini-2.5-pro')).toBe('cli-gemini');
-    expect(extractProvider('openai-codex/gpt-5.4')).toBe('openai-codex');
+    expect(extractProvider('cli-claude/claude-opus-5')).toBe('cli-claude');
+    expect(extractProvider('cli-gemini/gemini-3.1-pro-high')).toBe('cli-gemini');
+    expect(extractProvider('cli-grok/grok-4.6')).toBe('cli-grok');
+    expect(extractProvider('cli-codex/gpt-5.6-sol')).toBe('cli-codex');
   });
 
   it('returns unknown for empty string', () => {
@@ -21,14 +22,14 @@ describe('extractProvider', () => {
   });
 
   it('uses only first slash for multi-slash IDs', () => {
-    expect(extractProvider('web-claude/claude/variant')).toBe('web-claude');
+    expect(extractProvider('cli-claude/first-account/claude-opus-5')).toBe('cli-claude');
   });
 });
 
 describe('shortModelName', () => {
   it('extracts model name after slash', () => {
-    expect(shortModelName('web-claude/claude-opus-4-6')).toBe('claude-opus-4-6');
-    expect(shortModelName('web-grok/grok-fast')).toBe('grok-fast');
+    expect(shortModelName('cli-claude/claude-opus-5')).toBe('claude-opus-5');
+    expect(shortModelName('cli-grok/grok-4.6')).toBe('grok-4.6');
   });
 
   it('returns unknown for empty string', () => {
@@ -40,7 +41,7 @@ describe('shortModelName', () => {
   });
 
   it('returns everything after first slash', () => {
-    expect(shortModelName('web-claude/claude/variant')).toBe('claude/variant');
+    expect(shortModelName('cli-claude/first-account/claude-opus-5')).toBe('first-account/claude-opus-5');
   });
 
   it('returns full string including slash when slash at position 0', () => {

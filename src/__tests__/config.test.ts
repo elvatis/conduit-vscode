@@ -6,7 +6,7 @@ describe('getConfig', () => {
     const cfg = getConfig();
     expect(cfg.proxyUrl).toBe('http://127.0.0.1:31338');
     expect(cfg.apiKey).toBe('cli-bridge');
-    expect(cfg.defaultModel).toBe('cli-gemini/gemini-2.5-pro');
+    expect(cfg.defaultModel).toBe('cli-gemini/gemini-3.1-pro-high');
     expect(cfg.inlineSuggestions).toBe(true);
     expect(cfg.inlineTriggerDelay).toBe(600);
     expect(cfg.contextLines).toBe(80);

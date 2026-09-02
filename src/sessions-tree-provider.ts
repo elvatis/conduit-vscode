@@ -344,12 +344,16 @@ export function getBackgroundSession(id: string): BackgroundSession | undefined 
 // ── Provider display metadata ────────────────────────────────────────────────
 
 const PROVIDER_LABELS: Record<string, string> = {
-  'web-claude':    'Claude',
   'cli-claude':    'Claude (CLI)',
-  'web-grok':      'Grok',
-  'web-gemini':    'Gemini',
   'cli-gemini':    'Gemini (CLI)',
-  'web-chatgpt':   'ChatGPT',
+  'cli-grok':      'Grok (CLI)',
+  'cli-codex':     'Codex (CLI)',
+  'api-claude':    'Claude (API)',
+  'api-gemini':    'Gemini (API)',
+  'api-codex':     'Codex (API)',
+  'api-openrouter': 'OpenRouter',
+  'api-perplexity': 'Perplexity',
+  'lmstudio':      'LM Studio',
   'openai-codex':  'OpenAI Codex',
   'opencode':      'OpenCode',
   'pi':            'Pi',
@@ -357,12 +361,16 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_ICONS: Record<string, string> = {
-  'web-claude':    'hubot',
   'cli-claude':    'hubot',
-  'web-grok':      'rocket',
-  'web-gemini':    'sparkle',
   'cli-gemini':    'sparkle',
-  'web-chatgpt':   'comment-discussion',
+  'cli-grok':      'rocket',
+  'cli-codex':     'code',
+  'api-claude':    'hubot',
+  'api-gemini':    'sparkle',
+  'api-codex':     'code',
+  'api-openrouter': 'globe',
+  'api-perplexity': 'search',
+  'lmstudio':      'server',
   'openai-codex':  'code',
   'opencode':      'terminal',
   'pi':            'terminal',

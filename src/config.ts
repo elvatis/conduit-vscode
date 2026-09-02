@@ -27,7 +27,7 @@ export function getConfig(): ConduitConfig {
   return {
     proxyUrl:             cfg.get<string>('proxyUrl', 'http://127.0.0.1:31338'),
     apiKey:               cfg.get<string>('apiKey', 'cli-bridge'),
-    defaultModel:         cfg.get<string>('defaultModel', 'cli-gemini/gemini-2.5-pro'),
+    defaultModel:         cfg.get<string>('defaultModel', 'cli-gemini/gemini-3.1-pro-high'),
     inlineSuggestions:    cfg.get<boolean>('inlineSuggestions', true),
     inlineTriggerDelay:   cfg.get<number>('inlineTriggerDelay', 600),
     contextLines:         cfg.get<number>('contextLines', 80),

@@ -13,6 +13,7 @@ import {
   supportsMode, getModeRecommendation, getFallbackModels,
   ModelCapabilities, ChatMode as RegistryChatMode,
 } from './model-registry';
+import { displayProviderName } from './bridge-status';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,18 @@ type ChatMode = 'ask' | 'edit' | 'agent' | 'plan';
 
 const MAX_SESSIONS = 50;
 const MAX_HANDOFF_CHARS = 2000;
+
+function compareProviderGroups(a: string, b: string): number {
+  const rank = (p: string) => {
+    if (p.startsWith('cli-')) return 0;
+    if (p === 'lmstudio' || p.startsWith('local-')) return 2;
+    if (p.startsWith('api-openrouter') || p.startsWith('api-perplexity')) return 3;
+    if (p.startsWith('api-')) return 1;
+    return 4;
+  };
+  const diff = rank(a) - rank(b);
+  return diff !== 0 ? diff : a.localeCompare(b);
+}
 
 /**
  * Build a compressed handoff summary when switching models mid-conversation.
@@ -1004,7 +1017,11 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
         : `${(m.contextWindow / 1_000).toFixed(0)}K`;
       (grouped[group] ??= []).push({ id: m.id, name: m.name, ctx: ctxLabel });
     }
-    this._post({ type: 'models', grouped, current: this._autoModel ? 'auto' : this._model });
+    const ordered: typeof grouped = {};
+    for (const key of Object.keys(grouped).sort(compareProviderGroups)) {
+      ordered[key] = grouped[key];
+    }
+    this._post({ type: 'models', grouped: ordered, current: this._autoModel ? 'auto' : this._model });
   }
 
   private async _showModelQuickPick() {
@@ -1029,8 +1046,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       (grouped[m.provider] ??= []).push(m);
     }
 
-    for (const [provider, models] of Object.entries(grouped)) {
-      items.push({ label: provider.toUpperCase(), kind: vscode.QuickPickItemKind.Separator });
+    for (const [provider, models] of Object.entries(grouped).sort(([a], [b]) => compareProviderGroups(a, b))) {
+      items.push({ label: displayProviderName(provider).toUpperCase(), kind: vscode.QuickPickItemKind.Separator });
       for (const m of models) {
         const ctxLabel = m.contextWindow >= 1_000_000
           ? `${(m.contextWindow / 1_000_000).toFixed(0)}M context`

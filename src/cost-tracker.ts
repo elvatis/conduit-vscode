@@ -29,16 +29,27 @@ interface ModelPricing {
 }
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
-  // Claude models
+  // Claude
+  'claude-opus-5':       { inputPer1M: 15.00, outputPer1M: 75.00 },
+  'claude-sonnet-5':     { inputPer1M: 3.00,  outputPer1M: 15.00 },
+  'claude-fable-5':      { inputPer1M: 3.00,  outputPer1M: 15.00 },
   'claude-opus-4-6':     { inputPer1M: 15.00, outputPer1M: 75.00 },
   'claude-sonnet-4-6':   { inputPer1M: 3.00,  outputPer1M: 15.00 },
   'claude-haiku-4-5':    { inputPer1M: 0.80,  outputPer1M: 4.00 },
-  // Gemini models
-  'gemini-2.5-pro':           { inputPer1M: 1.25,  outputPer1M: 10.00 },
-  'gemini-2.5-flash':         { inputPer1M: 0.15,  outputPer1M: 0.60 },
-  'gemini-3-pro-preview':     { inputPer1M: 1.25,  outputPer1M: 10.00 },
-  'gemini-3-flash-preview':   { inputPer1M: 0.15,  outputPer1M: 0.60 },
-  // OpenAI Codex models (estimated)
+  // Gemini
+  'gemini-3.1-pro-high':     { inputPer1M: 1.25,  outputPer1M: 10.00 },
+  'gemini-3.6-flash-high':   { inputPer1M: 0.15,  outputPer1M: 0.60 },
+  'gemini-2.5-pro':          { inputPer1M: 1.25,  outputPer1M: 10.00 },
+  'gemini-2.5-flash':        { inputPer1M: 0.15,  outputPer1M: 0.60 },
+  'gemini-3-pro-preview':    { inputPer1M: 1.25,  outputPer1M: 10.00 },
+  'gemini-3-flash-preview':  { inputPer1M: 0.15,  outputPer1M: 0.60 },
+  // Grok
+  'grok-4.6':            { inputPer1M: 3.00,  outputPer1M: 15.00 },
+  'grok-4.5':            { inputPer1M: 3.00,  outputPer1M: 15.00 },
+  // Codex / GPT
+  'gpt-5.6-sol':         { inputPer1M: 3.00,  outputPer1M: 12.00 },
+  'gpt-5.6-terra':       { inputPer1M: 2.00,  outputPer1M: 8.00 },
+  'gpt-5.6-luna':        { inputPer1M: 1.00,  outputPer1M: 4.00 },
   'gpt-5.3-codex':       { inputPer1M: 2.00,  outputPer1M: 8.00 },
   'gpt-5.3-codex-spark': { inputPer1M: 1.00,  outputPer1M: 4.00 },
   'gpt-5.2-codex':       { inputPer1M: 2.00,  outputPer1M: 8.00 },

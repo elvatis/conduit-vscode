@@ -4,24 +4,15 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import { getConfig } from './config';
+import {
+  normalizeBridgeStatus,
+  isProviderConnected,
+  type BridgeStatus,
+  type ProviderStatus,
+} from './bridge-status';
 
-export type ProviderName = 'grok' | 'claude' | 'gemini' | 'chatgpt';
-
-export interface ProviderStatus {
-  name: ProviderName;
-  connected: boolean;
-  hasProfile: boolean;
-  sessionValid: boolean;
-  models: string[];
-}
-
-export interface BridgeStatus {
-  running: boolean;
-  port: number;
-  version: string;
-  providers: ProviderStatus[];
-  uptime: number;
-}
+export type { BridgeStatus, ProviderStatus };
+export type ProviderName = string;
 
 export class BridgeManager {
   private _process: cp.ChildProcess | null = null;
@@ -53,7 +44,7 @@ export class BridgeManager {
     const bridgePath = this._findBridgeCli();
     if (!bridgePath) {
       const action = await vscode.window.showErrorMessage(
-        'conduit-bridge is not installed. Install it to use web AI providers.',
+        'conduit-bridge is not installed. Install it to use API, CLI, and local providers.',
         'Install',
         'Dismiss',
       );
@@ -150,33 +141,22 @@ export class BridgeManager {
     this._outputChannel.show();
   }
 
-  // ── Login / Logout ────────────────────────────────────────────────────────
+  // ── Dashboard (API keys and CLI logins live in the bridge UI) ────────────
 
-  async login(provider: ProviderName): Promise<void> {
+  async openDashboard(): Promise<void> {
     const cfg = getConfig();
-    this._log(`Requesting ${provider} login…`);
-
-    try {
-      await this._apiPost(`${cfg.proxyUrl}/v1/login/${provider}`, {});
-      vscode.window.showInformationMessage(
-        `Conduit: ${provider} browser opened — log in and close when done. Sessions are saved for next time.`,
-      );
-      // Refresh status after 10s
-      setTimeout(() => this._refreshStatus(), 10000);
-    } catch (err) {
-      vscode.window.showErrorMessage(`Conduit: failed to start ${provider} login — is the bridge running?`);
-    }
+    this._log(`Opening bridge dashboard at ${cfg.proxyUrl}`);
+    await vscode.env.openExternal(vscode.Uri.parse(cfg.proxyUrl));
   }
 
-  async logout(provider: ProviderName): Promise<void> {
-    const cfg = getConfig();
-    try {
-      await this._apiPost(`${cfg.proxyUrl}/v1/logout/${provider}`, {});
-      this._log(`${provider} logged out`);
-      await this._refreshStatus();
-    } catch (err) {
-      this._log(`logout error: ${(err as Error).message}`);
-    }
+  /** @deprecated Browser login routes were removed in conduit-bridge v0.5.2. */
+  async login(_provider?: ProviderName): Promise<void> {
+    await this.openDashboard();
+  }
+
+  /** @deprecated Browser logout routes were removed in conduit-bridge v0.5.2. */
+  async logout(_provider?: ProviderName): Promise<void> {
+    await this.openDashboard();
   }
 
   // ── Status ────────────────────────────────────────────────────────────────
@@ -185,20 +165,19 @@ export class BridgeManager {
     const cfg = getConfig();
     try {
       const text = await this._apiGet(`${cfg.proxyUrl}/v1/status`);
-      const status = JSON.parse(text) as BridgeStatus;
+      const status = normalizeBridgeStatus(JSON.parse(text));
 
-      // Detect session expiry: provider has a profile but session is no longer valid
       if (this._lastStatus) {
-        for (const p of status.providers || []) {
-          const prev = this._lastStatus.providers?.find(pp => pp.name === p.name);
-          if (prev?.sessionValid && !p.sessionValid && p.hasProfile) {
-            this._log(`${p.name} session expired - prompting re-login`);
+        for (const p of status.providers) {
+          const prev = this._lastStatus.providers.find(pp => pp.name === p.name);
+          if (prev && isProviderConnected(prev) && !isProviderConnected(p)) {
+            this._log(`${p.name} disconnected`);
             vscode.window.showWarningMessage(
-              `Conduit: ${p.name} session expired. Re-login to continue using this provider.`,
-              'Login',
+              `Conduit: ${p.name} is no longer connected. Open the bridge dashboard to re-authenticate.`,
+              'Open Dashboard',
               'Dismiss',
             ).then(action => {
-              if (action === 'Login') this.login(p.name as ProviderName);
+              if (action === 'Open Dashboard') this.openDashboard();
             });
           }
         }
@@ -361,26 +340,6 @@ export class BridgeManager {
       });
       req.on('error', reject);
       req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-    });
-  }
-
-  private _apiPost(url: string, body: object): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const payload = JSON.stringify(body);
-      const parsed = new URL(url);
-      const req = http.request({
-        hostname: parsed.hostname, port: parsed.port,
-        path: parsed.pathname, method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-        timeout: 5000,
-      }, res => {
-        let data = '';
-        res.on('data', c => { data += c; });
-        res.on('end', () => resolve(data));
-      });
-      req.on('error', reject);
-      req.write(payload);
-      req.end();
     });
   }
 

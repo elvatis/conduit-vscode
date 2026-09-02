@@ -14,11 +14,11 @@ export type ChatMode = 'ask' | 'edit' | 'agent' | 'plan';
 export interface ModelCapabilities {
   id: string;
   name: string;
-  provider: string;       // e.g. "web-grok", "cli-claude", "openai-codex"
+  provider: string;       // e.g. "cli-grok", "cli-claude", "api-claude"
   contextWindow: number;
   maxTokens: number;
   supportsTools: boolean;
-  category: 'cli' | 'web' | 'local' | 'codex';
+  category: 'cli' | 'api' | 'local' | 'codex';
   /** Which chat modes this model handles well */
   supportedModes: ChatMode[];
   /** Reasoning tier: 1 = top (all modes), 2 = good (ask/edit/plan), 3 = fast (ask only) */
@@ -26,113 +26,96 @@ export interface ModelCapabilities {
 }
 
 // Per-model context windows (ctx) and max output tokens (max)
-// Sources: platform.claude.com, ai.google.dev, developers.openai.com, docs.x.ai
+// Catalog aligned with conduit-bridge v0.5.2 /v1/models
 const MODEL_LIMITS: Record<string, { ctx: number; max: number }> = {
-  // Claude 4.6 - 1M context, Opus 128K output, Sonnet 64K output
-  'web-claude/claude-opus':          { ctx: 1_000_000, max: 128_000 },
-  'web-claude/claude-opus-4-6':      { ctx: 1_000_000, max: 128_000 },
-  'web-claude/claude-sonnet':        { ctx: 1_000_000, max: 64_000 },
-  'web-claude/claude-sonnet-4-6':    { ctx: 1_000_000, max: 64_000 },
-  'web-claude/claude-haiku':         { ctx: 200_000,   max: 64_000 },
-  'web-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
-  // Claude 4.5 legacy
-  'web-claude/claude-opus-4-5':      { ctx: 200_000,   max: 32_768 },
-  'web-claude/claude-sonnet-4-5':    { ctx: 200_000,   max: 16_384 },
-  // CLI Claude (same models via API)
-  'cli-claude/claude-opus-4-6':      { ctx: 1_000_000, max: 128_000 },
-  'cli-claude/claude-sonnet-4-6':    { ctx: 1_000_000, max: 64_000 },
+  // CLI Claude
+  'cli-claude/claude-opus-5':        { ctx: 1_000_000, max: 128_000 },
+  'cli-claude/claude-sonnet-5':      { ctx: 1_000_000, max: 64_000 },
+  'cli-claude/claude-fable-5':       { ctx: 1_000_000, max: 64_000 },
   'cli-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
-  // Gemini - 1M context, 65K output
-  'web-gemini/gemini-3.1-pro':       { ctx: 1_000_000, max: 65_536 },
-  'web-gemini/gemini-3-thinking':    { ctx: 1_000_000, max: 65_536 },
-  'web-gemini/gemini-3-fast':        { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-2.5-pro':       { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-2.5-flash':     { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3-pro-preview': { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3-flash-preview': { ctx: 1_000_000, max: 65_536 },
-  // OpenAI / Codex - GPT-5.4 1M context 128K output
-  'openai-codex/gpt-5.4':            { ctx: 1_050_000, max: 128_000 },
-  'openai-codex/gpt-5.3-codex':      { ctx: 400_000,   max: 128_000 },
-  'openai-codex/gpt-5.3-codex-spark': { ctx: 400_000,  max: 64_000 },
-  'openai-codex/gpt-5.2-codex':      { ctx: 200_000,   max: 32_768 },
-  'openai-codex/gpt-5.1-codex-mini': { ctx: 128_000,   max: 16_384 },
-  // ChatGPT web
-  'web-chatgpt/gpt-5.4-pro':         { ctx: 1_050_000, max: 128_000 },
-  'web-chatgpt/gpt-5.4-thinking':    { ctx: 1_050_000, max: 128_000 },
-  'web-chatgpt/gpt-5.3-instant':     { ctx: 400_000,   max: 64_000 },
-  'web-chatgpt/gpt-5-thinking-mini': { ctx: 128_000,   max: 16_384 },
-  'web-chatgpt/o3':                   { ctx: 200_000,   max: 100_000 },
-  // Grok - Fast 2M context, Expert/Heavy 256K context
-  'web-grok/grok-fast':              { ctx: 2_000_000,  max: 131_072 },
-  'web-grok/grok-expert':            { ctx: 256_000,    max: 131_072 },
-  'web-grok/grok-heavy':             { ctx: 256_000,    max: 131_072 },
-  'web-grok/grok-4.20-beta':         { ctx: 256_000,    max: 131_072 },
+  // CLI Gemini
+  'cli-gemini/gemini-3.1-pro-high':  { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3.1-pro-low':   { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3.6-flash-high': { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3.6-flash-medium': { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3.6-flash-low': { ctx: 1_000_000, max: 65_536 },
+  'cli-gemini/gemini-3.5-flash-high': { ctx: 1_000_000, max: 65_536 },
+  // CLI Grok
+  'cli-grok/grok-4.6':               { ctx: 2_000_000, max: 131_072 },
+  'cli-grok/grok-4.5':               { ctx: 256_000,   max: 131_072 },
+  'cli-grok/grok-4.3':               { ctx: 256_000,   max: 131_072 },
+  // CLI Codex
+  'cli-codex/gpt-5.6-sol':           { ctx: 1_050_000, max: 128_000 },
+  'cli-codex/gpt-5.6-terra':         { ctx: 400_000,   max: 128_000 },
+  'cli-codex/gpt-5.6-luna':          { ctx: 400_000,   max: 64_000 },
+  'cli-codex/gpt-5.5':               { ctx: 400_000,   max: 128_000 },
+  'cli-codex/gpt-5.5-pro':           { ctx: 1_050_000, max: 128_000 },
+  // Direct APIs
+  'api-claude/claude-opus-5':        { ctx: 1_000_000, max: 128_000 },
+  'api-claude/claude-sonnet-5':      { ctx: 1_000_000, max: 64_000 },
+  'api-claude/claude-fable-5':       { ctx: 1_000_000, max: 64_000 },
+  'api-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
+  'api-gemini/gemini-3.1-pro':       { ctx: 1_000_000, max: 65_536 },
+  'api-gemini/gemini-3.7-flash':     { ctx: 1_000_000, max: 65_536 },
+  'api-gemini/gemini-3.6-flash':     { ctx: 1_000_000, max: 65_536 },
+  'api-codex/gpt-5.6-sol':           { ctx: 1_050_000, max: 128_000 },
+  'api-codex/gpt-5.6-terra':         { ctx: 400_000,   max: 128_000 },
+  'api-codex/gpt-5.6-luna':          { ctx: 400_000,   max: 64_000 },
   // OpenCode / Pi
-  'opencode/default':                { ctx: 128_000,    max: 16_384 },
-  'pi/default':                      { ctx: 128_000,    max: 16_384 },
+  'opencode/default':                { ctx: 128_000,   max: 16_384 },
+  'pi/default':                      { ctx: 128_000,   max: 16_384 },
   // Local
-  'local-bitnet/bitnet-2b':          { ctx: 4_096,      max: 2_048 },
+  'local-bitnet/bitnet-2b':          { ctx: 4_096,     max: 2_048 },
 };
 
 // Fallback limits per provider prefix (for unknown models from that provider)
 const PROVIDER_FALLBACK_LIMITS: Record<string, { ctx: number; max: number }> = {
   'cli-claude/':    { ctx: 200_000,   max: 64_000 },
   'cli-gemini/':    { ctx: 1_000_000, max: 65_536 },
+  'cli-grok/':      { ctx: 256_000,   max: 131_072 },
+  'cli-codex/':     { ctx: 200_000,   max: 32_768 },
+  'api-claude/':    { ctx: 200_000,   max: 64_000 },
+  'api-gemini/':    { ctx: 1_000_000, max: 65_536 },
+  'api-codex/':     { ctx: 200_000,   max: 32_768 },
+  'api-openrouter/': { ctx: 128_000,  max: 16_384 },
+  'api-perplexity/': { ctx: 128_000,  max: 16_384 },
+  'lmstudio/':      { ctx: 32_768,    max: 8_192 },
   'openai-codex/':  { ctx: 200_000,   max: 32_768 },
-  'web-grok/':      { ctx: 256_000,   max: 131_072 },
-  'web-gemini/':    { ctx: 1_000_000, max: 65_536 },
-  'web-claude/':    { ctx: 200_000,   max: 64_000 },
-  'web-chatgpt/':   { ctx: 128_000,   max: 32_768 },
   'opencode/':      { ctx: 128_000,   max: 16_384 },
   'pi/':            { ctx: 128_000,   max: 16_384 },
-  'local-bitnet/':  { ctx: 4_096,     max: 2_048 },
+  'local-':         { ctx: 4_096,     max: 2_048 },
 };
 
 // Friendly display names for known models - ALWAYS include version numbers
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  // CLI Claude
-  'cli-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6 (CLI)',
-  'cli-claude/claude-opus-4-6': 'Claude Opus 4.6 (CLI)',
+  'cli-claude/claude-opus-5': 'Claude Opus 5 (CLI)',
+  'cli-claude/claude-sonnet-5': 'Claude Sonnet 5 (CLI)',
+  'cli-claude/claude-fable-5': 'Claude Fable 5 (CLI)',
   'cli-claude/claude-haiku-4-5': 'Claude Haiku 4.5 (CLI)',
-  // CLI Gemini
-  'cli-gemini/gemini-2.5-pro': 'Gemini 2.5 Pro (CLI)',
-  'cli-gemini/gemini-2.5-flash': 'Gemini 2.5 Flash (CLI)',
-  'cli-gemini/gemini-3-pro-preview': 'Gemini 3.0 Pro Preview (CLI)',
-  'cli-gemini/gemini-3-flash-preview': 'Gemini 3.0 Flash Preview (CLI)',
-  // OpenAI Codex
-  'openai-codex/gpt-5.4': 'GPT-5.4 (Codex)',
-  'openai-codex/gpt-5.3-codex': 'GPT-5.3 Codex',
-  'openai-codex/gpt-5.3-codex-spark': 'GPT-5.3 Codex Spark',
-  'openai-codex/gpt-5.2-codex': 'GPT-5.2 Codex',
-  'openai-codex/gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
-  // Web Grok (IDs from bridge /v1/models)
-  'web-grok/grok-expert': 'Grok Expert',
-  'web-grok/grok-fast': 'Grok Fast',
-  'web-grok/grok-heavy': 'Grok Heavy',
-  'web-grok/grok-4.20-beta': 'Grok 4.20 Beta',
-  // Web Gemini
-  'web-gemini/gemini-3-fast': 'Gemini 3 Fast',
-  'web-gemini/gemini-3-thinking': 'Gemini 3 Thinking',
-  'web-gemini/gemini-3.1-pro': 'Gemini 3.1 Pro',
-  // Web Claude (bridge returns short IDs without version suffix)
-  'web-claude/claude-sonnet-4-6': 'Claude Sonnet 4.6',
-  'web-claude/claude-opus-4-6': 'Claude Opus 4.6',
-  'web-claude/claude-haiku-4-5': 'Claude Haiku 4.5',
-  'web-claude/claude-sonnet': 'Claude Sonnet 4.6',
-  'web-claude/claude-opus': 'Claude Opus 4.6',
-  'web-claude/claude-haiku': 'Claude Haiku 4.5',
-  'web-claude/claude-sonnet-4-5': 'Claude Sonnet 4.5',
-  'web-claude/claude-opus-4-5': 'Claude Opus 4.5',
-  // Web ChatGPT
-  'web-chatgpt/gpt-5.4-pro': 'GPT-5.4 Pro',
-  'web-chatgpt/gpt-5.4-thinking': 'GPT-5.4 Thinking',
-  'web-chatgpt/gpt-5.3-instant': 'GPT-5.3 Instant',
-  'web-chatgpt/gpt-5-thinking-mini': 'GPT-5 Thinking Mini',
-  'web-chatgpt/o3': 'o3',
-  // OpenCode / Pi
+  'cli-gemini/gemini-3.1-pro-high': 'Gemini 3.1 Pro High (CLI)',
+  'cli-gemini/gemini-3.1-pro-low': 'Gemini 3.1 Pro Low (CLI)',
+  'cli-gemini/gemini-3.6-flash-high': 'Gemini 3.6 Flash High (CLI)',
+  'cli-gemini/gemini-3.6-flash-medium': 'Gemini 3.6 Flash Medium (CLI)',
+  'cli-gemini/gemini-3.6-flash-low': 'Gemini 3.6 Flash Low (CLI)',
+  'cli-gemini/gemini-3.5-flash-high': 'Gemini 3.5 Flash High (CLI)',
+  'cli-grok/grok-4.6': 'Grok 4.6 (CLI)',
+  'cli-grok/grok-4.5': 'Grok 4.5 (CLI)',
+  'cli-grok/grok-4.3': 'Grok 4.3 (CLI)',
+  'cli-codex/gpt-5.6-sol': 'GPT-5.6 Sol (CLI)',
+  'cli-codex/gpt-5.6-terra': 'GPT-5.6 Terra (CLI)',
+  'cli-codex/gpt-5.6-luna': 'GPT-5.6 Luna (CLI)',
+  'cli-codex/gpt-5.5': 'GPT-5.5 (CLI)',
+  'cli-codex/gpt-5.5-pro': 'GPT-5.5 Pro (CLI)',
+  'api-claude/claude-opus-5': 'Claude Opus 5 (API)',
+  'api-claude/claude-sonnet-5': 'Claude Sonnet 5 (API)',
+  'api-claude/claude-fable-5': 'Claude Fable 5 (API)',
+  'api-claude/claude-haiku-4-5': 'Claude Haiku 4.5 (API)',
+  'api-gemini/gemini-3.1-pro': 'Gemini 3.1 Pro (API)',
+  'api-gemini/gemini-3.7-flash': 'Gemini 3.7 Flash (API)',
+  'api-gemini/gemini-3.6-flash': 'Gemini 3.6 Flash (API)',
+  'api-codex/gpt-5.6-sol': 'GPT-5.6 Sol (API)',
   'opencode/default': 'OpenCode',
   'pi/default': 'Pi Agent',
-  // Local
   'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
 };
 
@@ -141,45 +124,35 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
 // Tier 2: Good reasoning, most modes (ask, edit, plan)
 // Tier 3: Fast/compact, basic mode only (ask)
 const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
-  // Tier 1 - Full capability
-  'web-claude/claude-opus':        1,
-  'web-claude/claude-opus-4-6':    1,
-  'web-claude/claude-sonnet':      1,
-  'web-claude/claude-sonnet-4-6':  1,
-  'web-claude/claude-opus-4-5':    1,
-  'web-chatgpt/gpt-5.4-pro':      1,
-  'web-chatgpt/gpt-5.4-thinking': 1,
-  'web-gemini/gemini-3.1-pro':     1,
-  'web-gemini/gemini-3-thinking':  1,
-  'web-grok/grok-expert':          1,
-  'web-grok/grok-heavy':           1,
-  'cli-claude/claude-opus-4-6':    1,
-  'cli-claude/claude-sonnet-4-6':  1,
-  'cli-gemini/gemini-2.5-pro':     1,
-  'cli-gemini/gemini-3-pro-preview': 1,
-  'openai-codex/gpt-5.4':         1,
-  'openai-codex/gpt-5.3-codex':   1,
-  // Tier 2 - Good for ask, edit, plan
-  'web-claude/claude-haiku':       2,
-  'web-claude/claude-haiku-4-5':   2,
-  'web-claude/claude-sonnet-4-5':  2,
-  'web-chatgpt/gpt-5.3-instant':  2,
-  'web-gemini/gemini-3-fast':      2,
-  'web-grok/grok-fast':            2,
-  'web-chatgpt/o3':                2,
-  'web-grok/grok-4.20-beta':      2,
-  'cli-claude/claude-haiku-4-5':   2,
-  'cli-gemini/gemini-2.5-flash':   2,
-  'cli-gemini/gemini-3-flash-preview': 2,
-  'openai-codex/gpt-5.3-codex-spark': 2,
-  'openai-codex/gpt-5.2-codex':   2,
-  // OpenCode / Pi - Tier 1 (agent-capable)
-  'opencode/default':              1,
-  'pi/default':                    2,
-  // Tier 3 - Fast, mainly ask
-  'web-chatgpt/gpt-5-thinking-mini': 3,
-  'openai-codex/gpt-5.1-codex-mini': 3,
-  'local-bitnet/bitnet-2b':       3,
+  'cli-claude/claude-opus-5': 1,
+  'cli-claude/claude-sonnet-5': 1,
+  'cli-claude/claude-fable-5': 1,
+  'cli-gemini/gemini-3.1-pro-high': 1,
+  'cli-grok/grok-4.6': 1,
+  'cli-codex/gpt-5.6-sol': 1,
+  'cli-codex/gpt-5.5-pro': 1,
+  'api-claude/claude-opus-5': 1,
+  'api-claude/claude-sonnet-5': 1,
+  'api-claude/claude-fable-5': 1,
+  'api-gemini/gemini-3.1-pro': 1,
+  'api-codex/gpt-5.6-sol': 1,
+  'opencode/default': 1,
+  'cli-claude/claude-haiku-4-5': 2,
+  'cli-gemini/gemini-3.6-flash-high': 2,
+  'cli-gemini/gemini-3.6-flash-medium': 2,
+  'cli-gemini/gemini-3.5-flash-high': 2,
+  'cli-grok/grok-4.5': 2,
+  'cli-grok/grok-4.3': 2,
+  'cli-codex/gpt-5.6-terra': 2,
+  'cli-codex/gpt-5.5': 2,
+  'api-claude/claude-haiku-4-5': 2,
+  'api-gemini/gemini-3.7-flash': 2,
+  'api-gemini/gemini-3.6-flash': 2,
+  'pi/default': 2,
+  'cli-gemini/gemini-3.6-flash-low': 3,
+  'cli-gemini/gemini-3.1-pro-low': 3,
+  'cli-codex/gpt-5.6-luna': 3,
+  'local-bitnet/bitnet-2b': 3,
 };
 
 const TIER_MODES: Record<number, ChatMode[]> = {
@@ -190,7 +163,8 @@ const TIER_MODES: Record<number, ChatMode[]> = {
 
 const CATEGORY_MAP: Record<string, ModelCapabilities['category']> = {
   'cli-': 'cli',
-  'web-': 'web',
+  'api-': 'api',
+  'lmstudio/': 'local',
   'openai-codex/': 'codex',
   'opencode/': 'cli',
   'pi/': 'cli',
@@ -209,7 +183,7 @@ export async function getModelRegistry(): Promise<ModelCapabilities[]> {
   try {
     const models = await listModels();
     const localModels = await fetchLocalModels();
-    const allModels = [...models, ...localModels];
+    const allModels = [...models, ...localModels].filter(m => !isNonChatModel(m.id));
     _cacheList = allModels.map(m => toCapabilities(m));
     _cacheMap = new Map(_cacheList.map(m => [m.id, m]));
     _cacheTime = Date.now();
@@ -273,12 +247,16 @@ export function getModelCapabilities(modelId: string): ModelCapabilities | undef
   return _cacheMap.get(modelId);
 }
 
+function isNonChatModel(id: string): boolean {
+  return /embedding|whisper|tts|moderation|image|lyria/i.test(id);
+}
+
 function toCapabilities(m: ModelInfo): ModelCapabilities {
   // Per-model limits first, then provider prefix fallback
   const limits = MODEL_LIMITS[m.id]
     ?? Object.entries(PROVIDER_FALLBACK_LIMITS).find(([p]) => m.id.startsWith(p))?.[1]
     ?? { ctx: 128_000, max: 8_192 };
-  const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'web';
+  const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'api';
   const provider = extractProvider(m.id);
   const name = MODEL_DISPLAY_NAMES[m.id] ?? shortModelName(m.id);
 
@@ -363,19 +341,18 @@ export function autoSelectModel(
   // Preference order per complexity
   const preferences: Record<string, string[]> = {
     simple: [
-      'web-grok/grok-fast', 'web-gemini/gemini-3-fast',
-      'web-chatgpt/gpt-5.3-instant', 'web-claude/claude-haiku',
-      'web-chatgpt/gpt-5-thinking-mini',
+      'cli-gemini/gemini-3.6-flash-high', 'cli-grok/grok-4.3',
+      'cli-claude/claude-haiku-4-5', 'api-gemini/gemini-3.7-flash',
     ],
     moderate: [
-      'web-gemini/gemini-3-thinking', 'web-grok/grok-expert',
-      'web-claude/claude-sonnet', 'web-chatgpt/gpt-5.4-thinking',
-      'web-gemini/gemini-3.1-pro',
+      'cli-gemini/gemini-3.1-pro-high', 'cli-grok/grok-4.5',
+      'cli-claude/claude-sonnet-5', 'cli-codex/gpt-5.6-terra',
+      'api-gemini/gemini-3.1-pro',
     ],
     complex: [
-      'web-claude/claude-opus', 'web-gemini/gemini-3.1-pro',
-      'web-chatgpt/gpt-5.4-pro', 'web-grok/grok-heavy',
-      'web-grok/grok-4.20-beta', 'web-claude/claude-sonnet',
+      'cli-claude/claude-opus-5', 'cli-grok/grok-4.6',
+      'cli-codex/gpt-5.6-sol', 'cli-claude/claude-fable-5',
+      'api-claude/claude-opus-5', 'cli-gemini/gemini-3.1-pro-high',
     ],
   };
 

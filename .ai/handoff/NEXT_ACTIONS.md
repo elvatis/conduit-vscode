@@ -1,6 +1,6 @@
 # NEXT_ACTIONS.md - conduit-vscode
 
-_Last updated: 2026-07-17_
+_Last updated: 2026-09-02_
 
 ## Status Summary
 
@@ -27,9 +27,9 @@ _No blocked tasks._
 
 ## Dropped
 
-### T-006: [low] - VS Code Marketplace listing (issue #53, closed)
+### T-006: [low] - VS Code Marketplace listing (issue #53 closed, issue #85 locked)
 
-- Dropped 2026-07-17: there is no plan to publish conduit to the VS Code Marketplace. This matches the decision to keep the conduit tooling unpublished (npm publishing for conduit-bridge was removed the same day). Distribution stays via the .vsix from GitHub.
+- Dropped 2026-07-17 and confirmed 2026-09-02: there is no plan to publish conduit to the VS Code Marketplace. Distribution stays via the .vsix from GitHub. Issue #85 is locked.
 
 ---
 

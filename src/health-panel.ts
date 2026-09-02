@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { BridgeManager, BridgeStatus } from './bridge-manager';
 import { listModels } from './proxy-client';
 import { getConfig } from './config';
+import { toProviderView } from './bridge-status';
 
 export class HealthPanel {
   private static _instance: HealthPanel | undefined;
@@ -49,11 +50,12 @@ export class HealthPanel {
 
   private async _handleMessage(msg: { type: string }) {
     switch (msg.type) {
-      case 'refresh': await this._refresh(); break;
-      case 'start':   await this._manager.start(); break;
-      case 'stop':    await this._manager.stop(); break;
-      case 'restart': await this._manager.restart(); break;
-      case 'logs':    this._manager.showLogs(); break;
+      case 'refresh':   await this._refresh(); break;
+      case 'start':     await this._manager.start(); break;
+      case 'stop':      await this._manager.stop(); break;
+      case 'restart':   await this._manager.restart(); break;
+      case 'logs':      this._manager.showLogs(); break;
+      case 'dashboard': await this._manager.openDashboard(); break;
     }
   }
 
@@ -82,13 +84,12 @@ export class HealthPanel {
     const version = status?.version ?? '-';
 
     const providerRows = (status?.providers ?? []).map(p => {
-      const ind = p.sessionValid ? 'ok' : (p.hasProfile ? 'warn' : 'err');
-      const badge = p.sessionValid ? 'Connected' : (p.hasProfile ? 'Profile saved' : 'Not configured');
-      const badgeClass = p.sessionValid ? 'badge-green' : (p.hasProfile ? 'badge-amber' : 'badge-gray');
+      const view = toProviderView(p);
+      const badgeClass = view.connected ? 'badge-green' : 'badge-gray';
       const modelList = p.models.length > 0 ? p.models.join(', ') : '-';
       return `<tr>
-        <td><span class="ind ind-${ind}"></span> ${capitalize(p.name)}</td>
-        <td><span class="badge ${badgeClass}">${badge}</span></td>
+        <td><span class="ind ind-${view.indicator}"></span> ${view.displayName}</td>
+        <td><span class="badge ${badgeClass}">${view.statusLabel}</span></td>
         <td class="mono">${modelList}</td>
       </tr>`;
     }).join('');
@@ -226,10 +227,11 @@ ${models.length > 0 ? `
     : '<button class="btn-primary" onclick="send(\'start\')">Start Bridge</button>'}
   <button class="btn-secondary" onclick="send('logs')">Show Logs</button>
   <button class="btn-secondary" onclick="send('refresh')">Refresh</button>
+  <button class="btn-primary" onclick="send('dashboard')">Open Dashboard</button>
 </div>
 
 <div class="security-notice">
-  <strong>Security:</strong> The bridge proxy listens on localhost (${proxyUrl}) only. Your code is sent to web-based AI providers through their web UIs. Do not expose this port to the network.
+  <strong>Security:</strong> The bridge proxy listens on localhost (${proxyUrl}) only. API keys and CLI logins stay on this machine. Do not expose this port to the network.
 </div>
 
 <div class="footer">
@@ -246,10 +248,6 @@ function send(type) { vscode.postMessage({ type }); }
 </body>
 </html>`;
   }
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function formatUptime(s: number): string {

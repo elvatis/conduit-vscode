@@ -4,6 +4,24 @@ _Reverse chronological. Latest session first._
 
 ---
 
+## Session 5 - 2026-09-02 - conduit-bridge v0.5.2 align + CLI connected detection
+
+**Goal:** Match conduit-vscode to conduit-bridge v0.5.2, fix CLI providers not showing as available, clear Dependabot PRs #78-#83, close/lock AAHP issues #84 and #85.
+
+**Decisions:**
+- Provider availability is `/v1/status.connected` (plus `loginType` / `credentialSource`). Playwright `sessionValid`/`hasProfile` is gone with the web providers.
+- Login in VS Code opens the bridge dashboard. `/v1/login` and `/v1/logout` 404 on v0.5.2.
+- supply-chain-guard pinned to exact `@v6.0.10` (2026-09-02 threat-intel batch + vscode-scanner), not the old `@v5` rolling pin.
+- T-016 (#84) already shipped in v0.5.0-v0.7.0; close the resurrected issue. T-006 (#85) stays dropped and is locked.
+
+**What was done:**
+- Added `src/bridge-status.ts` to normalize v0.5.2 status payloads
+- Wired Bridge Manager, Health Dashboard, and status bar to `connected`
+- Refreshed model registry / CLI catalog / default model to live IDs (`cli-grok`, `cli-claude`, `cli-gemini`, `cli-codex`, `api-*`, `lmstudio`)
+- AAHP 3.12.0 + verify workflow contract; Dependabot batch superseded in this bump
+
+---
+
 ## Session 4 - 2026-07-17 - Backlog close-out + Dependabot sweep (claude-fable-5)
 
 **Goal:** Merge open Dependabot PRs, resolve the two remaining backlog issues, reconcile stale handoff docs.

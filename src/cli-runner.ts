@@ -31,34 +31,40 @@ export const detectInstalledClis = _detectInstalledClis;
 // ── Available CLI models ─────────────────────────────────────────────────────
 
 export const CLI_MODELS = [
-  { id: 'cli-claude/claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (CLI)' },
-  { id: 'cli-claude/claude-opus-4-6',   name: 'Claude Opus 4.6 (CLI)' },
-  { id: 'cli-claude/claude-haiku-4-5',  name: 'Claude Haiku 4.5 (CLI)' },
-  { id: 'cli-gemini/gemini-2.5-pro',           name: 'Gemini 2.5 Pro (CLI)' },
-  { id: 'cli-gemini/gemini-2.5-flash',         name: 'Gemini 2.5 Flash (CLI)' },
-  { id: 'cli-gemini/gemini-3-pro-preview',     name: 'Gemini 3 Pro Preview (CLI)' },
-  { id: 'cli-gemini/gemini-3-flash-preview',   name: 'Gemini 3 Flash Preview (CLI)' },
-  { id: 'openai-codex/gpt-5.3-codex',       name: 'GPT-5.3 Codex' },
-  { id: 'openai-codex/gpt-5.3-codex-spark', name: 'GPT-5.3 Codex Spark' },
-  { id: 'openai-codex/gpt-5.2-codex',       name: 'GPT-5.2 Codex' },
-  { id: 'openai-codex/gpt-5.4',             name: 'GPT-5.4' },
-  { id: 'openai-codex/gpt-5.1-codex-mini',  name: 'GPT-5.1 Codex Mini' },
-  { id: 'opencode/default',                 name: 'OpenCode' },
-  { id: 'pi/default',                       name: 'Pi Agent' },
+  { id: 'cli-claude/claude-opus-5',           name: 'Claude Opus 5 (CLI)' },
+  { id: 'cli-claude/claude-sonnet-5',         name: 'Claude Sonnet 5 (CLI)' },
+  { id: 'cli-claude/claude-fable-5',          name: 'Claude Fable 5 (CLI)' },
+  { id: 'cli-claude/claude-haiku-4-5',        name: 'Claude Haiku 4.5 (CLI)' },
+  { id: 'cli-gemini/gemini-3.1-pro-high',     name: 'Gemini 3.1 Pro High (CLI)' },
+  { id: 'cli-gemini/gemini-3.6-flash-high',   name: 'Gemini 3.6 Flash High (CLI)' },
+  { id: 'cli-gemini/gemini-3.5-flash-high',   name: 'Gemini 3.5 Flash High (CLI)' },
+  { id: 'cli-grok/grok-4.6',                  name: 'Grok 4.6 (CLI)' },
+  { id: 'cli-grok/grok-4.5',                  name: 'Grok 4.5 (CLI)' },
+  { id: 'cli-codex/gpt-5.6-sol',              name: 'GPT-5.6 Sol (CLI)' },
+  { id: 'cli-codex/gpt-5.6-terra',            name: 'GPT-5.6 Terra (CLI)' },
+  { id: 'cli-codex/gpt-5.6-luna',             name: 'GPT-5.6 Luna (CLI)' },
+  { id: 'opencode/default',                   name: 'OpenCode' },
+  { id: 'pi/default',                         name: 'Pi Agent' },
 ];
 
 const MODEL_ALIASES: Record<string, string> = {
-  'cli-gemini/gemini-3-pro':   'cli-gemini/gemini-3-pro-preview',
-  'cli-gemini/gemini-3-flash': 'cli-gemini/gemini-3-flash-preview',
+  'cli-gemini/gemini-2.5-pro':     'cli-gemini/gemini-3.1-pro-high',
+  'cli-gemini/gemini-2.5-flash':   'cli-gemini/gemini-3.6-flash-high',
+  'cli-gemini/gemini-3-pro':       'cli-gemini/gemini-3.1-pro-high',
+  'cli-gemini/gemini-3-flash':     'cli-gemini/gemini-3.6-flash-high',
+  'cli-claude/claude-opus-4-6':    'cli-claude/claude-opus-5',
+  'cli-claude/claude-sonnet-4-6':  'cli-claude/claude-sonnet-5',
 };
 
 // ── Model fallback chain ─────────────────────────────────────────────────────
 
 export const MODEL_FALLBACKS: Record<string, string> = {
-  'cli-gemini/gemini-2.5-pro':       'cli-gemini/gemini-2.5-flash',
-  'cli-gemini/gemini-3-pro-preview': 'cli-gemini/gemini-3-flash-preview',
-  'cli-claude/claude-opus-4-6':      'cli-claude/claude-sonnet-4-6',
-  'cli-claude/claude-sonnet-4-6':    'cli-claude/claude-haiku-4-5',
+  'cli-gemini/gemini-3.1-pro-high':   'cli-gemini/gemini-3.6-flash-high',
+  'cli-gemini/gemini-3.6-flash-high':  'cli-gemini/gemini-3.5-flash-high',
+  'cli-claude/claude-opus-5':          'cli-claude/claude-sonnet-5',
+  'cli-claude/claude-sonnet-5':        'cli-claude/claude-haiku-4-5',
+  'cli-grok/grok-4.6':                 'cli-grok/grok-4.5',
+  'cli-codex/gpt-5.6-sol':             'cli-codex/gpt-5.6-terra',
 };
 
 // ── Claude auth ──────────────────────────────────────────────────────────────
@@ -113,6 +119,22 @@ async function runClaude(prompt: string, modelId: string, timeoutMs: number, wor
     throw new Error(`claude exited ${result.exitCode}: ${stderr}`);
   }
   return result.stdout;
+}
+
+async function runGrok(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
+  const model = modelId.slice(modelId.indexOf('/') + 1);
+  const result = await runCli(
+    'grok',
+    ['--model', model, '--output-format', 'plain', '--no-plan', '--always-approve'],
+    prompt,
+    timeoutMs,
+    workdir,
+    false,
+  );
+  if (result.exitCode !== 0 && result.stdout.length === 0) {
+    throw new Error(`grok exited ${result.exitCode}: ${result.stderr || '(no output)'}`);
+  }
+  return result.stdout || result.stderr;
 }
 
 async function runCodex(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
@@ -178,16 +200,20 @@ export interface RouteResult {
 function normalizeModel(model: string): string {
   let normalized = model.startsWith('vllm/') ? model.slice(5) : model;
   normalized = MODEL_ALIASES[normalized] ?? normalized;
+  if (normalized.startsWith('cli-codex/')) {
+    normalized = 'openai-codex/' + normalized.slice('cli-codex/'.length);
+  }
   return normalized;
 }
 
 async function runModel(prompt: string, normalized: string, timeoutMs: number, workdir?: string): Promise<string> {
   if (normalized.startsWith('cli-gemini/'))    return runGemini(prompt, normalized, timeoutMs, workdir);
   if (normalized.startsWith('cli-claude/'))    return runClaude(prompt, normalized, timeoutMs, workdir);
+  if (normalized.startsWith('cli-grok/'))      return runGrok(prompt, normalized, timeoutMs, workdir);
   if (normalized.startsWith('openai-codex/'))  return runCodex(prompt, normalized, timeoutMs, workdir);
   if (normalized.startsWith('opencode/'))      return runOpenCode(prompt, normalized, timeoutMs, workdir);
   if (normalized.startsWith('pi/'))            return runPi(prompt, normalized, timeoutMs, workdir);
-  throw new Error(`Unknown model: "${normalized}". Supported prefixes: cli-gemini/, cli-claude/, openai-codex/, opencode/, pi/`);
+  throw new Error(`Unknown model: "${normalized}". Supported prefixes: cli-gemini/, cli-claude/, cli-grok/, cli-codex/, openai-codex/, opencode/, pi/`);
 }
 
 export async function routeToCliRunner(
