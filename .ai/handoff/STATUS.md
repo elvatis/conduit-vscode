@@ -1,4 +1,4 @@
-> Note (2026-09-02, grok-4.6): Plan chat sends `mode: plan` and spawn sends `mode: agent` with workspace `cwd`. Host-side Agent mode stays `mode: chat`. Pair with conduit-bridge `feat/cli-run-mode`. Version 0.9.0.
+> Note (2026-09-02, grok-4.6): Plan chat sends `mode: plan` and spawn sends `mode: agent` with workspace `cwd`. Host-side Agent mode stays `mode: chat`. Requires conduit-bridge `mode` on chat completions. Version 0.9.0.
 
 > Note (2026-07-18, claude-opus-4-8): Adopted CLI-based AAHP conformance v3.8.0. Stopped vendoring the package-provided gate scripts (removed scripts/_aahp-lib.sh, aahp-manifest.sh, lint-handoff.sh, verify-handoff.sh, install-hooks.sh, verify-hooks.sh, scripts/hooks/pre-commit, scripts/hooks/pre-push); the repo-specific scripts/validate-pii-allowlist.py stays. CI (.github/workflows/aahp-verify.yml) now runs the pinned CLI (npm ci + npx aahp verify/doctor) instead of bash scripts/verify-handoff.sh. Added GROUNDING.md, LOG-ARCHIVE.md, .aiignore and a TRUST.md Provenance section via aahp migrate-grounding. Pinned @elvatis_com/aahp 3.8.0 (exact) in devDependencies + aahp.config.json (pinnedDep, em-dash forbidden pattern). Regenerated MANIFEST (fixes next_task_id integer type).
 
@@ -54,7 +54,7 @@
 - Markdown renderer is custom inline (no external lib), supports full GFM subset
 - Model registry with 3-tier system: Tier 1 (all modes), Tier 2 (ask/edit/plan), Tier 3 (ask only)
 - All AI requests (chat and background spawn) go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
-- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Completions send workspace `cwd`. Plan chat sends `mode: plan`. Spawn sends `mode: agent`. Host Agent mode sends `mode: chat`. Requires the matching conduit-bridge `mode` field.
+- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Completions send workspace `cwd`. Plan chat sends `mode: plan`. Spawn sends `mode: agent`. Host Agent mode sends `mode: chat`. Requires conduit-bridge `mode` on `/v1/chat/completions`.
 
 ## Build Status
 - Build: `npm run build` - `dist/extension.js` (~201kb): Done
