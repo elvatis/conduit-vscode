@@ -1,34 +1,14 @@
 /**
- * cli-runner.ts — CLI subprocess routing for the embedded proxy.
+ * Background-agent routing through conduit-bridge.
  *
- * Spawns CLI subprocesses (gemini, claude, codex) and captures output.
- * Delegates shared logic (env, prompt formatting, subprocess spawning)
- * to agent-backends.ts for reuse across projects.
+ * Chat and spawn both use the OpenAI-compatible HTTP API on
+ * conduit.proxyUrl (default 127.0.0.1:31338). Local CLI subprocesses
+ * belong to the bridge, not to this extension.
  */
 
-import { homedir } from 'os';
-import * as fs from 'fs';
-import * as path from 'path';
+import { complete, stream, type ChatMessage } from './proxy-client';
 
-import {
-  type ChatMessage,
-  type CliRunResult,
-  type CliInfo,
-  formatPrompt,
-  buildMinimalEnv,
-  ensureGitRepo,
-  runCli,
-  detectInstalledClis as _detectInstalledClis,
-  buildBackendConfig,
-  spawnAgent,
-} from '@elvatis_com/agent-backends';
-
-// Re-export types and shared functions for backward compatibility
-export type { ChatMessage, CliRunResult, CliInfo };
-export { formatPrompt };
-export const detectInstalledClis = _detectInstalledClis;
-
-// ── Available CLI models ─────────────────────────────────────────────────────
+export type { ChatMessage };
 
 export const CLI_MODELS = [
   { id: 'cli-claude/claude-opus-5',           name: 'Claude Opus 5 (CLI)' },
@@ -43,20 +23,15 @@ export const CLI_MODELS = [
   { id: 'cli-codex/gpt-5.6-sol',              name: 'GPT-5.6 Sol (CLI)' },
   { id: 'cli-codex/gpt-5.6-terra',            name: 'GPT-5.6 Terra (CLI)' },
   { id: 'cli-codex/gpt-5.6-luna',             name: 'GPT-5.6 Luna (CLI)' },
-  { id: 'opencode/default',                   name: 'OpenCode' },
-  { id: 'pi/default',                         name: 'Pi Agent' },
 ];
 
 const MODEL_ALIASES: Record<string, string> = {
   'cli-gemini/gemini-2.5-pro':     'cli-gemini/gemini-3.1-pro-high',
   'cli-gemini/gemini-2.5-flash':   'cli-gemini/gemini-3.6-flash-high',
-  'cli-gemini/gemini-3-pro':       'cli-gemini/gemini-3.1-pro-high',
-  'cli-gemini/gemini-3-flash':     'cli-gemini/gemini-3.6-flash-high',
   'cli-claude/claude-opus-4-6':    'cli-claude/claude-opus-5',
   'cli-claude/claude-sonnet-4-6':  'cli-claude/claude-sonnet-5',
+  'openai-codex/gpt-5.4':          'cli-codex/gpt-5.6-sol',
 };
-
-// ── Model fallback chain ─────────────────────────────────────────────────────
 
 export const MODEL_FALLBACKS: Record<string, string> = {
   'cli-gemini/gemini-3.1-pro-high':   'cli-gemini/gemini-3.6-flash-high',
@@ -67,107 +42,11 @@ export const MODEL_FALLBACKS: Record<string, string> = {
   'cli-codex/gpt-5.6-sol':             'cli-codex/gpt-5.6-terra',
 };
 
-// ── Claude auth ──────────────────────────────────────────────────────────────
-
-async function ensureClaudeToken(): Promise<void> {
-  const credPath = path.join(homedir(), '.claude', '.credentials.json');
-  try {
-    const data = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
-    const expiresAt = data?.claudeAiOauth?.expiresAt;
-    if (!expiresAt) return;
-    const remaining = expiresAt - Date.now();
-    if (remaining > 5 * 60 * 1000) return;
-    await runCli('claude', ['-p', 'ping', '--output-format', 'text'], '', 30_000);
-  } catch {
-    // No credentials file or parse error
-  }
+export interface CliRunResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
 }
-
-// ── CLI runners (use shared runCli from agent-backends) ──────────────────────
-
-async function runGemini(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  const config = buildBackendConfig(modelId, prompt, workdir);
-  const result = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-
-  const cleanStderr = result.stderr
-    .split('\n')
-    .filter(l => !l.startsWith('[WARN]') && !l.startsWith('Loaded cached'))
-    .join('\n')
-    .trim();
-
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    throw new Error(`gemini exited ${result.exitCode}: ${cleanStderr || '(no output)'}`);
-  }
-  return result.stdout || cleanStderr;
-}
-
-async function runClaude(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  await ensureClaudeToken();
-  const config = buildBackendConfig(modelId, prompt, workdir);
-  const result = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    const stderr = result.stderr || '(no output)';
-    if (stderr.includes('401') || stderr.includes('authentication_error')) {
-      await runCli('claude', ['-p', 'ping', '--output-format', 'text'], '', 30_000).catch(() => {});
-      const retry = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-      if (retry.exitCode !== 0 && retry.stdout.length === 0) {
-        throw new Error(`Claude auth failed after refresh. Run: claude auth logout && claude auth login`);
-      }
-      return retry.stdout;
-    }
-    throw new Error(`claude exited ${result.exitCode}: ${stderr}`);
-  }
-  return result.stdout;
-}
-
-async function runGrok(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  const model = modelId.slice(modelId.indexOf('/') + 1);
-  const result = await runCli(
-    'grok',
-    ['--model', model, '--output-format', 'plain', '--no-plan', '--always-approve'],
-    prompt,
-    timeoutMs,
-    workdir,
-    false,
-  );
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    throw new Error(`grok exited ${result.exitCode}: ${result.stderr || '(no output)'}`);
-  }
-  return result.stdout || result.stderr;
-}
-
-async function runCodex(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  const config = buildBackendConfig(modelId, prompt, workdir);
-  const result = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    throw new Error(`codex exited ${result.exitCode}: ${result.stderr || '(no output)'}`);
-  }
-  return result.stdout;
-}
-
-async function runOpenCode(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  const config = buildBackendConfig(modelId, prompt, workdir);
-  const result = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    throw new Error(`opencode exited ${result.exitCode}: ${result.stderr || '(no output)'}`);
-  }
-  return result.stdout;
-}
-
-async function runPi(prompt: string, modelId: string, timeoutMs: number, workdir?: string): Promise<string> {
-  const config = buildBackendConfig(modelId, prompt, workdir);
-  const result = await runCli(config.cmd, config.args, config.stdinPrompt, timeoutMs, config.cwd, config.shell);
-
-  if (result.exitCode !== 0 && result.stdout.length === 0) {
-    throw new Error(`pi exited ${result.exitCode}: ${result.stderr || '(no output)'}`);
-  }
-  return result.stdout;
-}
-
-// ── Router ───────────────────────────────────────────────────────────────────
 
 const FAILOVER_PATTERNS = [
   /rate.?limit/i,
@@ -199,45 +78,30 @@ export interface RouteResult {
 
 function normalizeModel(model: string): string {
   let normalized = model.startsWith('vllm/') ? model.slice(5) : model;
-  normalized = MODEL_ALIASES[normalized] ?? normalized;
-  if (normalized.startsWith('cli-codex/')) {
-    normalized = 'openai-codex/' + normalized.slice('cli-codex/'.length);
-  }
-  return normalized;
-}
-
-async function runModel(prompt: string, normalized: string, timeoutMs: number, workdir?: string): Promise<string> {
-  if (normalized.startsWith('cli-gemini/'))    return runGemini(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('cli-claude/'))    return runClaude(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('cli-grok/'))      return runGrok(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('openai-codex/'))  return runCodex(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('opencode/'))      return runOpenCode(prompt, normalized, timeoutMs, workdir);
-  if (normalized.startsWith('pi/'))            return runPi(prompt, normalized, timeoutMs, workdir);
-  throw new Error(`Unknown model: "${normalized}". Supported prefixes: cli-gemini/, cli-claude/, cli-grok/, cli-codex/, openai-codex/, opencode/, pi/`);
+  return MODEL_ALIASES[normalized] ?? normalized;
 }
 
 export async function routeToCliRunner(
   model: string,
   messages: ChatMessage[],
-  timeoutMs: number,
+  _timeoutMs?: number,
   workdir?: string,
 ): Promise<string> {
-  const result = await routeToCliRunnerWithFallback(model, messages, timeoutMs, workdir);
+  const result = await routeToCliRunnerWithFallback(model, messages, _timeoutMs, workdir);
   return result.output;
 }
 
 export async function routeToCliRunnerWithFallback(
   model: string,
   messages: ChatMessage[],
-  timeoutMs: number,
+  _timeoutMs?: number,
   workdir?: string,
   maxFallbacks: number = 1,
 ): Promise<RouteResult> {
-  const prompt = formatPrompt(messages);
   const normalized = normalizeModel(model);
 
   try {
-    const output = await runModel(prompt, normalized, timeoutMs, workdir);
+    const output = await complete({ model: normalized, messages, cwd: workdir });
     return { output, model: normalized, fallbackUsed: false };
   } catch (primaryError) {
     if (!isFailoverEligible(primaryError as Error) || maxFallbacks <= 0) {
@@ -252,7 +116,7 @@ export async function routeToCliRunnerWithFallback(
       if (!fallback) break;
 
       try {
-        const output = await runModel(prompt, fallback, timeoutMs, workdir);
+        const output = await complete({ model: fallback, messages, cwd: workdir });
         return {
           output,
           model: fallback,
@@ -273,8 +137,6 @@ export async function routeToCliRunnerWithFallback(
   }
 }
 
-// ── Background agent spawning ─────────────────────────────────────────────────
-
 export interface CliAgentHandle {
   pid: number;
   output: string[];
@@ -282,23 +144,41 @@ export interface CliAgentHandle {
   result: Promise<CliRunResult>;
 }
 
+/** Run a background agent through conduit-bridge /v1/chat/completions. */
 export function spawnCliAgent(
   model: string,
   messages: ChatMessage[],
-  timeoutMs: number,
+  _timeoutMs?: number,
   workdir?: string,
 ): CliAgentHandle {
-  const prompt = formatPrompt(messages);
+  const output: string[] = [];
+  let killed = false;
   const normalized = normalizeModel(model);
-  const config = buildBackendConfig(normalized, prompt, workdir);
 
-  // Use shared spawnAgent from agent-backends
-  const handle = spawnAgent(config, timeoutMs);
+  const result = (async (): Promise<CliRunResult> => {
+    try {
+      let stdout = '';
+      for await (const chunk of stream({ model: normalized, messages, cwd: workdir })) {
+        if (killed) {
+          return { stdout, stderr: 'killed', exitCode: 1 };
+        }
+        if (chunk.delta) {
+          output.push(chunk.delta);
+          stdout += chunk.delta;
+        }
+      }
+      return { stdout, stderr: '', exitCode: 0 };
+    } catch (err) {
+      const msg = (err as Error).message;
+      output.push(msg);
+      return { stdout: output.join(''), stderr: msg, exitCode: 1 };
+    }
+  })();
 
   return {
-    pid: handle.pid,
-    output: handle.output,
-    kill: handle.kill,
-    result: handle.result,
+    pid: 0,
+    output,
+    kill: () => { killed = true; },
+    result,
   };
 }

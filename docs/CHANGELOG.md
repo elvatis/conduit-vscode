@@ -12,6 +12,7 @@ All notable changes to conduit-vscode are documented here.
 - Default model: `cli-gemini/gemini-3.1-pro-high`
 - Model registry, spawn-agent catalog, and fallbacks use live CLI IDs (`cli-grok`, `cli-claude`, `cli-gemini`, `cli-codex`)
 - Login commands open the bridge dashboard at `conduit.proxyUrl` instead of a Playwright browser
+- Background agents (`spawnCliAgent`) call conduit-bridge `/v1/chat/completions` instead of spawning CLIs through `@elvatis_com/agent-backends`
 - supply-chain-guard Action pin `@v5` -> exact `@v6.0.10` (2026-09-02 threat-intel batch + vscode-scanner)
 - AAHP pin 3.8.1 -> 3.12.0; verify workflow matches the 3.10+ contract (`AAHP_BASE_SHA`, `persist-credentials: false`, Node 24)
 - Dev deps: eslint 10.9.1, typescript-eslint 8.69.0, @types/node 26.4.1, vitest 4.1.11, esbuild 0.28.2 (supersedes Dependabot PRs #78-#83)

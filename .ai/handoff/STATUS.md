@@ -40,7 +40,7 @@
 | Model Switch Handoff | Done | Context summary when switching models mid-conversation |
 | Multi-turn Agent Loop (T-016) | Done | AgentLoop controller: stream -> parse tool calls -> execute -> feed results back; duplicate-call detection, error feedback loop, destructive-action confirmation, abort |
 | Agent Tools | Done | readFile, writeFile, runCommand, searchCode + worktree tools; command/branch args validated, execFile no-shell (CWE-78 hardening) |
-| Agent Backends | Done | Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi; background sessions with spawn/monitor/kill and model failover chain |
+| Agent Backends | Done | Background spawn goes through conduit-bridge HTTP; `@elvatis_com/agent-backends` removed |
 | Git Worktree Isolation | Done | Parallel agent work in isolated worktrees, serialized creation, merge-aware cleanup |
 | Agent Session Persistence | Done | Sessions survive VS Code restarts; Resume/Remove/Clear commands |
 | Cost Tracking | Done | Per-session token/cost tracking, budget limits, per-model cost summary |
@@ -51,8 +51,8 @@
 - Agent mode instructs models to use `### Step N: Title` format, rendered as collapsible `<details>` cards
 - Markdown renderer is custom inline (no external lib), supports full GFM subset
 - Model registry with 3-tier system: Tier 1 (all modes), Tier 2 (ask/edit/plan), Tier 3 (ask only)
-- All AI requests go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
-- Bridge v0.5.2 is an OpenAI-compatible gateway for API, CLI, and LM Studio transports. Provider availability is `/v1/status.connected` (not Playwright `sessionValid`).
+- All AI requests (chat and background spawn) go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
+- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Optional `cwd` on completions is the workspace folder.
 
 ## Build Status
 - Build: `npm run build` - `dist/extension.js` (~201kb): Done

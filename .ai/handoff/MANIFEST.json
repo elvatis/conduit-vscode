@@ -3,16 +3,16 @@
   "project": "conduit-vscode",
   "last_session": {
     "agent": "grok-4.6",
-    "session_id": "cli-1788337560",
-    "timestamp": "2026-09-02T08:26:00Z",
-    "commit": "9f72994",
+    "session_id": "cli-1788343160",
+    "timestamp": "2026-09-02T09:59:20Z",
+    "commit": "4ca5b0f",
     "phase": "implementation",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:7f449c26d73df12d5778b792d7613a9a3da902043d67693342fa9763772fc71a",
-      "updated": "2026-09-02T08:20:16Z",
+      "checksum": "sha256:421e2e6e92568558dfa32635da9bf15d8ad19af633ef7056e7399a24f0cbe155",
+      "updated": "2026-09-02T09:59:19Z",
       "lines": 112,
       "summary": "| Feature | Status | Notes |"
     },
@@ -71,7 +71,7 @@
       "summary": "{"
     }
   },
-  "quick_context": "Align vscode with conduit-bridge v0.5.2 status contract; pin supply-chain-guard v6.0.10",
+  "quick_context": "Route spawn through conduit-bridge; drop agent-backends",
   "token_budget": {
     "manifest_only": 85,
     "manifest_plus_core": 2704,

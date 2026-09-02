@@ -515,9 +515,8 @@ npm run test:coverage       # run with coverage report
 | `agent-parser.test.ts` | 25 | Agent output parsing, step card extraction |
 | `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
-| `cli-runner-failover.test.ts` | 7 | Model failover chain, fallback pattern matching |
+| `cli-runner-failover.test.ts` | 9 | Bridge failover chain |
 | `aahp-context.test.ts` | 10 | AAHP v3 context detection, loading, block building |
-| `agent-backends.test.ts` | 20 | Shared backend: prompt formatting, env, CLI config |
 | `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
@@ -624,8 +623,7 @@ conduit-vscode/
     model-registry.ts         - model capabilities, display names, tiers, auto-selection
     proxy-client.ts           - HTTP/streaming client for the bridge
     bridge-status.ts          - normalize conduit-bridge /v1/status (connected + loginType)
-    agent-backends.ts         - shared agent backend abstraction (CLI detection, env, prompt, spawn)
-    cli-runner.ts             - CLI subprocess routing (Claude, Gemini, Codex, OpenCode, Pi)
+    cli-runner.ts             - background agents via conduit-bridge /v1/chat/completions
     cost-tracker.ts           - token usage parsing and cost estimation per agent session
     agent-loop.ts             - multi-turn agent loop with tool execution
     agent-parser.ts           - agent output parsing (step cards, tool calls)
