@@ -19,6 +19,7 @@ import type { ToolCall, ToolResult, AgentLoopOptions } from './agent-types';
 export class AgentLoop {
   private _opts: AgentLoopOptions;
   private _aborted = false;
+  private readonly _controller = new AbortController();
   private _messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   private _iteration = 0;
   private _consecutiveErrors = 0;
@@ -33,9 +34,17 @@ export class AgentLoop {
     ];
   }
 
-  /** Abort the loop after the current stream finishes */
+  /**
+   * Abort the loop and the run behind it.
+   *
+   * Setting the flag alone only stopped reading: the socket stayed open, the
+   * bridge never saw a disconnect, and the CLI ran to completion on the user's
+   * quota. Aborting the controller destroys the request, which is the signal
+   * the bridge watches for.
+   */
   abort(): void {
     this._aborted = true;
+    this._controller.abort();
   }
 
   /** Run the agent loop to completion */
@@ -88,6 +97,7 @@ export class AgentLoop {
           model: this._opts.model,
           mode: 'chat',
           cwd: this._opts.cwd,
+          signal: this._controller.signal,
         })) {
           if (this._aborted) break;
           if (chunk.done) break;

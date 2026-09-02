@@ -21,6 +21,13 @@ export interface CompletionOptions {
    * extension stays host-side and must not send `agent`.
    */
   mode?: 'chat' | 'plan' | 'agent';
+  /**
+   * Cancels the request AND the CLI run behind it. The bridge kills the child
+   * process when the client disconnects, so destroying the socket is the only
+   * thing that actually stops the model — Stop used to set a flag and leave it
+   * running to completion.
+   */
+  signal?: AbortSignal;
 }
 
 export interface ModelInfo {
@@ -28,6 +35,20 @@ export interface ModelInfo {
   object: string;
   created: number;
   owned_by: string;
+  /**
+   * Human label from conduit-bridge 0.8.0+. The bridge knows the real name —
+   * "Claude Sonnet 4.6 (Thinking) (agy CLI)" — and this extension's own table
+   * cannot keep up with a catalog that is discovered at runtime, so prefer this
+   * whenever it is present.
+   */
+  display_name?: string;
+  /**
+   * Largest prompt this model's transport accepts, in characters
+   * (conduit-bridge 0.8.1+). Present only where a real ceiling exists: agy takes
+   * the prompt on argv, so the OS command line bounds it far below the model's
+   * token window. Absent for stdin and prompt-file transports.
+   */
+  max_prompt_chars?: number;
   capabilities?: { tools?: boolean };
 }
 
@@ -53,9 +74,10 @@ export async function complete(opts: CompletionOptions): Promise<string> {
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
   const { url, apiKey, actualModel } = resolveEndpoint(model);
-  const body = JSON.stringify({ ...opts, model: actualModel, stream: false });
+  const { signal, ...wire } = opts;
+  const body = JSON.stringify({ ...wire, model: actualModel, stream: false });
 
-  const text = await httpPost(url, body, apiKey);
+  const text = await httpPost(url, body, apiKey, signal);
   const json = JSON.parse(text);
   if (json.error) {
     throw new Error(json.error.message ?? JSON.stringify(json.error));
@@ -88,9 +110,10 @@ export async function* stream(opts: CompletionOptions): AsyncGenerator<StreamChu
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
   const { url, apiKey, actualModel } = resolveEndpoint(model);
-  const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
+  const { signal, ...wire } = opts;
+  const body = JSON.stringify({ ...wire, model: actualModel, stream: true });
 
-  yield* httpPostStream(url, body, apiKey);
+  yield* httpPostStream(url, body, apiKey, signal);
 }
 
 /**
@@ -109,10 +132,11 @@ export async function* streamWithFallback(
     const model = modelsToTry[i];
     try {
       const { url, apiKey, actualModel } = resolveEndpoint(model);
-      const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
+      const { signal, ...wire } = opts;
+      const body = JSON.stringify({ ...wire, model: actualModel, stream: true });
       let gotContent = false;
 
-      for await (const chunk of httpPostStream(url, body, apiKey)) {
+      for await (const chunk of httpPostStream(url, body, apiKey, signal)) {
         if (i > 0 && !gotContent && !chunk.done) {
           // First real chunk from fallback - notify caller
           yield { ...chunk, fallbackModel: model };
@@ -123,6 +147,12 @@ export async function* streamWithFallback(
       }
       return; // success - no need to try next model
     } catch (err) {
+      // A timeout is not evidence that this model is unavailable — the bridge
+      // was still working on it, and it kills the CLI when we disconnect. Trying
+      // the next model would spend another full budget, and another CLI run of
+      // the user's quota, for each fallback: four blank minutes and four killed
+      // runs before anything appears. Surface it instead.
+      if (isRequestTimeout(err)) throw err;
       if (i === modelsToTry.length - 1) {
         throw err; // all models failed
       }
@@ -161,6 +191,46 @@ function pickTransport(url: string) {
   return url.startsWith('https://') ? https : http;
 }
 
+/**
+ * A request timeout that cannot be mistaken for anything else.
+ *
+ * The old code threw `new Error('timeout')` here and
+ * `'Stream request timed out after 120s'` on the streaming path, and callers
+ * classified with `msg.includes('timeout')`. "timed out" does not contain
+ * "timeout", so the streaming case was never recognised — while the bridge's own
+ * supervisor message ("timeout: agy/gemini CLI killed by supervisor") does
+ * contain it and was reported to the user as a client timeout. Exactly backwards.
+ */
+export class RequestTimeoutError extends Error {
+  readonly isTimeout = true;
+  constructor(readonly timeoutMs: number) {
+    super(`No response from the bridge within ${Math.round(timeoutMs / 1000)}s`);
+    this.name = 'RequestTimeoutError';
+  }
+}
+
+export function isRequestTimeout(err: unknown): err is RequestTimeoutError {
+  return !!(err as RequestTimeoutError)?.isTimeout;
+}
+
+/**
+ * How long to wait for a chat completion.
+ *
+ * This is effectively a budget on the WHOLE turn, not an idle timeout: no CLI
+ * provider streams incrementally, and the bridge writes nothing on the socket
+ * until the child exits. Measured against a live bridge — headers at 3956ms,
+ * first byte at 3957ms, total 3957ms: the socket is silent for 100% of the run.
+ *
+ * So it has to clear the bridge's own ceiling, which kills a CLI at
+ * DEFAULT_CLI_TIMEOUT_MS = 300s. Anything lower makes the client give up on a
+ * request the server is still working on, which is what made a long Opus turn
+ * look like the extension doing nothing.
+ */
+function chatTimeoutMs(): number {
+  const configured = getConfig().requestTimeout;
+  return Number.isFinite(configured) && configured > 0 ? configured : 330_000;
+}
+
 function httpGet(url: string, apiKey: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -177,12 +247,12 @@ function httpGet(url: string, apiKey: string): Promise<string> {
       res.on('end', () => resolve(data));
     });
     req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.setTimeout(10_000, () => { req.destroy(); reject(new RequestTimeoutError(10_000)); });
     req.end();
   });
 }
 
-function httpPost(url: string, body: string, apiKey: string): Promise<string> {
+function httpPost(url: string, body: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const options = {
@@ -202,13 +272,14 @@ function httpPost(url: string, body: string, apiKey: string): Promise<string> {
       res.on('end', () => resolve(data));
     });
     req.on('error', reject);
-    req.setTimeout(120000, () => { req.destroy(); reject(new Error('timeout')); });
+    const timeoutMs = chatTimeoutMs();
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new RequestTimeoutError(timeoutMs)); });
     req.write(body);
     req.end();
   });
 }
 
-async function* httpPostStream(url: string, body: string, apiKey: string): AsyncGenerator<StreamChunk> {
+async function* httpPostStream(url: string, body: string, apiKey: string, signal?: AbortSignal): AsyncGenerator<StreamChunk> {
   const chunks: StreamChunk[] = [];
   let resolve: (() => void) | null = null;
   let done = false;
@@ -288,24 +359,48 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
     resolve?.();
   });
 
-  req.setTimeout(120000, () => {
+  const timeoutMs = chatTimeoutMs();
+  req.setTimeout(timeoutMs, () => {
     req.destroy();
-    error = new Error('Stream request timed out after 120s');
+    error = new RequestTimeoutError(timeoutMs);
     done = true;
     resolve?.();
   });
 
+  // Stopping means stopping the CLI, not just looking away. The bridge cancels
+  // the child process when the client disconnects (server.ts), so destroying the
+  // socket is what actually ends the run — previously nothing here touched it,
+  // so Stop left the model working and the quota draining.
+  const onAbort = () => {
+    error = new Error('Request cancelled');
+    done = true;
+    req.destroy();
+    resolve?.();
+  };
+  if (signal) {
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+
   req.write(body);
   req.end();
 
-  while (!done || chunks.length > 0) {
-    if (chunks.length === 0) {
-      await new Promise<void>(r => { resolve = r; });
-      resolve = null;
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length === 0) {
+        await new Promise<void>(r => { resolve = r; });
+        resolve = null;
+      }
+      while (chunks.length > 0) {
+        yield chunks.shift()!;
+      }
     }
-    while (chunks.length > 0) {
-      yield chunks.shift()!;
-    }
+  } finally {
+    // Reached on a normal end AND when the consumer breaks out of `for await`,
+    // which calls generator.return(). Without this, abandoning the loop left the
+    // socket open and the CLI running to completion.
+    signal?.removeEventListener('abort', onAbort);
+    req.destroy();
   }
 
   if (error) throw error;

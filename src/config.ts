@@ -18,6 +18,8 @@ export interface ConduitConfig {
   terminalIntegration: boolean;
   autoStatusBar: boolean;
   agentMaxIterations: number;
+  /** Whole-turn budget for a chat completion, ms. Must clear the bridge's 300s CLI cap. */
+  requestTimeout: number;
   agentAutoApprove: boolean;
   localEndpoints: LocalEndpoint[];
 }
@@ -41,6 +43,7 @@ export function getConfig(): ConduitConfig {
     terminalIntegration:  cfg.get<boolean>('terminalIntegration', true),
     autoStatusBar:        cfg.get<boolean>('autoStatusBar', true),
     agentMaxIterations:   cfg.get<number>('agentMaxIterations', 25),
+    requestTimeout:       cfg.get<number>('requestTimeout', 330_000),
     agentAutoApprove:     cfg.get<boolean>('agentAutoApprove', false),
     localEndpoints:       cfg.get<LocalEndpoint[]>('localEndpoints', []),
   };
