@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
-import { stream, streamWithFallback, listModels, type StreamMeta } from './proxy-client';
+import { stream, streamWithFallback, listModels, isRequestTimeout, type StreamMeta } from './proxy-client';
 import { vscodeBridgeMode } from './cli-runner';
 import { getConfig, workspaceCwd } from './config';
 import { BridgeManager } from './bridge-manager';
@@ -355,6 +355,11 @@ You can combine multiple mentions in a single message:
 ];
 
 // ── Provider ─────────────────────────────────────────────────────────────────
+
+/** A model row in the picker, carrying the id so selection never depends on the label. */
+interface ModelQuickPickItem extends vscode.QuickPickItem {
+  modelId?: string;
+}
 
 export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'conduit.chatView';
@@ -888,11 +893,16 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       }
     } catch (err) {
       const msg = (err as Error).message || 'Unknown error';
-      const isTimeout = msg.includes('timeout');
+      // Ask the error, not the message text. The stream path used to throw
+      // "Stream request timed out after 120s", which does not contain the
+      // substring "timeout" — so this branch never fired for the one case it
+      // was written for, while the bridge's own "timeout: … killed by
+      // supervisor" (a provider failure, HTTP 503) did match and was mislabelled.
+      const isTimeout = isRequestTimeout(err);
       const isNetwork = msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND');
       let errMsg = 'Error: ';
       if (isNetwork) errMsg += 'Cannot reach the bridge. Is conduit-bridge running?';
-      else if (isTimeout) errMsg += 'Request timed out. The model may be overloaded.';
+      else if (isTimeout) errMsg += `${msg}. The bridge caps a CLI run at 300s; raise conduit.requestTimeout if your model needs longer.`;
       else errMsg += msg;
       this._post({ type: 'assistantChunk', delta: errMsg });
       this._post({ type: 'retryAvailable' });
@@ -1069,7 +1079,10 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
           label: `${isCurrent ? '$(check) ' : '     '}${tierLabel}${m.name}`,
           description: `${ctxLabel} - ${modeIcons}`,
           detail: isCurrent ? 'Currently selected' : undefined,
-        });
+          // Carry the id so the selection never has to be recovered from the
+          // rendered label, which is not unique across providers.
+          modelId: m.id,
+        } as ModelQuickPickItem);
       }
     }
 
@@ -1092,7 +1105,15 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       .replace(/\$\(star-full\)\s*/g, '')
       .replace(/\$\(star-half\)\s*/g, '')
       .trim();
-    const model = this._models.find(m => m.name === cleanLabel);
+    // Match on the id carried by the item, not the rendered label. Labels are
+    // not unique — with 500+ models, api-openrouter/X and api-perplexity/X
+    // render identically, and `find` returned whichever sorted first, so
+    // picking a Perplexity model silently selected the OpenRouter one: another
+    // provider, another key, another bill. The label match stays as a fallback
+    // for any item built elsewhere without an id.
+    const pickedId = (picked as ModelQuickPickItem).modelId;
+    const model = (pickedId && this._models.find(m => m.id === pickedId))
+      || this._models.find(m => m.name === cleanLabel);
     if (model) {
       this.switchModelInternal(model.id);
     }

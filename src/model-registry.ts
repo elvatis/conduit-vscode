@@ -258,9 +258,17 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
     ?? { ctx: 128_000, max: 8_192 };
   const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'api';
   const provider = extractProvider(m.id);
-  const name = MODEL_DISPLAY_NAMES[m.id] ?? shortModelName(m.id);
+  // The bridge's own label wins: its catalog is discovered, so MODEL_DISPLAY_NAMES
+  // cannot know the ids that appear between releases. Without this, 493 of 508
+  // live models rendered as a bare slug under a misleading provider heading.
+  const name = m.display_name?.trim() || MODEL_DISPLAY_NAMES[m.id] || shortModelName(m.id);
 
-  const tier = MODEL_TIERS[m.id] ?? 2; // default to tier 2
+  // Unknown ids used to default to tier 2, which excludes Agent mode. Now that
+  // the bridge discovers catalogs, every newly released model is unknown here —
+  // 21 of the 36 live CLI models — so the default silently withheld Agent from
+  // exactly the newest and usually strongest ones. Trust the model unless this
+  // table says otherwise; the tiers remain as an explicit demotion list.
+  const tier = MODEL_TIERS[m.id] ?? 1;
   return {
     id: m.id,
     name,

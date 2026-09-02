@@ -27,7 +27,6 @@ export const CLI_MODELS = [
   { id: 'cli-claude/claude-haiku-4-5',        name: 'Claude Haiku 4.5 (CLI)' },
   { id: 'cli-gemini/gemini-3.1-pro-high',     name: 'Gemini 3.1 Pro High (CLI)' },
   { id: 'cli-gemini/gemini-3.6-flash-high',   name: 'Gemini 3.6 Flash High (CLI)' },
-  { id: 'cli-gemini/gemini-3.5-flash-high',   name: 'Gemini 3.5 Flash High (CLI)' },
   { id: 'cli-grok/grok-4.6',                  name: 'Grok 4.6 (CLI)' },
   { id: 'cli-grok/grok-4.5',                  name: 'Grok 4.5 (CLI)' },
   { id: 'cli-codex/gpt-5.6-sol',              name: 'GPT-5.6 Sol (CLI)' },
@@ -45,7 +44,7 @@ const MODEL_ALIASES: Record<string, string> = {
 
 export const MODEL_FALLBACKS: Record<string, string> = {
   'cli-gemini/gemini-3.1-pro-high':   'cli-gemini/gemini-3.6-flash-high',
-  'cli-gemini/gemini-3.6-flash-high':  'cli-gemini/gemini-3.5-flash-high',
+  'cli-gemini/gemini-3.6-flash-high':   'cli-gemini/gemini-3.1-pro-low',
   'cli-claude/claude-opus-5':          'cli-claude/claude-sonnet-5',
   'cli-claude/claude-sonnet-5':        'cli-claude/claude-haiku-4-5',
   'cli-grok/grok-4.6':                 'cli-grok/grok-4.5',
@@ -166,6 +165,16 @@ export function spawnCliAgent(
   const normalized = normalizeModel(model);
 
   const result = (async (): Promise<CliRunResult> => {
+    // Spawn runs as mode=agent, which the bridge refuses without an absolute
+    // existing cwd (HTTP 400). Undefined is dropped by JSON.stringify, so the
+    // request went out looking valid and came back with a message the user only
+    // saw in the output channel — after the caller had already created a
+    // worktree and a branch for it. Say so here instead.
+    if (!workdir) {
+      const msg = 'Agent mode needs an open workspace folder: conduit-bridge requires cwd for mode=agent.';
+      output.push(msg);
+      return { stdout: '', stderr: msg, exitCode: 1 };
+    }
     try {
       let stdout = '';
       for await (const chunk of stream({ model: normalized, messages, cwd: workdir, mode: vscodeBridgeMode('spawn') })) {
