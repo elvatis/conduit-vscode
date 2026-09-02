@@ -1,11 +1,11 @@
 {
   "aahp_version": "3.0",
-  "project": "conduit-vscode-cli-mode",
+  "project": "conduit-vscode",
   "last_session": {
     "agent": "cli-tool",
     "session_id": "cli-1788348315",
     "timestamp": "2026-09-02T11:25:16Z",
-    "commit": "883e751",
+    "commit": "8102467",
     "phase": "idle",
     "duration_minutes": 0
   },
