@@ -6,7 +6,7 @@ Conduit is a VS Code extension that connects VS Code to any OpenAI-compatible AI
 
 - Publisher: `elvatis`
 - Extension ID: `elvatis.conduit-vscode`
-- Current version: `0.8.0`
+- Current version: `0.9.0`
 
 ## Build & Test
 
@@ -56,10 +56,10 @@ npm test             # vitest run
 
 | Mode | System Prompt Behavior |
 |------|----------------------|
-| **Ask** | Answer questions, explain code |
-| **Edit** | Return only modified code in fenced blocks |
-| **Agent** | Structured step-by-step output with `### Step N: Title` format, rendered as collapsible cards |
-| **Plan** | Numbered implementation plan, no code yet |
+| **Ask** | Answer questions, explain code. Bridge `mode: chat` (read-only CLI). |
+| **Edit** | Return only modified code in fenced blocks. Bridge `mode: chat`. |
+| **Agent** | Host-side tool loop. Bridge `mode: chat` so the CLI does not also write. |
+| **Plan** | Native CLI planner via bridge `mode: plan` plus workspace `cwd`. |
 
 ### Context Mentions
 

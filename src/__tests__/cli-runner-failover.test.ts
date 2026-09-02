@@ -9,14 +9,40 @@ vi.mock('../proxy-client', () => ({
   stream: vi.fn(),
 }));
 
-import { complete } from '../proxy-client';
-import { routeToCliRunnerWithFallback, MODEL_FALLBACKS, type ChatMessage } from '../cli-runner';
+import { complete, stream } from '../proxy-client';
+import { routeToCliRunnerWithFallback, spawnCliAgent, MODEL_FALLBACKS, vscodeBridgeMode, type ChatMessage } from '../cli-runner';
 
 const mockComplete = vi.mocked(complete);
+const mockStream = vi.mocked(stream);
 
 function msgs(content: string): ChatMessage[] {
   return [{ role: 'user', content }];
 }
+
+describe('vscodeBridgeMode', () => {
+  it('maps spawn to agent, plan chat to plan, and host chat surfaces to chat', () => {
+    expect(vscodeBridgeMode('spawn')).toBe('agent');
+    expect(vscodeBridgeMode('plan')).toBe('plan');
+    expect(vscodeBridgeMode('ask')).toBe('chat');
+    expect(vscodeBridgeMode('edit')).toBe('chat');
+    expect(vscodeBridgeMode('agent')).toBe('chat');
+  });
+});
+
+describe('spawnCliAgent', () => {
+  it('streams with mode agent and the workspace cwd', async () => {
+    mockStream.mockImplementation(async function* (opts) {
+      expect(opts.mode).toBe('agent');
+      expect(opts.cwd).toBe('C:\\workspace');
+      yield { delta: 'patched', done: false };
+      yield { delta: '', done: true };
+    });
+    const handle = spawnCliAgent('cli-grok/grok-4.6', msgs('fix the bug'), 1000, 'C:\\workspace');
+    const result = await handle.result;
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('patched');
+  });
+});
 
 describe('model failover chain', () => {
   beforeEach(() => { vi.clearAllMocks(); });

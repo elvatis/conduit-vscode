@@ -10,6 +10,16 @@ import { complete, stream, type ChatMessage } from './proxy-client';
 
 export type { ChatMessage };
 
+/** Map a VS Code surface onto conduit-bridge `mode`. Chat Agent stays host-side. */
+export type VscodeSurface = 'spawn' | 'ask' | 'edit' | 'agent' | 'plan';
+export type BridgeRunMode = 'chat' | 'plan' | 'agent';
+
+export function vscodeBridgeMode(surface: VscodeSurface): BridgeRunMode {
+  if (surface === 'spawn') return 'agent';
+  if (surface === 'plan') return 'plan';
+  return 'chat';
+}
+
 export const CLI_MODELS = [
   { id: 'cli-claude/claude-opus-5',           name: 'Claude Opus 5 (CLI)' },
   { id: 'cli-claude/claude-sonnet-5',         name: 'Claude Sonnet 5 (CLI)' },
@@ -158,7 +168,7 @@ export function spawnCliAgent(
   const result = (async (): Promise<CliRunResult> => {
     try {
       let stdout = '';
-      for await (const chunk of stream({ model: normalized, messages, cwd: workdir })) {
+      for await (const chunk of stream({ model: normalized, messages, cwd: workdir, mode: vscodeBridgeMode('spawn') })) {
         if (killed) {
           return { stdout, stderr: 'killed', exitCode: 1 };
         }

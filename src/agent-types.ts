@@ -64,4 +64,6 @@ export interface AgentLoopOptions extends AgentLoopCallbacks {
   userMessage: string;
   history: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   maxIterations: number;
+  /** Workspace path for CLI providers. Host-side Agent mode stays `chat` (read-only). */
+  cwd?: string;
 }

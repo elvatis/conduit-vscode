@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import { complete } from './proxy-client';
-import { getConfig } from './config';
+import { getConfig, workspaceCwd } from './config';
 import { stripFences } from './utils';
 
 /**
@@ -71,6 +71,7 @@ export async function generateCommitMessage(): Promise<void> {
           model: cfg.defaultModel,
           temperature: 0.3,
           max_tokens: 200,
+          cwd: workspaceCwd(),
         });
 
         if (!result) return;

@@ -194,6 +194,29 @@ describe('complete', () => {
     expect(receivedModel).toBe('custom-model');
   });
 
+  it('forwards mode and cwd on the request body', async () => {
+    let parsed: { mode?: string; cwd?: string } = {};
+    await startMockServer((req, res) => {
+      if (req.url === '/v1/chat/completions') {
+        let body = '';
+        req.on('data', (c) => { body += c; });
+        req.on('end', () => {
+          parsed = JSON.parse(body);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }));
+        });
+      }
+    });
+
+    await complete({
+      messages: [{ role: 'user', content: 'plan this' }],
+      mode: 'plan',
+      cwd: 'C:\\repo',
+    });
+    expect(parsed.mode).toBe('plan');
+    expect(parsed.cwd).toBe('C:\\repo');
+  });
+
   it('sends authorization header', async () => {
     let authHeader = '';
     await startMockServer((req, res) => {

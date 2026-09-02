@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
 import { stream, streamWithFallback, listModels, type StreamMeta } from './proxy-client';
-import { getConfig } from './config';
+import { vscodeBridgeMode } from './cli-runner';
+import { getConfig, workspaceCwd } from './config';
 import { BridgeManager } from './bridge-manager';
 import { parseMentions } from './mention-parser';
 import { loadCustomInstructions } from './custom-instructions';
@@ -181,7 +182,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
 | \`/explain\` | Explain the currently selected code |
 | \`/tests\` | Generate unit tests for selected code |
 | \`/refactor [instruction]\` | Refactor selected code with an optional instruction |
-| \`/plan [task]\` | Create a step-by-step implementation plan |
+| \`/plan [task]\` | Switch to Plan mode and call the CLI native planner |
 | \`/commit\` | Generate a commit message from staged changes |
 | \`/clear\` | Clear the current chat history |
 | \`/new\` | Start a fresh chat session |
@@ -227,10 +228,10 @@ You can combine multiple mentions in a single message:
 
 | Mode | Best for |
 |------|----------|
-| **Ask** | Questions, explanations, code review |
-| **Edit** | Modifying and refactoring existing code |
-| **Agent** | Multi-step tasks, building features end-to-end |
-| **Plan** | Creating implementation plans before coding |`;
+| **Ask** | Questions, explanations, code review (CLI read-only) |
+| **Edit** | Modifying and refactoring existing code (CLI read-only) |
+| **Agent** | Host-side tools; CLI stays read-only |
+| **Plan** | CLI native planner (mode: plan) |`;
     },
   },
   {
@@ -273,7 +274,7 @@ You can combine multiple mentions in a single message:
   },
   {
     name: 'plan',
-    description: 'Create an implementation plan',
+    description: 'Call the CLI native planner',
     handler: async (args, provider) => {
       if (!args) return '[Provide a task description: /plan <what to implement>]';
       provider.setModeInternal('plan');
@@ -862,7 +863,12 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     const fallbacks = getFallbackModels(this._models, modelToUse);
     try {
       for await (const chunk of streamWithFallback(
-        { messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, model: modelToUse },
+        {
+          messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+          model: modelToUse,
+          mode: vscodeBridgeMode(this._mode),
+          cwd: workspaceCwd(),
+        },
         fallbacks,
       )) {
         if (chunk.fallbackModel) {
@@ -943,6 +949,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       userMessage,
       history: this._messages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
       maxIterations: cfg.agentMaxIterations,
+      cwd: workspaceCwd(),
       onChunk: (delta) => this._post({ type: 'assistantChunk', delta }),
       onToolCall: (call) => this._post({
         type: 'agentToolCall',
@@ -1095,8 +1102,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     const modes: Array<{ mode: ChatMode; label: string; desc: string }> = [
       { mode: 'ask', label: 'Ask', desc: 'Answer questions about code' },
       { mode: 'edit', label: 'Edit', desc: 'Modify and refactor code' },
-      { mode: 'agent', label: 'Agent', desc: 'Plan and build features' },
-      { mode: 'plan', label: 'Plan', desc: 'Create implementation plans' },
+      { mode: 'agent', label: 'Agent', desc: 'Host-side tools; CLI stays read-only' },
+      { mode: 'plan', label: 'Plan', desc: 'CLI native planner' },
     ];
 
     const items = modes.map(m => ({
@@ -1339,7 +1346,7 @@ body {
       /fix - fix errors in file<br>
       /explain - explain selection<br>
       /tests - generate tests<br>
-      /plan - create implementation plan<br>
+      /plan - CLI native planner (mode: plan)<br>
       /commit - generate commit message<br>
       #file:path - attach a file<br>
       #selection - attach current selection<br>
@@ -1415,7 +1422,7 @@ const COMMANDS = [
   { name:'explain', desc:'Explain selected code' },
   { name:'tests', desc:'Generate tests for selection' },
   { name:'refactor', desc:'Refactor selected code' },
-  { name:'plan', desc:'Create implementation plan' },
+  { name:'plan', desc:'CLI native planner' },
   { name:'commit', desc:'Generate commit message' },
   { name:'clear', desc:'Clear current chat' },
   { name:'new', desc:'Start new chat session' },

@@ -1,3 +1,5 @@
+> Note (2026-09-02, grok-4.6): Plan chat sends `mode: plan` and spawn sends `mode: agent` with workspace `cwd`. Host-side Agent mode stays `mode: chat`. Requires conduit-bridge `mode` on chat completions. Version 0.9.0.
+
 > Note (2026-07-18, claude-opus-4-8): Adopted CLI-based AAHP conformance v3.8.0. Stopped vendoring the package-provided gate scripts (removed scripts/_aahp-lib.sh, aahp-manifest.sh, lint-handoff.sh, verify-handoff.sh, install-hooks.sh, verify-hooks.sh, scripts/hooks/pre-commit, scripts/hooks/pre-push); the repo-specific scripts/validate-pii-allowlist.py stays. CI (.github/workflows/aahp-verify.yml) now runs the pinned CLI (npm ci + npx aahp verify/doctor) instead of bash scripts/verify-handoff.sh. Added GROUNDING.md, LOG-ARCHIVE.md, .aiignore and a TRUST.md Provenance section via aahp migrate-grounding. Pinned @elvatis_com/aahp 3.8.0 (exact) in devDependencies + aahp.config.json (pinnedDep, em-dash forbidden pattern). Regenerated MANIFEST (fixes next_task_id integer type).
 
 > Note (2026-07-14, claude-opus-4-8): Synced the canonical AAHP gate scripts from homeofe/improvements (v3.5.0 fixes: aahp-manifest.sh --phase documentation + cross_repo_ref preservation, lint-handoff.sh SC2034), AAHP_HANDOFF_FILES preserved, and refreshed the local hook tooling (scripts/hooks/, install-hooks.sh, verify-hooks.sh). Fleet re-sync.
@@ -6,7 +8,7 @@
 
 # STATUS - conduit-vscode
 
-## Current Version: 0.8.0 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17; issue #85 locked)
+## Current Version: 0.9.0 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17; issue #85 locked)
 
 ## Feature Status
 | Feature | Status | Notes |
@@ -52,7 +54,7 @@
 - Markdown renderer is custom inline (no external lib), supports full GFM subset
 - Model registry with 3-tier system: Tier 1 (all modes), Tier 2 (ask/edit/plan), Tier 3 (ask only)
 - All AI requests (chat and background spawn) go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
-- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Optional `cwd` on completions is the workspace folder. Requires conduit-bridge v0.6.0+ for workspace cwd.
+- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Completions send workspace `cwd`. Plan chat sends `mode: plan`. Spawn sends `mode: agent`. Host Agent mode sends `mode: chat`. Requires conduit-bridge `mode` on `/v1/chat/completions`.
 
 ## Build Status
 - Build: `npm run build` - `dist/extension.js` (~201kb): Done
@@ -78,6 +80,7 @@
 | 0.7.5 | 2026-07-17 | CWE-78 hardening in agent tools, brace-expansion GHSA fix, dep sweep, @types/vscode re-pin + Dependabot ignore, CI action bumps, docs reconciliation |
 | 0.7.6 | 2026-07-17 | Dev-dep maintenance: ts-eslint plugin 8.64 / eslint 10.7 / @types/node 26.1.1; held TS 6->7 (toolchain peer conflict) + Dependabot ignore for the typescript major; no runtime change |
 | 0.8.0 | 2026-09-02 | Align with conduit-bridge v0.5.2: treat `connected` as provider availability so CLI/API/local providers show up; new model IDs; dashboard instead of browser login; AAHP 3.12; supply-chain-guard v6.0.10 |
+| 0.9.0 | 2026-09-02 | Plan/agent CLI modes through conduit-bridge `mode` + `cwd` |
 
 <!-- aahp-gate -->
 _AAHP verify gate: v3.0.2 synced 2026-06-20._
