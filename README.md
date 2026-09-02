@@ -5,9 +5,9 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.9.0
+**Current version:** 0.10.1
 
-> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.7.0+ at `http://127.0.0.1:31338` (`mode` on chat completions: `chat` | `plan` | `agent`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
+> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.9.0+ at `http://127.0.0.1:31338` (`mode` on chat completions: `chat` | `plan` | `agent`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
 ---
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.7.6.vsix
+code --install-extension conduit-vscode-0.10.1.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.7.6.vsix
+code --install-extension conduit-vscode-0.10.1.vsix
 ```
 
 ### First Launch
@@ -593,7 +593,7 @@ Press **F5** in VS Code to launch the Extension Development Host for debugging.
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.9.0.vsix
+# produces conduit-vscode-0.10.1.vsix
 ```
 
 ### Project Structure
@@ -666,6 +666,38 @@ Open issues tracking planned features:
 
 ## Changelog
 
+### v0.10.1 (2026-09-03)
+- Release hygiene only; no runtime change. v0.10.0 shipped with no `.vsix` attached
+  to its GitHub release, which is this project only distribution channel, and with a
+  README that still read 0.9.0 and install snippets that still read 0.7.6
+- `versionSites` is now configured, so `aahp check` fails when the version in
+  package.json disagrees with README, docs/CHANGELOG.md, STATUS.md or DASHBOARD.md.
+  The gate existed all along and reported `SKIP - no versionSites configured`
+- CI runs `aahp check` alongside `verify` and `doctor`; it never ran before, so no
+  governance gate could fail the build
+- Removed the em dashes the repo own forbidden-patterns rule bans, including the one
+  in the `displayName` shown in the VS Code extensions list
+### v0.10.0 (2026-09-03)
+- Deleted the local model tables: conduit-bridge 0.9.0 reports `context_window`,
+  `max_output_tokens` and `display_name`, so `MODEL_LIMITS`, `PROVIDER_FALLBACK_LIMITS`,
+  `MODEL_DISPLAY_NAMES` and `MODEL_TIERS` are gone (129 lines). They went stale the
+  moment the bridge started discovering catalogs instead of shipping a pinned list
+- Every model reports every chat mode. Tiering silently withheld Agent from any id this
+  build had not heard of, which with a discovered catalog was 21 of 36 CLI models
+- Trimming honours `max_prompt_chars`, so a prompt cannot exceed what the transport carries
+- `local-*` models keep a conservative 8192-token assumption: the bridge never sees them
+- Requires conduit-bridge 0.9.0
+
+### v0.9.1 (2026-09-02)
+- Request timeout is a budget on the whole turn, not an idle timer, because no CLI
+  provider streams and the bridge writes nothing until the child exits. Configurable
+  via `conduit.requestTimeout`, default 330s, above the bridge 300s CLI ceiling
+- A timeout no longer triggers the fallback chain; it used to spend four budgets and
+  four killed CLI runs before anything appeared
+- Typed `RequestTimeoutError`: the old substring test classified every case backwards
+- Stop aborts the request, which is what makes the bridge kill the CLI
+- Removed the retired `cli-gemini/gemini-3.5-flash-high` from the pickers and fallbacks
+- Background spawn fails early without a workspace instead of an opaque HTTP 400
 ### v0.9.0 (2026-09-02)
 - Plan chat sends `mode: plan` plus workspace `cwd` so conduit-bridge calls each CLI native planner
 - Background spawn/fix-issue sends `mode: agent` with `cwd` so CLI providers can write the workspace

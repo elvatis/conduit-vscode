@@ -73,6 +73,14 @@ jobs:
         env:
           AAHP_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base }}
 
+      # The governance gates: version-sync (package.json must agree with every
+      # documented version site) and forbidden-patterns. Neither ran before
+      # v0.10.1, so a release could ship docs contradicting its own tag and stay
+      # green. v0.10.0 did exactly that.
+      - name: Run aahp check (governance gates)
+        if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}
+        run: npx --no-install aahp check .
+
       - name: Run aahp doctor (conformance snapshot)
         if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}
         run: npx --no-install aahp doctor . --json

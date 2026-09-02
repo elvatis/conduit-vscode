@@ -1,1 +1,46 @@
-{"pinnedDep":{"name": "@elvatis_com/aahp","location":"devDependencies","allowRange":false},"forbiddenPatterns":[{"id":"em-dash","pattern":"\\u2014","message":"em dash (U+2014) is banned; use a hyphen"}]}
+{
+  "pinnedDep": {
+    "name": "@elvatis_com/aahp",
+    "location": "devDependencies",
+    "allowRange": false
+  },
+  "forbiddenPatterns": [
+    {
+      "id": "em-dash",
+      "pattern": "\\u2014",
+      "message": "em dash (U+2014) is banned; use a hyphen"
+    }
+  ],
+  "versionSites": [
+    {
+      "file": "README.md",
+      "minOccurrences": 4,
+      "boundary": true,
+      "note": "version header, 2 install snippets, packaging step (the vN.N.N changelog heading is not boundary-matched)"
+    },
+    {
+      "file": "docs/CHANGELOG.md",
+      "minOccurrences": 1,
+      "boundary": true,
+      "note": "release section heading"
+    },
+    {
+      "file": ".ai/handoff/STATUS.md",
+      "minOccurrences": 1,
+      "boundary": true,
+      "note": "Current Version header"
+    },
+    {
+      "file": ".ai/handoff/DASHBOARD.md",
+      "minOccurrences": 2,
+      "boundary": true,
+      "note": "Version row and packaged vsix filename"
+    },
+    {
+      "file": "package-lock.json",
+      "minOccurrences": 2,
+      "boundary": true,
+      "note": "root version and packages[\"\"] version; npm version updates both"
+    }
+  ]
+}

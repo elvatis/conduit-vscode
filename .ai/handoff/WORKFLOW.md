@@ -1,4 +1,4 @@
-# WORKFLOW.md — conduit-vscode
+# WORKFLOW.md - conduit-vscode
 
 > Based on the [AAHP Protocol](https://github.com/homeofe/AAHP).
 
@@ -17,14 +17,14 @@
 ```
 Reads:   NEXT_ACTIONS.md, STATUS.md
 Does:    Research VS Code API, check existing extension patterns
-Writes:  LOG.md — findings
+Writes:  LOG.md - findings
 ```
 
 ### Phase 2: Architecture
 ```
 Reads:   LOG.md research, CONVENTIONS.md, relevant src/ files
 Does:    Design feature, define interfaces, plan implementation
-Writes:  LOG.md — ADR
+Writes:  LOG.md - ADR
 ```
 
 ### Phase 3: Implementation
@@ -45,5 +45,5 @@ Release: gh release create (if version bump)
 - `npm run build` must pass before any commit
 - All webview HTML must be inline (no external resources)
 - Always check `editor.selection.isEmpty` before selection-dependent commands
-- `vscode` is always external — never import it from test code without mocking
-- `gh release create` mandatory for releases — git tags alone don't suffice
+- `vscode` is always external - never import it from test code without mocking
+- `gh release create` mandatory for releases - git tags alone don't suffice

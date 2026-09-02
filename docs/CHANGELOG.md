@@ -2,6 +2,59 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.10.1] - 2026-09-03
+
+### Fixed
+
+- v0.10.0 was tagged and released without its `.vsix`. GitHub releases are the only
+  way this extension is distributed (Marketplace publishing was dropped 2026-07-17),
+  so the release was effectively empty. Documentation disagreed with the tag in four
+  places: README said 0.9.0, both install snippets said 0.7.6, STATUS.md said 0.9.0
+  and DASHBOARD.md said 0.8.0.
+- README claimed conduit-bridge v0.7.0+; 0.10.0 deleted the local model tables and
+  needs the limits only 0.9.0 reports.
+- Removed banned em dashes, including in the `displayName` users see.
+
+### Added
+
+- `versionSites` in `aahp.config.json`. The `version-sync` gate reported
+  `SKIP - no versionSites configured` through every release that drifted.
+- `aahp check` in CI. Only `verify` and `doctor` ran, so the governance gates,
+  including `forbidden-patterns`, could not fail a build.
+## [0.10.0] - 2026-09-03
+
+### Removed
+
+- `MODEL_LIMITS`, `PROVIDER_FALLBACK_LIMITS`, `MODEL_DISPLAY_NAMES` and `MODEL_TIERS`
+  (129 lines). conduit-bridge 0.9.0 reports `context_window`, `max_output_tokens` and
+  `display_name`, discovered per provider. The tables knew nothing about the gemini-3.8
+  family, gpt-5.4, gpt-5.4-mini or the models agy resells, so 493 of 508 live models
+  rendered as a bare slug and 21 of 36 CLI models were barred from Agent mode.
+
+### Changed
+
+- Every model reports every chat mode; tiering was a local guess with no source of truth.
+- History trimming honours `max_prompt_chars` so a prompt cannot exceed its transport.
+- `local-*` models, which the bridge never sees, assume a conservative 8192-token window.
+
+## [0.9.1] - 2026-09-02
+
+### Fixed
+
+- The 120s request timeout capped the whole turn rather than idle time: no CLI provider
+  streams, and the bridge writes nothing until the child exits, so a long turn died with
+  no output. Now `conduit.requestTimeout`, default 330s.
+- A timeout no longer falls back to the next model, which spent four budgets and four
+  killed CLI runs before anything appeared.
+- Timeout classification used `msg.includes('timeout')` against "timed out", so the
+  friendly branch was dead code while a provider failure was mislabelled a client
+  timeout. Replaced with a typed error.
+- Stop now aborts the request; the bridge kills the CLI when the client disconnects, and
+  nothing was closing the socket.
+- Removed `cli-gemini/gemini-3.5-flash-high`, retired upstream but still offered in three
+  quick pickers and a fallback chain.
+- Background spawn sends `mode: agent` and now refuses early without a workspace `cwd`,
+  instead of an HTTP 400 visible only in the output channel.
 ## [0.9.0] - 2026-09-02
 
 ### Added
