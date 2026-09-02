@@ -375,6 +375,8 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
   private _inputTokens = 0;
   private _outputTokens = 0;
   private _autoModel = false;
+  /** Cancels the in-flight chat request; agentAbort also stops the CLI behind it. */
+  private _activeChatAbort: AbortController | null = null;
   private _activeAgentLoop: AgentLoop | null = null;
   private _pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
@@ -723,6 +725,10 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
         break;
       case 'agentAbort':
         this._activeAgentLoop?.abort();
+        // Ask/Edit/Plan turns are not agent loops, but they are just as long —
+        // without this, Stop left the CLI running to completion on the user's
+        // quota, because nothing ever closed the socket.
+        this._activeChatAbort?.abort();
         break;
       case 'feedback': {
         // Store model feedback for improving auto-selection
@@ -873,6 +879,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
           model: modelToUse,
           mode: vscodeBridgeMode(this._mode),
           cwd: workspaceCwd(),
+          signal: (this._activeChatAbort = new AbortController()).signal,
         },
         fallbacks,
       )) {
@@ -909,6 +916,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       fullResponse = errMsg;
     }
 
+    this._activeChatAbort = null;
     if (!fullResponse.trim()) {
       const noResp = `No response received from model \`${modelToUse}\`. The bridge may not support this model, or it returned an empty reply.`;
       this._post({ type: 'assistantChunk', delta: noResp });

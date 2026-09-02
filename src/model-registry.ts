@@ -23,6 +23,12 @@ export interface ModelCapabilities {
   supportedModes: ChatMode[];
   /** Reasoning tier: 1 = top (all modes), 2 = good (ask/edit/plan), 3 = fast (ask only) */
   tier: 1 | 2 | 3;
+  /**
+   * Hard prompt ceiling reported by the bridge, in characters. Undefined means
+   * the transport has none. Only the bridge can know this — it follows from the
+   * binary and the platform, not from the model.
+   */
+  maxPromptChars?: number;
 }
 
 // Per-model context windows (ctx) and max output tokens (max)
@@ -279,6 +285,7 @@ function toCapabilities(m: ModelInfo): ModelCapabilities {
     category,
     supportedModes: TIER_MODES[tier],
     tier,
+    maxPromptChars: m.max_prompt_chars,
   };
 }
 
@@ -447,7 +454,15 @@ export function trimHistoryForModel(
   reserveTokens = 4096,
 ): Array<{ role: string; content: string }> {
   const caps = getModelCapabilities(modelId);
-  const maxChars = ((caps?.contextWindow ?? 128_000) - reserveTokens) * 3; // rough char estimate
+  const windowChars = ((caps?.contextWindow ?? 128_000) - reserveTokens) * 3; // rough char estimate
+  // A token window is not the only limit. agy takes the prompt on argv, so the
+  // bridge rejects anything past ~30000 chars — two orders of magnitude below
+  // Gemini's million-token window. The bridge reports that ceiling because only
+  // it knows the transport; honour it, or a turn the client thought was
+  // comfortably in budget dies, and in agent mode takes the loop with it.
+  const maxChars = caps?.maxPromptChars
+    ? Math.min(windowChars, caps.maxPromptChars)
+    : windowChars;
 
   // Always keep the system message
   const system = messages.filter(m => m.role === 'system');

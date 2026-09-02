@@ -21,6 +21,13 @@ export interface CompletionOptions {
    * extension stays host-side and must not send `agent`.
    */
   mode?: 'chat' | 'plan' | 'agent';
+  /**
+   * Cancels the request AND the CLI run behind it. The bridge kills the child
+   * process when the client disconnects, so destroying the socket is the only
+   * thing that actually stops the model — Stop used to set a flag and leave it
+   * running to completion.
+   */
+  signal?: AbortSignal;
 }
 
 export interface ModelInfo {
@@ -35,6 +42,13 @@ export interface ModelInfo {
    * whenever it is present.
    */
   display_name?: string;
+  /**
+   * Largest prompt this model's transport accepts, in characters
+   * (conduit-bridge 0.8.1+). Present only where a real ceiling exists: agy takes
+   * the prompt on argv, so the OS command line bounds it far below the model's
+   * token window. Absent for stdin and prompt-file transports.
+   */
+  max_prompt_chars?: number;
   capabilities?: { tools?: boolean };
 }
 
@@ -60,9 +74,10 @@ export async function complete(opts: CompletionOptions): Promise<string> {
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
   const { url, apiKey, actualModel } = resolveEndpoint(model);
-  const body = JSON.stringify({ ...opts, model: actualModel, stream: false });
+  const { signal, ...wire } = opts;
+  const body = JSON.stringify({ ...wire, model: actualModel, stream: false });
 
-  const text = await httpPost(url, body, apiKey);
+  const text = await httpPost(url, body, apiKey, signal);
   const json = JSON.parse(text);
   if (json.error) {
     throw new Error(json.error.message ?? JSON.stringify(json.error));
@@ -95,9 +110,10 @@ export async function* stream(opts: CompletionOptions): AsyncGenerator<StreamChu
   const cfg = getConfig();
   const model = opts.model ?? cfg.defaultModel;
   const { url, apiKey, actualModel } = resolveEndpoint(model);
-  const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
+  const { signal, ...wire } = opts;
+  const body = JSON.stringify({ ...wire, model: actualModel, stream: true });
 
-  yield* httpPostStream(url, body, apiKey);
+  yield* httpPostStream(url, body, apiKey, signal);
 }
 
 /**
@@ -116,10 +132,11 @@ export async function* streamWithFallback(
     const model = modelsToTry[i];
     try {
       const { url, apiKey, actualModel } = resolveEndpoint(model);
-      const body = JSON.stringify({ ...opts, model: actualModel, stream: true });
+      const { signal, ...wire } = opts;
+      const body = JSON.stringify({ ...wire, model: actualModel, stream: true });
       let gotContent = false;
 
-      for await (const chunk of httpPostStream(url, body, apiKey)) {
+      for await (const chunk of httpPostStream(url, body, apiKey, signal)) {
         if (i > 0 && !gotContent && !chunk.done) {
           // First real chunk from fallback - notify caller
           yield { ...chunk, fallbackModel: model };
@@ -235,7 +252,7 @@ function httpGet(url: string, apiKey: string): Promise<string> {
   });
 }
 
-function httpPost(url: string, body: string, apiKey: string): Promise<string> {
+function httpPost(url: string, body: string, apiKey: string, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const options = {
@@ -262,7 +279,7 @@ function httpPost(url: string, body: string, apiKey: string): Promise<string> {
   });
 }
 
-async function* httpPostStream(url: string, body: string, apiKey: string): AsyncGenerator<StreamChunk> {
+async function* httpPostStream(url: string, body: string, apiKey: string, signal?: AbortSignal): AsyncGenerator<StreamChunk> {
   const chunks: StreamChunk[] = [];
   let resolve: (() => void) | null = null;
   let done = false;
@@ -350,17 +367,40 @@ async function* httpPostStream(url: string, body: string, apiKey: string): Async
     resolve?.();
   });
 
+  // Stopping means stopping the CLI, not just looking away. The bridge cancels
+  // the child process when the client disconnects (server.ts), so destroying the
+  // socket is what actually ends the run — previously nothing here touched it,
+  // so Stop left the model working and the quota draining.
+  const onAbort = () => {
+    error = new Error('Request cancelled');
+    done = true;
+    req.destroy();
+    resolve?.();
+  };
+  if (signal) {
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+
   req.write(body);
   req.end();
 
-  while (!done || chunks.length > 0) {
-    if (chunks.length === 0) {
-      await new Promise<void>(r => { resolve = r; });
-      resolve = null;
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length === 0) {
+        await new Promise<void>(r => { resolve = r; });
+        resolve = null;
+      }
+      while (chunks.length > 0) {
+        yield chunks.shift()!;
+      }
     }
-    while (chunks.length > 0) {
-      yield chunks.shift()!;
-    }
+  } finally {
+    // Reached on a normal end AND when the consumer breaks out of `for await`,
+    // which calls generator.return(). Without this, abandoning the loop left the
+    // socket open and the CLI running to completion.
+    signal?.removeEventListener('abort', onAbort);
+    req.destroy();
   }
 
   if (error) throw error;
