@@ -15,6 +15,12 @@ export interface CompletionOptions {
   max_tokens?: number;
   /** Workspace path for CLI providers on conduit-bridge (ignored by API transports). */
   cwd?: string;
+  /**
+   * CLI run mode on conduit-bridge. `plan` calls the provider's native planner.
+   * `agent` writes the workspace (requires cwd). Chat Agent mode in this
+   * extension stays host-side and must not send `agent`.
+   */
+  mode?: 'chat' | 'plan' | 'agent';
 }
 
 export interface ModelInfo {

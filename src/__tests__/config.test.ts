@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getConfig, onConfigChange } from '../config';
+import { getConfig, onConfigChange, workspaceCwd } from '../config';
 
 describe('getConfig', () => {
   it('returns default values when no configuration is set', () => {
@@ -34,6 +34,12 @@ describe('getConfig', () => {
   it('proxyUrl is a valid URL', () => {
     const cfg = getConfig();
     expect(() => new URL(cfg.proxyUrl)).not.toThrow();
+  });
+});
+
+describe('workspaceCwd', () => {
+  it('returns the mock workspace folder path', () => {
+    expect(workspaceCwd()).toBe('/test');
   });
 });
 

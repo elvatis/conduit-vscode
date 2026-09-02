@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { complete, stream, listModels } from './proxy-client';
-import { getConfig } from './config';
+import { getConfig, workspaceCwd } from './config';
 import { ConduitChatPanel } from './chat-panel';
 import { stripFences } from './utils';
 import { ConduitInlineProvider } from './inline-provider';
@@ -162,6 +162,7 @@ export function registerCommands(
             { role: 'user', content: `${instruction}:\n\n\`\`\`${editorCtx.language}\n${editorCtx.selection}\n\`\`\`\n\nReturn ONLY the modified code, no explanation, no markdown fences.` },
           ],
           temperature: 0.2,
+          cwd: workspaceCwd(),
         });
 
         if (!result) return;
@@ -204,6 +205,7 @@ export function registerCommands(
           ],
           max_tokens: 100,
           temperature: 0,
+          cwd: workspaceCwd(),
         });
 
         if (!cmd?.trim()) return;
@@ -705,7 +707,7 @@ async function streamIntoNewEditor(
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'Conduit: generating…', cancellable: false },
     async () => {
-      for await (const chunk of stream({ messages })) {
+      for await (const chunk of stream({ messages, cwd: workspaceCwd() })) {
         if (chunk.done) break;
         fullText += chunk.delta;
         await editor.edit(editBuilder => {

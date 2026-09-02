@@ -1,80 +1,80 @@
 {
   "aahp_version": "3.0",
-  "project": "conduit-vscode",
+  "project": "conduit-vscode-cli-mode",
   "last_session": {
-    "agent": "grok-4.6",
-    "session_id": "cli-1788343715",
-    "timestamp": "2026-09-02T10:08:35Z",
-    "commit": "ced9890",
-    "phase": "documentation",
+    "agent": "cli-tool",
+    "session_id": "cli-1788348315",
+    "timestamp": "2026-09-02T11:25:16Z",
+    "commit": "883e751",
+    "phase": "idle",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:3456afa148ed7e0caa2a98ad72bcfd7f49bb355d5dd6704c198fefc47cf70a59",
-      "updated": "2026-09-02T10:08:33Z",
-      "lines": 112,
-      "summary": "| Feature | Status | Notes |"
+      "checksum": "sha256:19853038fbd8bee252ac7cb9e8078e8c753cb89d159ff6090f815ab67cdea7c1",
+      "updated": "2026-09-02T11:24:57Z",
+      "lines": 115,
+      "summary": "(no summary available)"
     },
     "NEXT_ACTIONS.md": {
       "checksum": "sha256:bb84b2e42a95eb2f6ca61c126a41fcc0dd29ee3ea4c355f699af9362a09555d6",
-      "updated": "2026-09-02T08:13:24Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 58,
       "summary": "_Last updated: 2026-09-02_"
     },
     "LOG.md": {
       "checksum": "sha256:4b0750f12615c14ef6d69ecfcdba1ef0f3781b8d1b4df44bf8f1d7d9a0063d47",
-      "updated": "2026-09-02T08:13:24Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 96,
       "summary": "_Reverse chronological. Latest session first._"
     },
     "LOG-ARCHIVE.md": {
       "checksum": "sha256:36837627f7ee88cc9389b8bee9d52952dc75b3dc511a8ccf776db38f4e1e3b8e",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 10,
       "summary": "(no summary available)"
     },
     "DASHBOARD.md": {
       "checksum": "sha256:3abbfc248527bfaf6f4bb7b0ddb79284b6cda9db7f58e60215cf6ca4c1691dd1",
-      "updated": "2026-09-02T08:13:24Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 56,
       "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-09-02_"
     },
     "TRUST.md": {
       "checksum": "sha256:c215dc057c3622e4d162092485b3d4560e8dea6a5a0c0b18a64a9de3ed0642f4",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 73,
-      "summary": "| Level | Meaning |"
+      "summary": "(no summary available)"
     },
     "CONVENTIONS.md": {
       "checksum": "sha256:daf29e79be137d6d995bc12209360d0258437b5a55878fd00b83c6079f21d309",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 78,
       "summary": "- TypeScript strict mode, CommonJS output (VS Code extension requirement)"
     },
     "WORKFLOW.md": {
       "checksum": "sha256:a4d10594d93378225571f8f0c245677a443c00b73caee9734d67ea45cf601783",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 49,
-      "summary": "| Agent | Model | Role |"
+      "summary": "(no summary available)"
     },
     "GROUNDING.md": {
       "checksum": "sha256:7ef8cece585dc5defb4285175b9ba560d5469675df553d4ce28ec9e7aec24343",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 209,
-      "summary": "This register EXTENDS existing AAHP machinery; it does not fork or replace it. It"
+      "summary": "(no summary available)"
     },
     "pii-allowlist.json": {
       "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
-      "updated": "2026-09-02T08:00:58Z",
+      "updated": "2026-09-02T11:10:11Z",
       "lines": 4,
       "summary": "{"
     }
   },
-  "quick_context": "Require conduit-bridge v0.6.0 for cwd",
+  "quick_context": "(no summary available) _Last updated: 2026-09-02_ ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 2712,
-    "full_read": 8111
+    "manifest_plus_core": 2782,
+    "full_read": 8181
   }
 }

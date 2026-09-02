@@ -22,6 +22,11 @@ export interface ConduitConfig {
   localEndpoints: LocalEndpoint[];
 }
 
+/** Absolute workspace folder for conduit-bridge `cwd`. Undefined if no folder is open. */
+export function workspaceCwd(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
 export function getConfig(): ConduitConfig {
   const cfg = vscode.workspace.getConfiguration('conduit');
   return {

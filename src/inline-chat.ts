@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { stream } from './proxy-client';
-import { getConfig } from './config';
+import { getConfig, workspaceCwd } from './config';
 import { stripFences } from './utils';
 
 /**
@@ -55,6 +55,7 @@ export async function inlineChat(): Promise<void> {
           ],
           model: cfg.defaultModel,
           temperature: 0.2,
+          cwd: workspaceCwd(),
         })) {
           if (token.isCancellationRequested) break;
           if (chunk.done) break;

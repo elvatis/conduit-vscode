@@ -2,6 +2,12 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.9.0] - 2026-09-02
+
+### Added
+- Plan chat sends `mode: plan` (plus workspace `cwd`) so conduit-bridge calls each CLI's native planner.
+- Background spawn/fix-issue sends `mode: agent` with `cwd` so CLI providers can write the workspace. VS Code chat Agent mode stays host-side and does not send `agent`.
+
 ## [0.8.0] - 2026-09-02
 
 ### Fixed

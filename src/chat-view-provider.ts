@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt, buildAgentSystemPrompt } from './context-builder';
 import { stream, streamWithFallback, listModels, type StreamMeta } from './proxy-client';
-import { getConfig } from './config';
+import { vscodeBridgeMode } from './cli-runner';
+import { getConfig, workspaceCwd } from './config';
 import { BridgeManager } from './bridge-manager';
 import { parseMentions } from './mention-parser';
 import { loadCustomInstructions } from './custom-instructions';
@@ -862,7 +863,12 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
     const fallbacks = getFallbackModels(this._models, modelToUse);
     try {
       for await (const chunk of streamWithFallback(
-        { messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, model: modelToUse },
+        {
+          messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+          model: modelToUse,
+          mode: vscodeBridgeMode(this._mode),
+          cwd: workspaceCwd(),
+        },
         fallbacks,
       )) {
         if (chunk.fallbackModel) {
@@ -943,6 +949,7 @@ export class ConduitChatViewProvider implements vscode.WebviewViewProvider {
       userMessage,
       history: this._messages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
       maxIterations: cfg.agentMaxIterations,
+      cwd: workspaceCwd(),
       onChunk: (delta) => this._post({ type: 'assistantChunk', delta }),
       onToolCall: (call) => this._post({
         type: 'agentToolCall',

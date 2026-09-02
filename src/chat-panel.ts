@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { buildEditorContext, buildSystemPrompt } from './context-builder';
 import { stream } from './proxy-client';
-import { getConfig } from './config';
+import { getConfig, workspaceCwd } from './config';
 import { listModels } from './proxy-client';
 import { getModelRegistry } from './model-registry';
 
@@ -205,7 +205,7 @@ export class ConduitChatPanel {
     let fullResponse = '';
 
     try {
-      for await (const chunk of stream({ messages, model: this._model })) {
+      for await (const chunk of stream({ messages, model: this._model, cwd: workspaceCwd() })) {
         if (chunk.done) break;
         fullResponse += chunk.delta;
         this._postMessage({ type: 'assistantChunk', delta: chunk.delta });

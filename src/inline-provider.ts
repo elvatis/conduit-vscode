@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getConfig } from './config';
+import { getConfig, workspaceCwd } from './config';
 import { buildEditorContext, buildInlinePrompt } from './context-builder';
 import { complete } from './proxy-client';
 import { getModelCapabilities } from './model-registry';
@@ -68,6 +68,7 @@ export class ConduitInlineProvider implements vscode.InlineCompletionItemProvide
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
         temperature: 0.1,
+        cwd: workspaceCwd(),
       });
 
       if (!completion || token.isCancellationRequested) return null;

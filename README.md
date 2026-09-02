@@ -6,9 +6,9 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.8.0
+**Current version:** 0.9.0
 
-> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.6.0+ running locally (default `http://127.0.0.1:31338`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
+> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) with CLI `mode` support (pair with `feat/cli-run-mode`) running locally (default `http://127.0.0.1:31338`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
 ---
 
@@ -129,7 +129,7 @@ code --install-extension conduit-vscode-0.7.6.vsix
 Conduit supports spawning background coding agents that work independently while you continue coding.
 
 ### Spawn Agent
-`Conduit: Spawn Agent` - select a model and enter a task. The agent runs in the background with its own output channel.
+`Conduit: Spawn Agent` - select a model and enter a task. The agent runs in the background with its own output channel. Spawn sends `mode: agent` and the workspace path so CLI providers can edit files.
 
 ### Fix Issue (Worktree Isolation)
 `Conduit: Fix Issue` - enter a GitHub issue number. Conduit:
@@ -242,8 +242,8 @@ Click the mode button in the toolbar to switch between modes:
 |---|---|---|
 | **Ask** | Answer questions about code | Conversational, explains concepts, provides examples |
 | **Edit** | Modify and refactor code | Focuses on producing code changes, minimal explanation |
-| **Agent** | Plan and build features | Multi-step reasoning with collapsible step cards |
-| **Plan** | Create implementation plans | Produces structured plans with steps, file lists, and considerations |
+| **Agent** | Plan and build features | Host-side tool loop in the extension. CLI providers stay read-only. |
+| **Plan** | Create implementation plans | Calls the CLI's native plan function through conduit-bridge (`mode: plan`) |
 
 ### Mode Compatibility
 
@@ -679,6 +679,12 @@ Open issues tracking planned features:
 ---
 
 ## Changelog
+
+### v0.9.0 (2026-09-02)
+- Plan chat sends `mode: plan` plus workspace `cwd` so conduit-bridge calls each CLI native planner
+- Background spawn/fix-issue sends `mode: agent` with `cwd` so CLI providers can write the workspace
+- VS Code chat Agent mode stays host-side and sends `mode: chat`
+- Requires the matching conduit-bridge `mode` field
 
 ### v0.7.6 (2026-07-17)
 - Dev deps: `@typescript-eslint/eslint-plugin` ^8.64.0 (aligned with `@typescript-eslint/parser` 8.64.0), `eslint` ^10.7.0, `@types/node` ^26.1.1

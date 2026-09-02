@@ -86,6 +86,8 @@ export class AgentLoop {
         for await (const chunk of stream({
           messages: trimmed as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
           model: this._opts.model,
+          mode: 'chat',
+          cwd: this._opts.cwd,
         })) {
           if (this._aborted) break;
           if (chunk.done) break;
