@@ -8,6 +8,9 @@ All notable changes to conduit-vscode are documented here.
 - Plan chat sends `mode: plan` (plus workspace `cwd`) so conduit-bridge calls each CLI's native planner.
 - Background spawn/fix-issue sends `mode: agent` with `cwd` so CLI providers can write the workspace. VS Code chat Agent mode stays host-side and does not send `agent`.
 
+### Removed
+- Weekly `llm-validation.yml` GitHub Action. It was not a PR gate, GitHub-hosted runners never had the CLIs, and the last scheduled run failed at `npm ci`. Tool-catalog schema tests remain in the regular CI suite.
+
 ## [0.8.0] - 2026-09-02
 
 ### Fixed

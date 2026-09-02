@@ -1,14 +1,13 @@
 # Conduit - Universal AI Bridge for VS Code
 
 [![CI](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml)
-[![LLM Validation](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml)
 [![scanned by supply-chain-guard](https://img.shields.io/badge/scanned%20by-supply--chain--guard-2ea44f?logo=npm&logoColor=white)](https://github.com/homeofe/supply-chain-guard)
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
 **Current version:** 0.9.0
 
-> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) with `mode` on `POST /v1/chat/completions` (`chat` | `plan` | `agent`) at `http://127.0.0.1:31338`. CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
+> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.7.0+ at `http://127.0.0.1:31338` (`mode` on chat completions: `chat` | `plan` | `agent`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
 ---
 
@@ -519,7 +518,7 @@ npm run test:coverage       # run with coverage report
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
 | `cli-runner-failover.test.ts` | 9 | Bridge failover chain |
 | `aahp-context.test.ts` | 10 | AAHP v3 context detection, loading, block building |
-| `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
+| `llm-tool-validation.test.ts` | 14 | Tool catalog schema (optional live check via `LLM_MODEL`) |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
 | `proxy-client.test.ts` | 19 | HTTP streaming, error handling |
@@ -530,18 +529,6 @@ npm run test:coverage       # run with coverage report
 | `utils.test.ts` | 17 | Shared utilities |
 | `config.test.ts` | 4 | Settings reader |
 | `inline-provider.test.ts` | 7 | Ghost-text completions |
-
-### LLM Tool-Call Validation
-
-The `llm-tool-validation.test.ts` suite includes a live LLM test that sends a sample prompt to a model and validates the response contains correct tool calls. Run against a specific model:
-
-```bash
-LLM_MODEL=cli-claude/claude-sonnet-4-6 npx vitest run src/__tests__/llm-tool-validation.test.ts
-LLM_MODEL=cli-gemini/gemini-2.5-flash npx vitest run src/__tests__/llm-tool-validation.test.ts
-LLM_MODEL=openai-codex/gpt-5.3-codex npx vitest run src/__tests__/llm-tool-validation.test.ts
-```
-
-The test validates: correct tool names, required args present, expected values, no hallucinated tools.
 
 ---
 
@@ -601,15 +588,12 @@ Press **F5** in VS Code to launch the Extension Development Host for debugging.
 
 ### CI
 
-Two GitHub Actions workflows run automatically:
-
-- **CI** (`.github/workflows/ci.yml`): Runs on every push/PR to `main`. Builds, runs all tests, uploads coverage artifacts.
-- **LLM Validation** (`.github/workflows/llm-validation.yml`): Weekly smoke test (Mondays 06:00 UTC) that runs `llm-tool-validation.test.ts` against Claude Sonnet, Gemini Flash, and GPT-5.3 Codex. Can also be triggered manually via `workflow_dispatch`. Requires `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_APPLICATION_CREDENTIALS` secrets.
+**CI** (`.github/workflows/ci.yml`) runs on every push/PR to `main`. It builds, runs the vitest suite (including tool-catalog schema tests), and uploads coverage artifacts.
 
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.7.6.vsix
+# produces conduit-vscode-0.9.0.vsix
 ```
 
 ### Project Structure
@@ -686,7 +670,8 @@ Open issues tracking planned features:
 - Plan chat sends `mode: plan` plus workspace `cwd` so conduit-bridge calls each CLI native planner
 - Background spawn/fix-issue sends `mode: agent` with `cwd` so CLI providers can write the workspace
 - VS Code chat Agent mode stays host-side and sends `mode: chat`
-- Requires conduit-bridge `mode` on chat completions (`chat` | `plan` | `agent`)
+- Requires conduit-bridge v0.7.0+ (`mode` on chat completions)
+- Removed the weekly `llm-validation.yml` GitHub Action (schema tests stay in CI)
 
 ### v0.7.6 (2026-07-17)
 - Dev deps: `@typescript-eslint/eslint-plugin` ^8.64.0 (aligned with `@typescript-eslint/parser` 8.64.0), `eslint` ^10.7.0, `@types/node` ^26.1.1
