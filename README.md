@@ -8,7 +8,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Current version:** 0.8.0
 
-> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.5.2+ running locally (default `http://127.0.0.1:31338`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
+> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.6.0+ running locally (default `http://127.0.0.1:31338`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
 ---
 

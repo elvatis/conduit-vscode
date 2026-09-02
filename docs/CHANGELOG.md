@@ -8,7 +8,7 @@ All notable changes to conduit-vscode are documented here.
 - CLI/API/local providers from conduit-bridge v0.5.2 now show as connected in the Bridge Manager, Health Dashboard, and status bar. The extension was still reading Playwright `sessionValid` / `hasProfile`, which the bridge no longer sends. Availability is `connected` (with `loginType` / `credentialSource`).
 
 ### Changed
-- Aligned with conduit-bridge v0.5.2: API, CLI, and LM Studio transports only. Browser-session `web-*` providers and `/v1/login` / `/v1/logout` are gone.
+- Aligned with conduit-bridge v0.6.0: API, CLI, and LM Studio transports only. Browser-session `web-*` providers and `/v1/login` / `/v1/logout` are gone. Spawn sends workspace `cwd`.
 - Default model: `cli-gemini/gemini-3.1-pro-high`
 - Model registry, spawn-agent catalog, and fallbacks use live CLI IDs (`cli-grok`, `cli-claude`, `cli-gemini`, `cli-codex`)
 - Login commands open the bridge dashboard at `conduit.proxyUrl` instead of a Playwright browser

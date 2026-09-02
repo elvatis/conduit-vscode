@@ -3,16 +3,16 @@
   "project": "conduit-vscode",
   "last_session": {
     "agent": "grok-4.6",
-    "session_id": "cli-1788343160",
-    "timestamp": "2026-09-02T09:59:20Z",
-    "commit": "4ca5b0f",
-    "phase": "implementation",
+    "session_id": "cli-1788343715",
+    "timestamp": "2026-09-02T10:08:35Z",
+    "commit": "ced9890",
+    "phase": "documentation",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:421e2e6e92568558dfa32635da9bf15d8ad19af633ef7056e7399a24f0cbe155",
-      "updated": "2026-09-02T09:59:19Z",
+      "checksum": "sha256:3456afa148ed7e0caa2a98ad72bcfd7f49bb355d5dd6704c198fefc47cf70a59",
+      "updated": "2026-09-02T10:08:33Z",
       "lines": 112,
       "summary": "| Feature | Status | Notes |"
     },
@@ -71,10 +71,10 @@
       "summary": "{"
     }
   },
-  "quick_context": "Route spawn through conduit-bridge; drop agent-backends",
+  "quick_context": "Require conduit-bridge v0.6.0 for cwd",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 2704,
-    "full_read": 8103
+    "manifest_plus_core": 2712,
+    "full_read": 8111
   }
 }

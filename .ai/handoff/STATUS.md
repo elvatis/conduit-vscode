@@ -52,7 +52,7 @@
 - Markdown renderer is custom inline (no external lib), supports full GFM subset
 - Model registry with 3-tier system: Tier 1 (all modes), Tier 2 (ask/edit/plan), Tier 3 (ask only)
 - All AI requests (chat and background spawn) go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
-- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Optional `cwd` on completions is the workspace folder.
+- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Optional `cwd` on completions is the workspace folder. Requires conduit-bridge v0.6.0+ for workspace cwd.
 
 ## Build Status
 - Build: `npm run build` - `dist/extension.js` (~201kb): Done
