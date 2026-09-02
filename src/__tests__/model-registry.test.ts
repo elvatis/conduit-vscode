@@ -9,12 +9,12 @@ import {
 // Mock proxy-client to avoid real HTTP calls
 vi.mock('../proxy-client', () => ({
   listModels: vi.fn().mockResolvedValue([
-    { id: 'cli-claude/claude-opus-5', object: 'model', created: 0, owned_by: 'anthropic', capabilities: { tools: true } },
+    { id: 'cli-claude/claude-opus-5', object: 'model', created: 0, owned_by: 'claude-code', display_name: 'Claude Opus 5', context_window: 1_000_000, max_output_tokens: 128_000, capabilities: { tools: true } },
     { id: 'cli-claude/claude-sonnet-5', object: 'model', created: 0, owned_by: 'anthropic', capabilities: { tools: true } },
-    { id: 'cli-claude/claude-haiku-4-5', object: 'model', created: 0, owned_by: 'anthropic', capabilities: { tools: true } },
-    { id: 'cli-grok/grok-4.6', object: 'model', created: 0, owned_by: 'xai', capabilities: { tools: true } },
+    { id: 'cli-claude/claude-haiku-4-5', object: 'model', created: 0, owned_by: 'claude-code', context_window: 200_000, max_output_tokens: 64_000, capabilities: { tools: true } },
+    { id: 'cli-grok/grok-4.6', object: 'model', created: 0, owned_by: 'grok', context_window: 256_000, max_output_tokens: 131_072, capabilities: { tools: true } },
     { id: 'cli-grok/grok-4.3', object: 'model', created: 0, owned_by: 'xai', capabilities: { tools: false } },
-    { id: 'cli-gemini/gemini-3.1-pro-high', object: 'model', created: 0, owned_by: 'google', capabilities: { tools: true } },
+    { id: 'cli-gemini/gemini-3.1-pro-high', object: 'model', created: 0, owned_by: 'agy', context_window: 1_000_000, max_output_tokens: 65_536, max_prompt_chars: 30_000, capabilities: { tools: true } },
     { id: 'cli-gemini/gemini-3.6-flash-high', object: 'model', created: 0, owned_by: 'google', capabilities: { tools: true } },
     { id: 'cli-codex/gpt-5.6-sol', object: 'model', created: 0, owned_by: 'openai', capabilities: { tools: true } },
     { id: 'api-claude/claude-opus-5', object: 'model', created: 0, owned_by: 'anthropic', capabilities: { tools: true } },
@@ -33,61 +33,43 @@ describe('model-registry', () => {
 
   // ── Context windows and max tokens ──────────────────────────────────────
 
-  describe('per-model limits', () => {
-    it('Claude Opus 5 (CLI) has 1M context and 128K max output', async () => {
-      const caps = getModelCapabilities('cli-claude/claude-opus-5');
-      expect(caps).toBeDefined();
-      expect(caps!.contextWindow).toBe(1_000_000);
-      expect(caps!.maxTokens).toBe(128_000);
+  describe('limits come from the bridge', () => {
+    // These numbers used to live in a MODEL_LIMITS table here, which could not
+    // know any id released after the build — and once conduit-bridge started
+    // discovering catalogs, that was most of them. The bridge reports them now
+    // (context_window / max_output_tokens), discovered per provider where one
+    // says, and overridable in ~/.conduit/models.json.
+    it('uses the window the bridge reports', () => {
+      const opus = getModelCapabilities('cli-claude/claude-opus-5');
+      expect(opus!.contextWindow).toBe(1_000_000);
+      expect(opus!.maxTokens).toBe(128_000);
+
+      const haiku = getModelCapabilities('cli-claude/claude-haiku-4-5');
+      expect(haiku!.contextWindow).toBe(200_000);
+      expect(haiku!.maxTokens).toBe(64_000);
     });
 
-    it('Claude Sonnet 5 (CLI) has 1M context and 64K max output', () => {
-      const caps = getModelCapabilities('cli-claude/claude-sonnet-5');
-      expect(caps!.contextWindow).toBe(1_000_000);
-      expect(caps!.maxTokens).toBe(64_000);
+    it('does not invent a number when the bridge omits one', () => {
+      // An older bridge sends no limits; fall back rather than guess per model.
+      const unknown = getModelCapabilities('cli-claude/claude-unknown-99');
+      expect(unknown!.contextWindow).toBe(128_000);
+      expect(unknown!.maxTokens).toBe(8_192);
     });
 
-    it('Claude Haiku 4.5 (CLI) has 200K context and 64K max output', () => {
-      const caps = getModelCapabilities('cli-claude/claude-haiku-4-5');
-      expect(caps!.contextWindow).toBe(200_000);
-      expect(caps!.maxTokens).toBe(64_000);
+    it('carries the transport prompt ceiling through', () => {
+      const gemini = getModelCapabilities('cli-gemini/gemini-3.1-pro-high');
+      expect(gemini!.maxPromptChars).toBe(30_000);
+      // agy takes the prompt on argv, so this is far below the token window.
+      expect(gemini!.maxPromptChars!).toBeLessThan(gemini!.contextWindow);
     });
 
-    it('Grok 4.6 has 2M context and 131K max output', () => {
-      const caps = getModelCapabilities('cli-grok/grok-4.6');
-      expect(caps!.contextWindow).toBe(2_000_000);
-      expect(caps!.maxTokens).toBe(131_072);
-    });
-
-    it('Grok 4.3 has 256K context and 131K max output', () => {
-      const caps = getModelCapabilities('cli-grok/grok-4.3');
-      expect(caps!.contextWindow).toBe(256_000);
-      expect(caps!.maxTokens).toBe(131_072);
-    });
-
-    it('Gemini 3.1 Pro High has 1M context and 65K max output', () => {
-      const caps = getModelCapabilities('cli-gemini/gemini-3.1-pro-high');
-      expect(caps!.contextWindow).toBe(1_000_000);
-      expect(caps!.maxTokens).toBe(65_536);
-    });
-
-    it('GPT-5.6 Sol (CLI) has 1M context and 128K max output', () => {
-      const caps = getModelCapabilities('cli-codex/gpt-5.6-sol');
-      expect(caps!.contextWindow).toBe(1_050_000);
-      expect(caps!.maxTokens).toBe(128_000);
-    });
-
-    it('BitNet has 4K context and 2K max output', () => {
-      const caps = getModelCapabilities('local-bitnet/bitnet-2b');
-      expect(caps!.contextWindow).toBe(4_096);
-      expect(caps!.maxTokens).toBe(2_048);
-    });
-
-    it('unknown model from known provider uses provider fallback', () => {
-      const caps = getModelCapabilities('cli-claude/claude-unknown-99');
-      expect(caps).toBeDefined();
-      expect(caps!.contextWindow).toBe(200_000);
-      expect(caps!.maxTokens).toBe(64_000);
+    it('every model handles every mode', () => {
+      // Tiering was a local guess that silently withheld Agent from any id this
+      // build had not heard of.
+      for (const id of ['cli-claude/claude-opus-5', 'cli-claude/claude-unknown-99']) {
+        expect(getModelCapabilities(id)!.supportedModes, id)
+          .toEqual(['ask', 'edit', 'agent', 'plan']);
+      }
     });
   });
 
@@ -111,29 +93,34 @@ describe('model-registry', () => {
       expect(caps!.supportedModes).toEqual(['ask', 'edit', 'agent', 'plan']);
     });
 
-    it('tier 2 models support ask, edit, plan but not agent', () => {
-      const caps = getModelCapabilities('cli-grok/grok-4.3');
-      expect(caps!.tier).toBe(2);
-      expect(caps!.supportedModes).toContain('ask');
-      expect(caps!.supportedModes).toContain('edit');
-      expect(caps!.supportedModes).toContain('plan');
-      expect(caps!.supportedModes).not.toContain('agent');
+    it('no model is barred from a mode', () => {
+      // Tiering was a local guess about model quality. With a discovered catalog
+      // every new id was unknown to the table and silently lost Agent mode — the
+      // newest and usually strongest models first.
+      for (const id of ['cli-claude/claude-haiku-4-5', 'cli-gemini/gemini-3.6-flash-high']) {
+        expect(getModelCapabilities(id)!.supportedModes, id)
+          .toEqual(['ask', 'edit', 'agent', 'plan']);
+      }
     });
 
-    it('tier 3 models only support ask', () => {
-      const caps = getModelCapabilities('local-bitnet/bitnet-2b');
-      expect(caps!.tier).toBe(3);
-      expect(caps!.supportedModes).toEqual(['ask']);
+    it('an id this build has never heard of still supports every mode', () => {
+      expect(getModelCapabilities('cli-claude/claude-unknown-99')!.supportedModes)
+        .toEqual(['ask', 'edit', 'agent', 'plan']);
     });
   });
 
   // ── Display names ──────────────────────────────────────────────────────
 
   describe('display names', () => {
-    it('known models get friendly display names', () => {
-      expect(getModelCapabilities('cli-claude/claude-opus-5')!.name).toBe('Claude Opus 5 (CLI)');
-      expect(getModelCapabilities('cli-grok/grok-4.6')!.name).toBe('Grok 4.6 (CLI)');
-      expect(getModelCapabilities('local-bitnet/bitnet-2b')!.name).toBe('BitNet 1.58 2B');
+    it('uses the label the bridge supplies', () => {
+      // The extension's own MODEL_DISPLAY_NAMES could not name an id released
+      // after the build, so most of a discovered catalog rendered as a raw slug.
+      expect(getModelCapabilities('cli-claude/claude-opus-5')!.name).toBe('Claude Opus 5');
+    });
+
+    it('falls back to a short name when the bridge sends none', () => {
+      expect(getModelCapabilities('cli-claude/claude-unknown-99')!.name)
+        .toBe('claude-unknown-99');
     });
 
     it('unknown models use the model ID part after the slash', () => {
@@ -149,9 +136,9 @@ describe('model-registry', () => {
       expect(supportsMode('cli-claude/claude-opus-5', 'ask')).toBe(true);
     });
 
-    it('returns false for unsupported modes', () => {
-      expect(supportsMode('local-bitnet/bitnet-2b', 'agent')).toBe(false);
-      expect(supportsMode('local-bitnet/bitnet-2b', 'edit')).toBe(false);
+    it('returns true for every mode, because nothing is gated any more', () => {
+      expect(supportsMode('cli-claude/claude-haiku-4-5', 'agent')).toBe(true);
+      expect(supportsMode('cli-gemini/gemini-3.6-flash-high', 'agent')).toBe(true);
     });
 
     it('returns true for unknown models (permissive)', () => {
@@ -168,12 +155,16 @@ describe('model-registry', () => {
       expect(result.compatible).toBe(true);
     });
 
-    it('suggests alternative when model does not support agent mode', async () => {
+    it('reports every model compatible, because nothing is gated any more', async () => {
+      // The recommendation existed to route around the tier gate. With no gate
+      // there is nothing to route around — and the gate was the thing that
+      // withheld Agent from every model this build had not heard of.
       const models = await getModelRegistry();
-      const result = getModeRecommendation(models, 'local-bitnet/bitnet-2b', 'agent');
-      expect(result.compatible).toBe(false);
-      expect(result.suggestion).toBeDefined();
-      expect(result.reason).toContain('fast');
+      for (const id of ['cli-claude/claude-haiku-4-5', 'cli-claude/claude-unknown-99']) {
+        const result = getModeRecommendation(models, id, 'agent');
+        expect(result.compatible, id).toBe(true);
+        expect(result.suggestion, id).toBeUndefined();
+      }
     });
   });
 
@@ -261,9 +252,9 @@ describe('model-registry', () => {
         { role: 'assistant', content: 'B'.repeat(8000) },
         { role: 'user', content: 'new question' },
       ];
-      // BitNet: (4096 - 512) * 3 = 10752 chars budget
-      // sys (3) + 8000 + 8000 + 12 = 16015 chars > 10752, so old messages get dropped
-      const trimmed = trimHistoryForModel(messages, 'local-bitnet/bitnet-2b', 512);
+      // A local model the bridge never sees: 8192-token assumption,
+      // so (8192 - 6000) * 3 = 6576 chars of budget for 16015 chars of history.
+      const trimmed = trimHistoryForModel(messages, 'local-bitnet/bitnet-2b', 6000);
       expect(trimmed[0].content).toBe('sys');
       const lastMsg = trimmed[trimmed.length - 1];
       expect(lastMsg.content).toBe('new question');
