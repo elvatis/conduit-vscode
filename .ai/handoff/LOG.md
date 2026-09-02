@@ -4,6 +4,21 @@ _Reverse chronological. Latest session first._
 
 ---
 
+## Session 6 - 2026-09-02 - conduit-bridge 0.8.x alignment
+
+- Request timeout is a whole-turn budget, not an idle timer (the bridge sends nothing until the CLI exits). Configurable, default 330s.
+- A timeout no longer triggers the fallback chain; it used to spend four budgets and four CLI runs.
+- Typed RequestTimeoutError; the old substring test classified every case backwards.
+- Stop now aborts the request, which is what makes the bridge kill the CLI.
+- Removed the retired cli-gemini/gemini-3.5-flash-high and repointed its fallback.
+- spawnCliAgent fails early without a workspace instead of an opaque HTTP 400.
+- Unknown model ids default to tier 1; the picker uses the bridge's display_name and matches by id.
+- Trimming honours max_prompt_chars (conduit-bridge 0.8.1) so an agy prompt cannot exceed its argv ceiling.
+- OPEN: MODEL_LIMITS/MODEL_TIERS/MODEL_DISPLAY_NAMES can only be deleted once /v1/models also reports
+  context_window and max_output_tokens; the bridge does not yet.
+
+---
+
 ## Session 5 - 2026-09-02 - conduit-bridge v0.5.2 align + CLI connected detection
 
 **Goal:** Match conduit-vscode to conduit-bridge v0.5.2, fix CLI providers not showing as available, clear Dependabot PRs #78-#83, close/lock AAHP issues #84 and #85.
