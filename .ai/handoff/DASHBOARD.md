@@ -1,12 +1,12 @@
 # DASHBOARD - conduit-vscode
 
-_Quick-glance state for autonomous agents. Last updated: 2026-07-17_
+_Quick-glance state for autonomous agents. Last updated: 2026-09-02_
 
 ## Current State
 
 | Item | Value |
 |---|---|
-| Version | 0.7.6 |
+| Version | 0.8.0 |
 | Build | passes (`npm run build`, ~201kb) |
 | Tests | 314 passing / 1 skipped (`npm test`, vitest, 17 files) |
 | .vsix packaged | conduit-vscode-0.7.6.vsix |
@@ -14,10 +14,10 @@ _Quick-glance state for autonomous agents. Last updated: 2026-07-17_
 | Default proxy | http://127.0.0.1:31338 |
 | Marketplace | dropped by decision 2026-07-17 (no plan to publish; GitHub .vsix only) |
 | GitHub | https://github.com/elvatis/conduit-vscode |
-| Latest release | v0.7.6 |
-| Next task | none - backlog clear |
+| Latest release | v0.7.6 (0.8.0 pending) |
+| Next task | none - backlog clear. T-016 (#84) already shipped; T-006 (#85) dropped/locked |
 
-## Features (v0.7.6)
+## Features (v0.8.0)
 
 | Feature | Status |
 |---|---|
@@ -48,8 +48,9 @@ _Quick-glance state for autonomous agents. Last updated: 2026-07-17_
 
 ## Unblocked Tasks (priority order)
 
-_None. T-016 done (issue #52 closed), T-006 dropped (issue #53 closed)._
+_None. T-016 done (issues #52 and #84 closed), T-006 dropped (issues #53 and #85 locked)._
 
 ## Related Projects
-- `conduit-bridge` - Playwright-based proxy (must be installed separately)
+- `conduit-bridge` v0.5.2 - API/CLI/LM Studio gateway on 127.0.0.1:31338 (must be installed separately)
+- `homeofe/supply-chain-guard` v6.0.10 - CI Action pin for this repo
 - `openclaw-cli-bridge-elvatis` - Server-side equivalent (OpenClaw plugin)

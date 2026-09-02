@@ -6,7 +6,7 @@
 
 # STATUS - conduit-vscode
 
-## Current Version: 0.7.6 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17)
+## Current Version: 0.8.0 (GitHub .vsix only - Marketplace publishing dropped by decision 2026-07-17; issue #85 locked)
 
 ## Feature Status
 | Feature | Status | Notes |
@@ -34,13 +34,13 @@
 | Slash Commands | Done | /help, /fix, /explain, /tests, /refactor, /plan, /commit, /clear, /new, /cost, /model, /mode, /rename |
 | Editor Context Builder | Done | Prefix/suffix, open files, diagnostics |
 | Status Bar | Done | Live proxy health + current model name |
-| Bridge Manager Panel | Done | Start/stop/restart/logs + per-provider login/logout |
+| Bridge Manager Panel | Done | Start/stop/restart/logs + Open Dashboard; connected via `/v1/status.connected` |
 | Auto-start bridge | Done | Starts conduit-bridge on activate if proxy unreachable |
 | Model-Mode Compatibility | Done | Warnings when model doesn't support current mode |
 | Model Switch Handoff | Done | Context summary when switching models mid-conversation |
 | Multi-turn Agent Loop (T-016) | Done | AgentLoop controller: stream -> parse tool calls -> execute -> feed results back; duplicate-call detection, error feedback loop, destructive-action confirmation, abort |
 | Agent Tools | Done | readFile, writeFile, runCommand, searchCode + worktree tools; command/branch args validated, execFile no-shell (CWE-78 hardening) |
-| Agent Backends | Done | Claude CLI, Gemini CLI, OpenAI Codex, OpenCode, Pi; background sessions with spawn/monitor/kill and model failover chain |
+| Agent Backends | Done | Background spawn goes through conduit-bridge HTTP; `@elvatis_com/agent-backends` removed |
 | Git Worktree Isolation | Done | Parallel agent work in isolated worktrees, serialized creation, merge-aware cleanup |
 | Agent Session Persistence | Done | Sessions survive VS Code restarts; Resume/Remove/Clear commands |
 | Cost Tracking | Done | Per-session token/cost tracking, budget limits, per-model cost summary |
@@ -51,8 +51,8 @@
 - Agent mode instructs models to use `### Step N: Title` format, rendered as collapsible `<details>` cards
 - Markdown renderer is custom inline (no external lib), supports full GFM subset
 - Model registry with 3-tier system: Tier 1 (all modes), Tier 2 (ask/edit/plan), Tier 3 (ask only)
-- All AI requests go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
-- Bridge uses Playwright browser automation (Grok, Claude, Gemini, ChatGPT web UIs)
+- All AI requests (chat and background spawn) go through `proxy-client.ts` -> `conduit.proxyUrl` (default: `http://127.0.0.1:31338`)
+- Bridge is the only runtime: API, CLI, and LM Studio. vscode does not spawn CLIs itself. Optional `cwd` on completions is the workspace folder. Requires conduit-bridge v0.6.0+ for workspace cwd.
 
 ## Build Status
 - Build: `npm run build` - `dist/extension.js` (~201kb): Done
@@ -61,7 +61,8 @@
 
 ## Known Issues / Gaps
 - Bridge must be rebuilt separately when models change
-- Marketplace listing (T-006): dropped 2026-07-17 - no plan to publish, distribution stays via GitHub .vsix
+- Marketplace listing (T-006 / issue #85): dropped 2026-07-17, confirmed 2026-09-02 - no plan to publish, distribution stays via GitHub .vsix
+- T-016 / issue #84 (multi-turn agent loop): already shipped in v0.5.0-v0.7.0; resurrected AAHP issue closed as done in 0.8.0
 
 ## Release History
 | Version | Date | Notes |
@@ -76,6 +77,7 @@
 | 0.7.1-0.7.4 | 2026-03-24 to 2026-05-17 | Windows bridge spawn fix, security dep updates, dev dep major bumps (see README changelog) |
 | 0.7.5 | 2026-07-17 | CWE-78 hardening in agent tools, brace-expansion GHSA fix, dep sweep, @types/vscode re-pin + Dependabot ignore, CI action bumps, docs reconciliation |
 | 0.7.6 | 2026-07-17 | Dev-dep maintenance: ts-eslint plugin 8.64 / eslint 10.7 / @types/node 26.1.1; held TS 6->7 (toolchain peer conflict) + Dependabot ignore for the typescript major; no runtime change |
+| 0.8.0 | 2026-09-02 | Align with conduit-bridge v0.5.2: treat `connected` as provider availability so CLI/API/local providers show up; new model IDs; dashboard instead of browser login; AAHP 3.12; supply-chain-guard v6.0.10 |
 
 <!-- aahp-gate -->
 _AAHP verify gate: v3.0.2 synced 2026-06-20._
@@ -104,3 +106,7 @@ _AAHP verify gate: v3.0.2 synced 2026-06-20._
 > 2026-07-17 release: cut v0.7.6. Publishing v0.7.5 triggered a fresh Dependabot batch (#72-#75); merged the 3 green dev-dep bumps (ts-eslint plugin 8.64, eslint 10.7, @types/node 26.1.1) and released them. Held #73 (typescript 6->7): @typescript-eslint/eslint-plugin@8.64 peers on typescript ">=4.8.4 <6.1.0", so TS 7 (native port) fails npm install (ERESOLVE); added a Dependabot ignore for the typescript major. Also cleaned up two merged-but-lingering remote branches (docs/handoff-refresh from #70, release/v0.7.5 from #71). Dev-only bumps, dist/extension.js unchanged.
 
 > Note (2026-07-19): Moved the AAHP conformance pin from 3.8.0 to 3.8.1 (picks up the v3.8.1 Windows/MSYS manifest-regen fix so tasks, next_task_id and cross_repo_ref survive regeneration). No runtime behavior change on Linux or CI. Handoff refreshed and MANIFEST regenerated.
+
+> 2026-09-02: Align extension with conduit-bridge v0.5.2. Root cause of "CLI providers not available": status UI keyed off Playwright `sessionValid`/`hasProfile`; v0.5.2 reports `connected`+`loginType`. Also refreshed model catalog, default model, dashboard login, AAHP 3.12.0, supply-chain-guard v6.0.10, and the stale Dependabot batch. Issue #84 closed as already shipped (T-016). Issue #85 locked (no Marketplace listing).
+
+> 2026-09-02: Align extension with conduit-bridge v0.5.2. Root cause of "CLI providers not available": status UI keyed off Playwright `sessionValid`/`hasProfile`; v0.5.2 reports `connected`+`loginType`. Also refreshed model catalog, default model, dashboard login, AAHP 3.12.0, supply-chain-guard @v6, and the stale Dependabot batch. Issue #84 closed as already shipped (T-016). Issue #85 locked (no Marketplace listing).

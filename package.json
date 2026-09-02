@@ -2,7 +2,7 @@
   "name": "conduit-vscode",
   "displayName": "Conduit — Universal AI Bridge",
   "description": "Connect VS Code to any OpenAI-compatible AI provider: Grok, Claude, Gemini, ChatGPT and more via local proxy.",
-  "version": "0.7.6",
+  "version": "0.8.0",
   "publisher": "elvatis",
   "private": true,
   "license": "Apache-2.0",
@@ -49,8 +49,8 @@
         },
         "conduit.defaultModel": {
           "type": "string",
-          "default": "cli-gemini/gemini-2.5-pro",
-          "description": "Default model to use (e.g. cli-gemini/gemini-2.5-pro, grok-3)"
+          "default": "cli-gemini/gemini-3.1-pro-high",
+          "description": "Default model to use (e.g. cli-gemini/gemini-3.1-pro-high, cli-grok/grok-4.6)"
         },
         "conduit.inlineSuggestions": {
           "type": "boolean",
@@ -204,20 +204,25 @@
         "icon": "$(pulse)"
       },
       {
+        "command": "conduit.openDashboard",
+        "title": "Conduit: Open Bridge Dashboard",
+        "icon": "$(link-external)"
+      },
+      {
         "command": "conduit.loginGrok",
-        "title": "Conduit: Login — Grok"
+        "title": "Conduit: Open Bridge Dashboard (Grok)"
       },
       {
         "command": "conduit.loginClaude",
-        "title": "Conduit: Login — Claude"
+        "title": "Conduit: Open Bridge Dashboard (Claude)"
       },
       {
         "command": "conduit.loginGemini",
-        "title": "Conduit: Login — Gemini"
+        "title": "Conduit: Open Bridge Dashboard (Gemini)"
       },
       {
         "command": "conduit.loginChatGPT",
-        "title": "Conduit: Login — ChatGPT"
+        "title": "Conduit: Open Bridge Dashboard (Codex)"
       },
       {
         "command": "conduit.refreshModels",
@@ -449,18 +454,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@elvatis_com/aahp": "3.8.1",
-    "@types/node": "^26.1.1",
+    "@elvatis_com/aahp": "3.12.0",
+    "@types/node": "^26.4.1",
     "@types/vscode": "~1.90.0",
-    "@typescript-eslint/eslint-plugin": "^8.64.0",
-    "@typescript-eslint/parser": "^8.64.0",
-    "@vitest/coverage-v8": "^4.1.6",
-    "esbuild": "^0.28.1",
-    "eslint": "^10.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.9.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
-  },
-  "dependencies": {
-    "@elvatis_com/agent-backends": "^1.0.0"
+    "vitest": "^4.1.11"
   }
 }

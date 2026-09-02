@@ -276,7 +276,7 @@ export function registerCommands(
     }
 
     vscode.window.showInformationMessage(
-      `Conduit: agent spawned (PID ${handle.pid})${aahpCtx ? ` [AAHP: ${aahpCtx.project}]` : ''}`,
+      `Conduit: agent started on conduit-bridge (${picked.id})${aahpCtx ? ` [AAHP: ${aahpCtx.project}]` : ''}`,
       'View Output',
     ).then(action => {
       if (action === 'View Output') {

@@ -36,10 +36,11 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('conduit.stopBridge', () => bridgeManager!.stop()),
       vscode.commands.registerCommand('conduit.restartBridge', () => bridgeManager!.restart()),
       vscode.commands.registerCommand('conduit.bridgeLogs', () => bridgeManager!.showLogs()),
-      vscode.commands.registerCommand('conduit.loginGrok',    () => bridgeManager!.login('grok')),
-      vscode.commands.registerCommand('conduit.loginClaude',  () => bridgeManager!.login('claude')),
-      vscode.commands.registerCommand('conduit.loginGemini',  () => bridgeManager!.login('gemini')),
-      vscode.commands.registerCommand('conduit.loginChatGPT', () => bridgeManager!.login('chatgpt')),
+      vscode.commands.registerCommand('conduit.openDashboard', () => bridgeManager!.openDashboard()),
+      vscode.commands.registerCommand('conduit.loginGrok',     () => bridgeManager!.openDashboard()),
+      vscode.commands.registerCommand('conduit.loginClaude',   () => bridgeManager!.openDashboard()),
+      vscode.commands.registerCommand('conduit.loginGemini',   () => bridgeManager!.openDashboard()),
+      vscode.commands.registerCommand('conduit.loginChatGPT',  () => bridgeManager!.openDashboard()),
       vscode.commands.registerCommand('conduit.showHealthPanel', () => {
         HealthPanel.createOrShow(bridgeManager!);
       }),

@@ -62,9 +62,9 @@ function makeSession(overrides: Record<string, any> = {}) {
   return {
     id: 'chat-1',
     title: 'Test Chat',
-    model: 'web-claude/claude-opus',
+    model: 'cli-claude/claude-opus-5',
     mode: 'ask',
-    modelsUsed: ['web-claude/claude-opus'],
+    modelsUsed: ['cli-claude/claude-opus-5'],
     messageCount: 5,
     createdAt: Date.now() - 3600_000,
     updatedAt: Date.now() - 60_000,
@@ -82,8 +82,8 @@ describe('SessionsTreeProvider', () => {
 
     it('returns flat SessionItems when only one provider', async () => {
       const sessions = [
-        makeSession({ id: 'chat-1', model: 'web-claude/claude-opus' }),
-        makeSession({ id: 'chat-2', model: 'web-claude/claude-sonnet' }),
+        makeSession({ id: 'chat-1', model: 'cli-claude/claude-opus-5' }),
+        makeSession({ id: 'chat-2', model: 'cli-claude/claude-sonnet-5' }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
@@ -95,8 +95,8 @@ describe('SessionsTreeProvider', () => {
 
     it('returns ProviderGroupItems when multiple providers', async () => {
       const sessions = [
-        makeSession({ id: 'chat-1', model: 'web-claude/claude-opus' }),
-        makeSession({ id: 'chat-2', model: 'web-grok/grok-fast' }),
+        makeSession({ id: 'chat-1', model: 'cli-claude/claude-opus-5' }),
+        makeSession({ id: 'chat-2', model: 'cli-grok/grok-4.6' }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
@@ -110,30 +110,30 @@ describe('SessionsTreeProvider', () => {
 
     it('sorts provider with active session first', async () => {
       const sessions = [
-        makeSession({ id: 'chat-1', model: 'web-grok/grok-fast', updatedAt: Date.now() }),
-        makeSession({ id: 'chat-2', model: 'web-claude/claude-opus', updatedAt: Date.now() - 1000 }),
+        makeSession({ id: 'chat-1', model: 'cli-grok/grok-4.6', updatedAt: Date.now() }),
+        makeSession({ id: 'chat-2', model: 'cli-claude/claude-opus-5', updatedAt: Date.now() - 1000 }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       provider.refresh('chat-2'); // Make claude session active
       const children = await provider.getChildren();
 
       // Claude group should be first (has active session)
-      expect((children[0] as any).providerId).toBe('web-claude');
+      expect((children[0] as any).providerId).toBe('cli-claude');
     });
   });
 
   describe('getChildren (provider group)', () => {
     it('returns sorted SessionItems for a provider group', async () => {
       const sessions = [
-        makeSession({ id: 'chat-1', model: 'web-claude/claude-opus', updatedAt: 1000 }),
-        makeSession({ id: 'chat-2', model: 'web-claude/claude-sonnet', updatedAt: 2000 }),
-        makeSession({ id: 'chat-3', model: 'web-grok/grok-fast' }),
+        makeSession({ id: 'chat-1', model: 'cli-claude/claude-opus-5', updatedAt: 1000 }),
+        makeSession({ id: 'chat-2', model: 'cli-claude/claude-sonnet-5', updatedAt: 2000 }),
+        makeSession({ id: 'chat-3', model: 'cli-grok/grok-4.6' }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const roots = await provider.getChildren();
 
       // Find the claude group
-      const claudeGroup = roots.find((r: any) => r.providerId === 'web-claude');
+      const claudeGroup = roots.find((r: any) => r.providerId === 'cli-claude');
       expect(claudeGroup).toBeDefined();
 
       const children = await provider.getChildren(claudeGroup);
@@ -153,7 +153,7 @@ describe('SessionsTreeProvider', () => {
     });
 
     it('shows short model name in description', async () => {
-      const sessions = [makeSession({ model: 'web-claude/claude-opus', modelsUsed: ['web-claude/claude-opus'] })];
+      const sessions = [makeSession({ model: 'cli-claude/claude-opus-5', modelsUsed: ['cli-claude/claude-opus-5'] })];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
       expect((children[0] as any).description).toContain('claude-opus');
@@ -161,7 +161,7 @@ describe('SessionsTreeProvider', () => {
 
     it('shows Multi-model for sessions with multiple models', async () => {
       const sessions = [makeSession({
-        modelsUsed: ['web-claude/claude-opus', 'web-grok/grok-fast'],
+        modelsUsed: ['cli-claude/claude-opus-5', 'cli-grok/grok-4.6'],
       })];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
@@ -188,27 +188,27 @@ describe('SessionsTreeProvider', () => {
   describe('ProviderGroupItem properties', () => {
     it('shows friendly label for known providers', async () => {
       const sessions = [
-        makeSession({ model: 'web-claude/claude-opus' }),
-        makeSession({ id: 'chat-2', model: 'web-grok/grok-fast' }),
+        makeSession({ model: 'cli-claude/claude-opus-5' }),
+        makeSession({ id: 'chat-2', model: 'cli-grok/grok-4.6' }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
       const labels = children.map((c: any) => c.label);
-      expect(labels).toContain('Claude');
-      expect(labels).toContain('Grok');
+      expect(labels).toContain('Claude (CLI)');
+      expect(labels).toContain('Grok (CLI)');
     });
 
     it('shows session count in description', async () => {
       const sessions = [
-        makeSession({ id: 'chat-1', model: 'web-claude/claude-opus' }),
-        makeSession({ id: 'chat-2', model: 'web-claude/claude-sonnet' }),
-        makeSession({ id: 'chat-3', model: 'web-grok/grok-fast' }),
+        makeSession({ id: 'chat-1', model: 'cli-claude/claude-opus-5' }),
+        makeSession({ id: 'chat-2', model: 'cli-claude/claude-sonnet-5' }),
+        makeSession({ id: 'chat-3', model: 'cli-grok/grok-4.6' }),
       ];
       const provider = new SessionsTreeProvider(makeMockContext(sessions));
       const children = await provider.getChildren();
-      const claudeGroup = children.find((c: any) => c.label === 'Claude');
+      const claudeGroup = children.find((c: any) => c.label === 'Claude (CLI)');
       expect((claudeGroup as any).description).toBe('2 sessions');
-      const grokGroup = children.find((c: any) => c.label === 'Grok');
+      const grokGroup = children.find((c: any) => c.label === 'Grok (CLI)');
       expect((grokGroup as any).description).toBe('1 session');
     });
   });

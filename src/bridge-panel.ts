@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import type { BridgeManager, BridgeStatus, ProviderName } from './bridge-manager';
+import type { BridgeManager, BridgeStatus } from './bridge-manager';
+import { toProviderView } from './bridge-status';
 
 export class BridgePanel {
   private static _instance: BridgePanel | undefined;
@@ -24,7 +25,7 @@ export class BridgePanel {
     // Push status updates to panel
     this._disposables.push(
       _manager.onStatusChange(status => {
-        this._panel.webview.postMessage({ type: 'status', data: status });
+        this._panel.webview.postMessage({ type: 'status', data: this._toView(status) });
       }),
     );
 
@@ -45,21 +46,28 @@ export class BridgePanel {
     BridgePanel._instance = new BridgePanel(panel, manager);
   }
 
-  private async _handleMessage(msg: { type: string; provider?: ProviderName }) {
+  private async _handleMessage(msg: { type: string }) {
     switch (msg.type) {
-      case 'start':   await this._manager.start(); break;
-      case 'stop':    await this._manager.stop(); break;
-      case 'restart': await this._manager.restart(); break;
-      case 'refresh': await this._refreshStatus(); break;
-      case 'logs':    this._manager.showLogs(); break;
-      case 'login':   if (msg.provider) await this._manager.login(msg.provider); break;
-      case 'logout':  if (msg.provider) await this._manager.logout(msg.provider); break;
+      case 'start':     await this._manager.start(); break;
+      case 'stop':      await this._manager.stop(); break;
+      case 'restart':   await this._manager.restart(); break;
+      case 'refresh':   await this._refreshStatus(); break;
+      case 'logs':      this._manager.showLogs(); break;
+      case 'dashboard': await this._manager.openDashboard(); break;
     }
   }
 
   private async _refreshStatus() {
     const status = await this._manager.getStatus();
-    this._panel.webview.postMessage({ type: 'status', data: status });
+    this._panel.webview.postMessage({ type: 'status', data: this._toView(status) });
+  }
+
+  private _toView(status: BridgeStatus | null) {
+    if (!status) return null;
+    return {
+      ...status,
+      providers: status.providers.map(toProviderView),
+    };
   }
 
   dispose() {
@@ -119,6 +127,7 @@ export class BridgePanel {
     <button class="btn-danger" onclick="send('stop')">■ Stop</button>
     <button class="btn-secondary" onclick="send('logs')">📋 Show Logs</button>
     <button class="btn-secondary" onclick="send('refresh')">↻ Refresh</button>
+    <button class="btn-primary" onclick="send('dashboard')">Open Dashboard</button>
   </div>
   <div class="uptime" id="uptime"></div>
 </div>
@@ -164,23 +173,17 @@ function renderStatus(status) {
   provGrid.style.display = 'grid';
 
   provGrid.innerHTML = status.providers.map(p => {
-    const ind = p.sessionValid ? 'indicator-ok' : (p.hasProfile ? 'indicator-warn' : 'indicator-err');
-    const statusText = p.sessionValid ? 'Connected' : (p.hasProfile ? 'Profile saved, not connected' : 'No profile');
+    const ind = p.connected ? 'indicator-ok' : 'indicator-err';
     return \`<div class="provider-card">
       <div class="provider-header">
-        <span class="provider-name"><span class="indicator \${ind}"></span>\${capitalize(p.name)}</span>
+        <span class="provider-name"><span class="indicator \${ind}"></span>\${p.displayName || p.name}</span>
       </div>
-      <div class="provider-status">\${statusText}</div>
-      <div class="provider-actions">
-        \${!p.sessionValid ? \`<button class="btn-primary" onclick="send('login', {provider:'\${p.name}'})">Login</button>\` : ''}
-        \${p.sessionValid ? \`<button class="btn-secondary" onclick="send('logout', {provider:'\${p.name}'})">Logout</button>\` : ''}
-      </div>
-      <div class="models-list">\${p.models.slice(0,3).join(' · ')}\${p.models.length > 3 ? ' …' : ''}</div>
+      <div class="provider-status">\${p.statusLabel || (p.connected ? 'Connected' : 'Not configured')}</div>
+      <div class="models-list">\${(p.models || []).slice(0,3).join(' · ')}\${(p.models || []).length > 3 ? ' …' : ''}</div>
     </div>\`;
   }).join('');
 }
 
-function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function formatUptime(s) {
   if (s < 60) return s + 's';
   if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';

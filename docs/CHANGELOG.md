@@ -2,6 +2,24 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [0.8.0] - 2026-09-02
+
+### Fixed
+- CLI/API/local providers from conduit-bridge v0.5.2 now show as connected in the Bridge Manager, Health Dashboard, and status bar. The extension was still reading Playwright `sessionValid` / `hasProfile`, which the bridge no longer sends. Availability is `connected` (with `loginType` / `credentialSource`).
+
+### Changed
+- Aligned with conduit-bridge v0.6.0: API, CLI, and LM Studio transports only. Browser-session `web-*` providers and `/v1/login` / `/v1/logout` are gone. Spawn sends workspace `cwd`.
+- Default model: `cli-gemini/gemini-3.1-pro-high`
+- Model registry, spawn-agent catalog, and fallbacks use live CLI IDs (`cli-grok`, `cli-claude`, `cli-gemini`, `cli-codex`)
+- Login commands open the bridge dashboard at `conduit.proxyUrl` instead of a Playwright browser
+- Background agents (`spawnCliAgent`) call conduit-bridge `/v1/chat/completions` instead of spawning CLIs through `@elvatis_com/agent-backends`
+- supply-chain-guard Action pin `@v5` -> exact `@v6.0.10` (2026-09-02 threat-intel batch + vscode-scanner)
+- AAHP pin 3.8.1 -> 3.12.0; verify workflow matches the 3.10+ contract (`AAHP_BASE_SHA`, `persist-credentials: false`, Node 24)
+- Dev deps: eslint 10.9.1, typescript-eslint 8.69.0, @types/node 26.4.1, vitest 4.1.11, esbuild 0.28.2 (supersedes Dependabot PRs #78-#83)
+
+### Removed
+- Web/Playwright provider identification in the status UI
+
 ## [0.7.6] - 2026-07-17
 
 ### Changed

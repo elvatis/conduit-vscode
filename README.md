@@ -2,12 +2,13 @@
 
 [![CI](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/ci.yml)
 [![LLM Validation](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml/badge.svg)](https://github.com/elvatis/conduit-vscode/actions/workflows/llm-validation.yml)
+[![scanned by supply-chain-guard](https://img.shields.io/badge/scanned%20by-supply--chain--guard-2ea44f?logo=npm&logoColor=white)](https://github.com/homeofe/supply-chain-guard)
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.7.6
+**Current version:** 0.8.0
 
-> **Status:** Active development. All core features implemented and tested (314 tests). Requires conduit-bridge running locally.
+> **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.6.0+ running locally (default `http://127.0.0.1:31338`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
 ---
 
@@ -178,9 +179,10 @@ The Sessions tree view shows all background agents:
 
 ### Model Fallback Chain
 When a model fails with a transient error (rate limit, timeout, capacity, auth failure), Conduit automatically retries with the next model in the fallback chain:
-- Gemini 2.5 Pro → Gemini 2.5 Flash
-- Gemini 3 Pro Preview → Gemini 3 Flash Preview
-- Claude Opus 4.6 → Claude Sonnet 4.6 → Claude Haiku 4.5
+- Gemini 3.1 Pro High → Gemini 3.6 Flash High → Gemini 3.5 Flash High
+- Claude Opus 5 → Claude Sonnet 5 → Claude Haiku 4.5
+- Grok 4.6 → Grok 4.5
+- GPT-5.6 Sol → GPT-5.6 Terra
 
 Fallback is triggered by: 429/503 errors, rate limits, capacity issues, timeouts, and auth failures. Non-transient errors (syntax, missing args) are not retried. The `RouteResult` metadata tracks which model was actually used and why.
 
@@ -190,35 +192,30 @@ Fallback is triggered by: 429/503 errors, rate limits, capacity issues, timeouts
 
 Models are served by conduit-bridge. The extension displays whatever the bridge reports via `/v1/models`. Available models depend on which providers are logged in.
 
-### Web Session Models (browser automation, no API key needed)
+### CLI Models (requires the matching CLI installed and authenticated)
 
 | Provider | Models | Context |
 |---|---|---|
-| **Grok** | Grok Expert, Grok Fast, Grok Heavy, Grok 4.20 Beta | 131K |
-| **Claude** | Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5 | 200K |
-| **Gemini** | Gemini 3 Fast, Gemini 3 Thinking, Gemini 3.1 Pro | 1M |
-| **ChatGPT** | GPT-5.4 Pro, GPT-5.4 Thinking, GPT-5.3 Instant, GPT-5 Thinking Mini, o3 | 128K |
+| **Grok CLI** (`cli-grok`) | Grok 4.6, Grok 4.5, Grok 4.3 | 256K-2M |
+| **Claude CLI** (`cli-claude`) | Claude Opus 5, Sonnet 5, Fable 5, Haiku 4.5 | 200K-1M |
+| **Gemini CLI** (`cli-gemini`) | Gemini 3.1 Pro High/Low, 3.6 Flash High/Medium/Low, 3.5 Flash | 1M |
+| **Codex CLI** (`cli-codex`) | GPT-5.6 Sol/Terra/Luna, GPT-5.5, GPT-5.5 Pro | 400K-1M |
 
-### CLI Models (requires CLI tool installed)
-
-| Provider | Models | Context |
-|---|---|---|
-| **Claude CLI** | Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5 | 200K |
-| **Gemini CLI** | Gemini 2.5 Pro, Gemini 2.5 Flash, Gemini 3.0 Pro Preview, Gemini 3.0 Flash Preview | 1M |
-| **OpenCode** | Default model (auto-detected) | varies |
-| **Pi** | Default model (configurable provider/model) | varies |
-
-### API Models (requires OAuth / API key)
+### API Models (API key saved in the bridge dashboard)
 
 | Provider | Models | Context |
 |---|---|---|
-| **OpenAI Codex** | GPT-5.4, GPT-5.3 Codex, GPT-5.3 Codex Spark, GPT-5.2 Codex, GPT-5.1 Codex Mini | 200K |
+| **Claude API** | Claude Fable 5, Opus 5, Sonnet 5, Haiku 4.5 | 200K-1M |
+| **Gemini API** | Gemini 3.7/3.6/3.5 Flash, 3.1 Pro | 1M |
+| **Codex API** | GPT-5.6 Sol/Terra/Luna, GPT-5.5 | 400K-1M |
+| **OpenRouter / Perplexity** | Catalog from the live provider | varies |
 
 ### Local Models
 
 | Provider | Models | Context |
 |---|---|---|
-| **BitNet** | BitNet 1.58 2B (CPU inference) | 4K |
+| **LM Studio** | Whatever LM Studio is serving (`lmstudio/...`) | varies |
+| **BitNet** | BitNet 1.58 2B (CPU inference, optional local endpoint) | 4K |
 
 ---
 
@@ -485,44 +482,18 @@ Open settings with `Ctrl+,` and search for "conduit", or use the gear icon in th
 
 ## Provider Setup
 
-Each AI provider needs to be authenticated through the bridge. The extension provides login commands for each.
+Each AI provider is authenticated in **conduit-bridge**, not inside VS Code. The extension reads `/v1/status` (`connected`, `loginType`) and `/v1/models`.
 
-### Web Session Providers (Grok, Claude, Gemini, ChatGPT)
+1. Start the bridge (autostart is fine) on `http://127.0.0.1:31338`
+2. Open `Ctrl+Shift+P` → `Conduit: Open Bridge Dashboard`
+3. Save API keys on the API page, or sign in to each CLI (`grok login`, `claude`, `codex login`, Gemini CLI)
+4. In VS Code, connected CLI/API/local providers show as Connected in the Bridge Manager and Health Dashboard. Their models appear in the picker.
 
-These use browser session cookies, no API keys needed.
-
-1. Run the login command: `Ctrl+Shift+P` → `Conduit: Login - Grok` (or Claude, Gemini, ChatGPT)
-2. A browser window opens to the provider's website
-3. Log in with your account
-4. The bridge captures the session and the models become available
-
-### CLI Providers (Claude CLI, Gemini CLI, OpenCode, Pi)
-
-These require the respective CLI tools to be installed:
-- **Claude CLI**: Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and authenticate
-- **Gemini CLI**: Install the [Gemini CLI](https://github.com/google-gemini/gemini-cli) and authenticate
-- **OpenCode**: Install [OpenCode](https://github.com/opencode-ai/opencode) (auto-detected)
-- **Pi**: Install [Pi](https://github.com/pi-ai/pi) with `--provider` and `--model` flags for different backends
-
-The bridge automatically detects installed CLIs.
-
-### OpenAI Codex (GPT-5.4, GPT-5.3 Codex, etc.)
-
-Requires the Codex CLI with OAuth tokens:
-1. Install the [Codex CLI](https://github.com/openai/codex)
-2. Run `codex login` to authenticate
-3. Run `openclaw models auth login --provider openai-codex` and select "Codex CLI (existing login)"
-4. The codex models (including GPT-5.4) appear in the model picker
-
-### Local Models (BitNet)
-
-Local CPU inference, no authentication needed:
-1. Install BitNet runtime
-2. The bridge auto-detects and serves the model
+CLI `connected` means the CLI is installed **and** authenticated, not merely on PATH.
 
 ### Checking Provider Status
 
-Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` to see which providers are connected and which models are available.
+Use `Ctrl+Shift+P` → `Conduit: Health Dashboard` or `Conduit: Bridge Manager` to see which providers are connected and which models are available.
 
 ---
 
@@ -544,9 +515,8 @@ npm run test:coverage       # run with coverage report
 | `agent-parser.test.ts` | 25 | Agent output parsing, step card extraction |
 | `agent-tools.test.ts` | 18 | Tool execution (readFile, writeFile, applyDiff, etc.) |
 | `worktree-tools.test.ts` | 17 | Worktree lock serialization, merge-status safety |
-| `cli-runner-failover.test.ts` | 7 | Model failover chain, fallback pattern matching |
+| `cli-runner-failover.test.ts` | 9 | Bridge failover chain |
 | `aahp-context.test.ts` | 10 | AAHP v3 context detection, loading, block building |
-| `agent-backends.test.ts` | 20 | Shared backend: prompt formatting, env, CLI config |
 | `llm-tool-validation.test.ts` | 14 | Tool catalog schema, LLM tool-call validation |
 | `model-registry.test.ts` | 39 | Model capabilities, tiers, auto-selection |
 | `sessions-tree-provider.test.ts` | 19 | Session tree, background agent status |
@@ -652,9 +622,8 @@ conduit-vscode/
     models-tree-provider.ts   - model picker tree view
     model-registry.ts         - model capabilities, display names, tiers, auto-selection
     proxy-client.ts           - HTTP/streaming client for the bridge
-    embedded-proxy.ts         - embedded proxy server (bridgeless mode)
-    agent-backends.ts         - shared agent backend abstraction (CLI detection, env, prompt, spawn)
-    cli-runner.ts             - CLI subprocess routing (Claude, Gemini, Codex, OpenCode, Pi)
+    bridge-status.ts          - normalize conduit-bridge /v1/status (connected + loginType)
+    cli-runner.ts             - background agents via conduit-bridge /v1/chat/completions
     cost-tracker.ts           - token usage parsing and cost estimation per agent session
     agent-loop.ts             - multi-turn agent loop with tool execution
     agent-parser.ts           - agent output parsing (step cards, tool calls)
@@ -665,7 +634,6 @@ conduit-vscode/
     context-builder.ts        - editor context collection
     bridge-manager.ts         - bridge lifecycle management
     bridge-panel.ts           - bridge manager webview
-    browser-session.ts        - browser automation for web providers
     inline-provider.ts        - ghost-text inline completions
     inline-chat.ts            - Ctrl+I inline chat with diff
     custom-instructions.ts    - .conduit/instructions.md loader

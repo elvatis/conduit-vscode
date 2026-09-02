@@ -13,6 +13,8 @@ export interface CompletionOptions {
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
+  /** Workspace path for CLI providers on conduit-bridge (ignored by API transports). */
+  cwd?: string;
 }
 
 export interface ModelInfo {
@@ -49,6 +51,9 @@ export async function complete(opts: CompletionOptions): Promise<string> {
 
   const text = await httpPost(url, body, apiKey);
   const json = JSON.parse(text);
+  if (json.error) {
+    throw new Error(json.error.message ?? JSON.stringify(json.error));
+  }
   return json.choices?.[0]?.message?.content ?? '';
 }
 

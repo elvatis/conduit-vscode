@@ -18,7 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: homeofe/supply-chain-guard@v5
+      # Exact pin, not the floating @v6 branch. v6.0.10 is the 2026-09-02
+      # threat-intel batch (Packagist theme spyware IOCs + feed 20,140) and
+      # the vscode-scanner this extension repo is in the audience for.
+      # Dependabot github-actions will propose later 6.0.x bumps.
+      - uses: homeofe/supply-chain-guard@v6.0.10
         with:
           fail-on: critical
           comment-on-pr: true

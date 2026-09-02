@@ -22,12 +22,20 @@
 
 name: AAHP Verify
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      base:
+        description: Exact base commit SHA for the Layer 2 diff
+        required: true
+        type: string
 
 jobs:
   aahp-verify:
@@ -47,12 +55,13 @@ jobs:
         with:
           # Full history so the content-drift gate can diff against the base.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Node.js
         if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies (includes the pinned aahp CLI)
         if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}
@@ -61,6 +70,8 @@ jobs:
       - name: Run aahp verify (CI level, no escape hatch)
         if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}
         run: npx --no-install aahp verify . --level ci
+        env:
+          AAHP_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base }}
 
       - name: Run aahp doctor (conformance snapshot)
         if: ${{ github.actor != 'dependabot[bot]' && github.event.head_commit.author.username != 'dependabot[bot]' }}

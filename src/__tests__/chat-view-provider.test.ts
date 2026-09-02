@@ -13,7 +13,7 @@ interface ChatMessage {
 
 describe('buildHandoffSummary', () => {
   it('returns empty string for < 2 messages', () => {
-    expect(buildHandoffSummary([], 'web-claude/opus', 'web-grok/fast')).toBe('');
+    expect(buildHandoffSummary([], 'cli-claude/opus', 'cli-grok/fast')).toBe('');
     expect(buildHandoffSummary([{ role: 'user', content: 'hi' }], 'a', 'b')).toBe('');
   });
 
@@ -22,8 +22,8 @@ describe('buildHandoffSummary', () => {
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'world' },
     ];
-    const result = buildHandoffSummary(msgs, 'web-claude/claude-opus', 'web-grok/grok-fast');
-    expect(result).toContain('switching from claude-opus to grok-fast');
+    const result = buildHandoffSummary(msgs, 'cli-claude/claude-opus-5', 'cli-grok/grok-4.6');
+    expect(result).toContain('switching from claude-opus-5 to grok-4.6');
   });
 
   it('includes message count', () => {

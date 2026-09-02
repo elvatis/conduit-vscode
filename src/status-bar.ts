@@ -2,11 +2,7 @@ import * as vscode from 'vscode';
 import { listModels } from './proxy-client';
 import { getConfig } from './config';
 import type { BridgeManager } from './bridge-manager';
-
-interface BridgeStatus {
-  providers: Array<{ sessionValid: boolean }>;
-  version: string;
-}
+import { connectedProviderCount, type BridgeStatus } from './bridge-status';
 
 export class ConduitStatusBar {
   private _item: vscode.StatusBarItem;
@@ -53,7 +49,7 @@ export class ConduitStatusBar {
 
     // Bridge status (providers connected)
     if (this._bridgeStatus) {
-      const connected = this._bridgeStatus.providers.filter(p => p.sessionValid).length;
+      const connected = connectedProviderCount(this._bridgeStatus);
       const total = this._bridgeStatus.providers.length;
       parts.push(`${connected}/${total}`);
     }
@@ -76,7 +72,7 @@ export class ConduitStatusBar {
 
     // Background color based on bridge status
     if (this._bridgeStatus) {
-      const connected = this._bridgeStatus.providers.filter(p => p.sessionValid).length;
+      const connected = connectedProviderCount(this._bridgeStatus);
       this._item.backgroundColor = connected > 0
         ? undefined
         : new vscode.ThemeColor('statusBarItem.warningBackground');
@@ -95,7 +91,7 @@ export class ConduitStatusBar {
     } else {
       const cfg = getConfig();
       vscode.window.showWarningMessage(
-        `Conduit proxy is offline at ${cfg.proxyUrl}. Make sure cli-bridge is running.`,
+        `Conduit proxy is offline at ${cfg.proxyUrl}. Make sure conduit-bridge is running.`,
         'Start Bridge',
         'Open Settings',
       ).then(action => {

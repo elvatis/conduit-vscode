@@ -5,7 +5,7 @@
 
 /**
  * Extract the provider prefix from a model ID.
- * e.g. "web-claude/claude-opus-4-6" -> "web-claude"
+ * e.g. "cli-claude/claude-opus-5" -> "cli-claude"
  */
 export function extractProvider(modelId: string): string {
   if (!modelId) return 'unknown';
@@ -15,7 +15,7 @@ export function extractProvider(modelId: string): string {
 
 /**
  * Extract the short model name (after the slash) from a model ID.
- * e.g. "web-claude/claude-opus-4-6" -> "claude-opus-4-6"
+ * e.g. "cli-claude/claude-opus-5" -> "claude-opus-5"
  */
 export function shortModelName(modelId: string): string {
   if (!modelId) return 'unknown';
