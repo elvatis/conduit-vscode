@@ -49,6 +49,13 @@ export interface ModelInfo {
    * token window. Absent for stdin and prompt-file transports.
    */
   max_prompt_chars?: number;
+  /**
+   * Token window and output cap (conduit-bridge 0.8.2+). Discovered per provider
+   * where one reports them, otherwise from the bridge's own table, which
+   * ~/.conduit/models.json can override. The extension used to ship its own copy.
+   */
+  context_window?: number;
+  max_output_tokens?: number;
   capabilities?: { tools?: boolean };
 }
 

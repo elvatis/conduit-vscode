@@ -29,137 +29,7 @@ export interface ModelCapabilities {
    * binary and the platform, not from the model.
    */
   maxPromptChars?: number;
-}
-
-// Per-model context windows (ctx) and max output tokens (max)
-// Catalog aligned with conduit-bridge v0.5.2 /v1/models
-const MODEL_LIMITS: Record<string, { ctx: number; max: number }> = {
-  // CLI Claude
-  'cli-claude/claude-opus-5':        { ctx: 1_000_000, max: 128_000 },
-  'cli-claude/claude-sonnet-5':      { ctx: 1_000_000, max: 64_000 },
-  'cli-claude/claude-fable-5':       { ctx: 1_000_000, max: 64_000 },
-  'cli-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
-  // CLI Gemini
-  'cli-gemini/gemini-3.1-pro-high':  { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3.1-pro-low':   { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3.6-flash-high': { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3.6-flash-medium': { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3.6-flash-low': { ctx: 1_000_000, max: 65_536 },
-  'cli-gemini/gemini-3.5-flash-high': { ctx: 1_000_000, max: 65_536 },
-  // CLI Grok
-  'cli-grok/grok-4.6':               { ctx: 2_000_000, max: 131_072 },
-  'cli-grok/grok-4.5':               { ctx: 256_000,   max: 131_072 },
-  'cli-grok/grok-4.3':               { ctx: 256_000,   max: 131_072 },
-  // CLI Codex
-  'cli-codex/gpt-5.6-sol':           { ctx: 1_050_000, max: 128_000 },
-  'cli-codex/gpt-5.6-terra':         { ctx: 400_000,   max: 128_000 },
-  'cli-codex/gpt-5.6-luna':          { ctx: 400_000,   max: 64_000 },
-  'cli-codex/gpt-5.5':               { ctx: 400_000,   max: 128_000 },
-  'cli-codex/gpt-5.5-pro':           { ctx: 1_050_000, max: 128_000 },
-  // Direct APIs
-  'api-claude/claude-opus-5':        { ctx: 1_000_000, max: 128_000 },
-  'api-claude/claude-sonnet-5':      { ctx: 1_000_000, max: 64_000 },
-  'api-claude/claude-fable-5':       { ctx: 1_000_000, max: 64_000 },
-  'api-claude/claude-haiku-4-5':     { ctx: 200_000,   max: 64_000 },
-  'api-gemini/gemini-3.1-pro':       { ctx: 1_000_000, max: 65_536 },
-  'api-gemini/gemini-3.7-flash':     { ctx: 1_000_000, max: 65_536 },
-  'api-gemini/gemini-3.6-flash':     { ctx: 1_000_000, max: 65_536 },
-  'api-codex/gpt-5.6-sol':           { ctx: 1_050_000, max: 128_000 },
-  'api-codex/gpt-5.6-terra':         { ctx: 400_000,   max: 128_000 },
-  'api-codex/gpt-5.6-luna':          { ctx: 400_000,   max: 64_000 },
-  // OpenCode / Pi
-  'opencode/default':                { ctx: 128_000,   max: 16_384 },
-  'pi/default':                      { ctx: 128_000,   max: 16_384 },
-  // Local
-  'local-bitnet/bitnet-2b':          { ctx: 4_096,     max: 2_048 },
-};
-
-// Fallback limits per provider prefix (for unknown models from that provider)
-const PROVIDER_FALLBACK_LIMITS: Record<string, { ctx: number; max: number }> = {
-  'cli-claude/':    { ctx: 200_000,   max: 64_000 },
-  'cli-gemini/':    { ctx: 1_000_000, max: 65_536 },
-  'cli-grok/':      { ctx: 256_000,   max: 131_072 },
-  'cli-codex/':     { ctx: 200_000,   max: 32_768 },
-  'api-claude/':    { ctx: 200_000,   max: 64_000 },
-  'api-gemini/':    { ctx: 1_000_000, max: 65_536 },
-  'api-codex/':     { ctx: 200_000,   max: 32_768 },
-  'api-openrouter/': { ctx: 128_000,  max: 16_384 },
-  'api-perplexity/': { ctx: 128_000,  max: 16_384 },
-  'lmstudio/':      { ctx: 32_768,    max: 8_192 },
-  'openai-codex/':  { ctx: 200_000,   max: 32_768 },
-  'opencode/':      { ctx: 128_000,   max: 16_384 },
-  'pi/':            { ctx: 128_000,   max: 16_384 },
-  'local-':         { ctx: 4_096,     max: 2_048 },
-};
-
-// Friendly display names for known models - ALWAYS include version numbers
-const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  'cli-claude/claude-opus-5': 'Claude Opus 5 (CLI)',
-  'cli-claude/claude-sonnet-5': 'Claude Sonnet 5 (CLI)',
-  'cli-claude/claude-fable-5': 'Claude Fable 5 (CLI)',
-  'cli-claude/claude-haiku-4-5': 'Claude Haiku 4.5 (CLI)',
-  'cli-gemini/gemini-3.1-pro-high': 'Gemini 3.1 Pro High (CLI)',
-  'cli-gemini/gemini-3.1-pro-low': 'Gemini 3.1 Pro Low (CLI)',
-  'cli-gemini/gemini-3.6-flash-high': 'Gemini 3.6 Flash High (CLI)',
-  'cli-gemini/gemini-3.6-flash-medium': 'Gemini 3.6 Flash Medium (CLI)',
-  'cli-gemini/gemini-3.6-flash-low': 'Gemini 3.6 Flash Low (CLI)',
-  'cli-gemini/gemini-3.5-flash-high': 'Gemini 3.5 Flash High (CLI)',
-  'cli-grok/grok-4.6': 'Grok 4.6 (CLI)',
-  'cli-grok/grok-4.5': 'Grok 4.5 (CLI)',
-  'cli-grok/grok-4.3': 'Grok 4.3 (CLI)',
-  'cli-codex/gpt-5.6-sol': 'GPT-5.6 Sol (CLI)',
-  'cli-codex/gpt-5.6-terra': 'GPT-5.6 Terra (CLI)',
-  'cli-codex/gpt-5.6-luna': 'GPT-5.6 Luna (CLI)',
-  'cli-codex/gpt-5.5': 'GPT-5.5 (CLI)',
-  'cli-codex/gpt-5.5-pro': 'GPT-5.5 Pro (CLI)',
-  'api-claude/claude-opus-5': 'Claude Opus 5 (API)',
-  'api-claude/claude-sonnet-5': 'Claude Sonnet 5 (API)',
-  'api-claude/claude-fable-5': 'Claude Fable 5 (API)',
-  'api-claude/claude-haiku-4-5': 'Claude Haiku 4.5 (API)',
-  'api-gemini/gemini-3.1-pro': 'Gemini 3.1 Pro (API)',
-  'api-gemini/gemini-3.7-flash': 'Gemini 3.7 Flash (API)',
-  'api-gemini/gemini-3.6-flash': 'Gemini 3.6 Flash (API)',
-  'api-codex/gpt-5.6-sol': 'GPT-5.6 Sol (API)',
-  'opencode/default': 'OpenCode',
-  'pi/default': 'Pi Agent',
-  'local-bitnet/bitnet-2b': 'BitNet 1.58 2B',
-};
-
-// Model reasoning tiers - determines which chat modes are supported
-// Tier 1: Strong reasoning, all modes (ask, edit, agent, plan)
-// Tier 2: Good reasoning, most modes (ask, edit, plan)
-// Tier 3: Fast/compact, basic mode only (ask)
-const MODEL_TIERS: Record<string, 1 | 2 | 3> = {
-  'cli-claude/claude-opus-5': 1,
-  'cli-claude/claude-sonnet-5': 1,
-  'cli-claude/claude-fable-5': 1,
-  'cli-gemini/gemini-3.1-pro-high': 1,
-  'cli-grok/grok-4.6': 1,
-  'cli-codex/gpt-5.6-sol': 1,
-  'cli-codex/gpt-5.5-pro': 1,
-  'api-claude/claude-opus-5': 1,
-  'api-claude/claude-sonnet-5': 1,
-  'api-claude/claude-fable-5': 1,
-  'api-gemini/gemini-3.1-pro': 1,
-  'api-codex/gpt-5.6-sol': 1,
-  'opencode/default': 1,
-  'cli-claude/claude-haiku-4-5': 2,
-  'cli-gemini/gemini-3.6-flash-high': 2,
-  'cli-gemini/gemini-3.6-flash-medium': 2,
-  'cli-gemini/gemini-3.5-flash-high': 2,
-  'cli-grok/grok-4.5': 2,
-  'cli-grok/grok-4.3': 2,
-  'cli-codex/gpt-5.6-terra': 2,
-  'cli-codex/gpt-5.5': 2,
-  'api-claude/claude-haiku-4-5': 2,
-  'api-gemini/gemini-3.7-flash': 2,
-  'api-gemini/gemini-3.6-flash': 2,
-  'pi/default': 2,
-  'cli-gemini/gemini-3.6-flash-low': 3,
-  'cli-gemini/gemini-3.1-pro-low': 3,
-  'cli-codex/gpt-5.6-luna': 3,
-  'local-bitnet/bitnet-2b': 3,
-};
+}
 
 const TIER_MODES: Record<number, ChatMode[]> = {
   1: ['ask', 'edit', 'agent', 'plan'],
@@ -258,29 +128,34 @@ function isNonChatModel(id: string): boolean {
 }
 
 function toCapabilities(m: ModelInfo): ModelCapabilities {
-  // Per-model limits first, then provider prefix fallback
-  const limits = MODEL_LIMITS[m.id]
-    ?? Object.entries(PROVIDER_FALLBACK_LIMITS).find(([p]) => m.id.startsWith(p))?.[1]
-    ?? { ctx: 128_000, max: 8_192 };
+  // Limits come from the bridge (conduit-bridge 0.8.2+), which discovers them
+  // per provider and can be overridden in ~/.conduit/models.json. The table
+  // that used to live here could not know an id released after this build,
+  // which is every id once catalogs became discovered rather than pinned.
+  // `local-*` models are fetched by this extension straight from a configured
+  // endpoint, so the bridge never sees them and cannot report their limits.
+  // Small local models are the ones that actually overflow, so assume little.
+  const isLocal = m.id.startsWith('local-');
+  const contextWindow = m.context_window ?? (isLocal ? 8_192 : 128_000);
+  const maxTokens = m.max_output_tokens ?? (isLocal ? 2_048 : 8_192);
   const category = Object.entries(CATEGORY_MAP).find(([k]) => m.id.startsWith(k))?.[1] ?? 'api';
   const provider = extractProvider(m.id);
-  // The bridge's own label wins: its catalog is discovered, so MODEL_DISPLAY_NAMES
-  // cannot know the ids that appear between releases. Without this, 493 of 508
-  // live models rendered as a bare slug under a misleading provider heading.
-  const name = m.display_name?.trim() || MODEL_DISPLAY_NAMES[m.id] || shortModelName(m.id);
+  // The bridge supplies the label. Its catalog is discovered, so a table here
+  // could never know the ids that appear between releases — 493 of 508 live
+  // models rendered as a bare slug under a misleading provider heading.
+  const name = m.display_name?.trim() || shortModelName(m.id);
 
-  // Unknown ids used to default to tier 2, which excludes Agent mode. Now that
-  // the bridge discovers catalogs, every newly released model is unknown here —
-  // 21 of the 36 live CLI models — so the default silently withheld Agent from
-  // exactly the newest and usually strongest ones. Trust the model unless this
-  // table says otherwise; the tiers remain as an explicit demotion list.
-  const tier = MODEL_TIERS[m.id] ?? 1;
+  // Every model handles every mode. Tiering them here was a local guess that
+  // silently withheld Agent from any id this build had not heard of — which,
+  // with a discovered catalog, is most of them. The bridge does not rank
+  // models and neither should a hardcoded list.
+  const tier: 1 | 2 | 3 = 1;
   return {
     id: m.id,
     name,
     provider,
-    contextWindow: limits.ctx,
-    maxTokens: limits.max,
+    contextWindow,
+    maxTokens,
     supportsTools: m.capabilities?.tools !== false,
     category,
     supportedModes: TIER_MODES[tier],
