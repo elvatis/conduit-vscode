@@ -5,3 +5,11 @@ coverage/
 .vscode-test/
 *.js.map
 .ai/logs/
+
+# Claude Code machine-local settings. settings.local.json holds a per-machine
+# permission allowlist containing absolute paths, so it carries the operator's
+# username and internal host names into a public repository. It was tracked here
+# from 2026-03-15 to 2026-09-03. A shared .claude/settings.json is still
+# committable; only the *.local.json variants are excluded.
+.claude/settings.local.json
+.claude/*.local.json
