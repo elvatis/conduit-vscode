@@ -17,6 +17,15 @@ All notable changes to conduit-vscode are documented here.
 
 ### Added
 
+- `.github/workflows/release.yml`. Building the `.vsix` and publishing the release
+  were two manual acts and one was forgettable: v0.1.0, v0.2.0 and v0.6.0 are still
+  empty, and v0.10.0 was published five minutes before its asset was uploaded by
+  hand. The workflow does both in one run, gates the tag against package.json, main
+  ancestry and the changelog, re-runs the AAHP gates plus build and tests, and then
+  asserts the published release is not a draft and carries a fully uploaded,
+  non-empty asset matching the digest the gates passed. Split into an unprivileged
+  build job and a publish job that runs no repository or registry code, so nothing
+  installed from npm can reach the token that writes releases.
 - `versionSites` in `aahp.config.json`. The `version-sync` gate reported
   `SKIP - no versionSites configured` through every release that drifted.
 - `aahp check` in CI. Only `verify` and `doctor` ran, so the governance gates,

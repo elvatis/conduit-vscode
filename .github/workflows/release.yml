@@ -1,0 +1,509 @@
+# Release - builds the .vsix from the tagged commit and publishes it as the
+# release asset, with no human step between the two.
+#
+# Why this file exists: GitHub releases are the only channel this extension is
+# distributed through (Marketplace publishing was dropped 2026-07-17). Three of
+# the seventeen releases cut so far are still empty today - v0.1.0, v0.2.0 and
+# v0.6.0 - and v0.10.0 was published at 22:35:18Z with its .vsix uploaded by hand
+# at 22:40:38Z, so the only download link the extension has was dead for five
+# minutes. The release object and the artifact were two separate manual actions
+# and one of them was forgettable.
+#
+# Three rules make it unforgettable:
+#   1. `gh release create` is called WITH the .vsix as a positional argument, so
+#      the release cannot come into existence without its asset.
+#   2. Every path ends by re-reading the published release and failing unless the
+#      expected asset is attached, fully uploaded, non-empty, AND the release is
+#      not a draft. That last clause is not pedantry: `gh release create` with an
+#      asset creates the release as a draft, uploads, then publishes it, so a run
+#      that dies in between leaves a DRAFT carrying the .vsix. A name-only
+#      assertion goes green on exactly that state, and a draft has no public
+#      download link at all - quieter than the bug this file replaces.
+#   3. The workflow runs on all three ways a release is born in this repo: a
+#      pushed tag, a release created in the web UI (9 of the 17 tags here were
+#      born that way, including every asset-less one), and a repair dispatch.
+#
+# OPERATING INSTRUCTION, not optional: on a tag push GitHub loads this file from
+# the TAGGED COMMIT's tree. A tag cut at a commit that predates this file runs
+# NOTHING - no run, no red X, no release, no notification. Only tag commits that
+# already contain .github/workflows/release.yml. The dispatch path cannot repair
+# the three empty releases either: none of those trees has a changelog or the
+# aahp CLI in package.json, and v0.1.0 has no .vscodeignore, so they fail these
+# gates by design. Repair those three by hand, or leave them.
+#
+# Use an ANNOTATED tag (`git tag -a v0.10.1 -m "v0.10.1: what changed"`). The
+# subject line becomes the release title; every existing release here has a
+# descriptive title and a bare "v0.10.1" would be the first regression.
+#
+# The two-job split is a security boundary, not tidiness. `build` runs npm ci,
+# the test suite and vsce - hundreds of third-party packages, some with install
+# scripts - and holds no write scope of any kind. `publish` holds contents: write
+# and runs no repository or registry code at all: it downloads the artifact,
+# checks its sha256 against the digest recorded by `build`, and calls gh. Nothing
+# installed from npm can reach the token that can rewrite the only channel this
+# extension ships through, and nothing installed from npm can append to
+# $GITHUB_PATH ahead of the gh, unzip or jq the assertions depend on.
+#
+# What is re-run here and what is not: a tag push bypasses branch protection
+# entirely (tags are unprotected, /rulesets is []), so this job re-runs the gates
+# that decide whether the tree is releasable and that produce the artifact -
+# aahp verify/check/doctor, the build and the test suite. It deliberately does
+# not re-run CodeQL or supply-chain-guard; those stay on the pull-request path.
+#
+# No secrets: gh authenticates with the auto-provisioned GITHUB_TOKEN and
+# `vsce package` makes no Marketplace call. This repo needs no VSCE_PAT and none
+# should ever be created here.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # A release created in the web UI creates its tag server-side, and it is not
+  # settled whether that fires a tag push event. Nine of this repo's seventeen
+  # tags were born that way and all three permanently empty releases are in that
+  # set, so the path that actually produced the bug is covered explicitly. This
+  # does not self-trigger: the release this workflow publishes is published with
+  # GITHUB_TOKEN, and events raised by GITHUB_TOKEN start no new runs. If both
+  # triggers do fire, the concurrency group below serialises them and the second
+  # run finds the release already correct and leaves it alone.
+  release:
+    types: [published]
+  # Re-run path for a tag that is already pushed: a gate failed, or an earlier
+  # run died between creating the release and attaching the asset. The tag is an
+  # input because github.ref_name on a dispatch is the branch it was started
+  # from, not the tag being released.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to publish or repair
+        required: true
+        type: string
+      dry_run:
+        description: Run every gate and build the .vsix, then stop before publishing
+        required: false
+        default: false
+        type: boolean
+      force:
+        description: Replace an asset that is already attached to a published release
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# The first concurrency block in this repo. Publishing is the one thing here that
+# is not safe to run twice at once: a tag push, a release event and a dispatch
+# repair of the same tag would race on the asset upload. cancel-in-progress stays
+# false on purpose, because cancelling a run between `release create` and the
+# assertion is exactly how a release ends up existing and empty.
+concurrency:
+  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # No write scope. This is the job that executes the dependency tree.
+    permissions:
+      contents: read
+
+    # The tag is resolved once, here, and every step reads it from the
+    # environment as "$TAG". It is never interpolated into a run: block. GitHub
+    # substitutes ${{ }} into the script text before the shell parses it, and git
+    # refnames permit ; $ ( ) ` " ' & | < >, so an interpolated ref name is a
+    # command injection primitive against a workflow that ends in a job holding
+    # contents: write. The publish job takes the tag from this job's output, so
+    # it can only publish the tag these gates ran against.
+    env:
+      TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      vsix: ${{ steps.meta.outputs.vsix }}
+      sha256: ${{ steps.digest.outputs.sha256 }}
+      title: ${{ steps.title.outputs.title }}
+
+    steps:
+      - name: Validate the release request
+        run: |
+          # grep -q succeeds if ANY line matches, and inputs.tag on a dispatch is
+          # a free string that may contain newlines where a git refname cannot.
+          # Count the newlines first, then match the shape.
+          if [ "$(printf '%s' "$TAG" | wc -l)" -ne 0 ] \
+             || ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::refusing to release '$TAG'; expected vX.Y.Z"
+            exit 1
+          fi
+          # A dispatch runs the workflow DEFINITION from the ref it was started
+          # from, so a dispatch from a topic branch runs that branch's copy of
+          # this file, with whatever gates that copy deletes. This refuses the
+          # mistake. It cannot stop someone doing it deliberately, who would
+          # delete this check too; only a repo-side control can, and none exists
+          # yet (see Restrisiko: a ruleset on refs/tags/v* and an environment
+          # with required reviewers on the publish job).
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] \
+             && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::dispatch this workflow from main, not $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v7
+        with:
+          # Explicitly the tag, not github.sha: on a dispatch the default ref is
+          # the branch the run was started from.
+          ref: refs/tags/${{ env.TAG }}
+          # Full history: `git merge-base --is-ancestor` against origin/main
+          # needs real ancestry, and the aahp Layer 2 base is the tagged commit's
+          # parent. Tag objects come with it, which the title step reads.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the tagged commit and the Layer 2 drift base
+        run: |
+          SHA=$(git rev-parse HEAD)
+          echo "TAG_SHA=$SHA" >> "$GITHUB_ENV"
+          # aahp verify --level ci takes its Layer 2 base from AAHP_BASE_SHA and
+          # HARD FAILS if it is unset or equal to HEAD (verify-handoff.sh:340 and
+          # :369) - there is no origin/main fallback at that level. The parent of
+          # the tagged commit is the right base for a release: it makes the
+          # content-drift gate ask whether the release commit itself updated the
+          # handoff state.
+          if ! BASE=$(git rev-parse --verify --quiet "${SHA}^"); then
+            echo "::error::$TAG points at a root commit; aahp verify --level ci needs a base distinct from HEAD"
+            exit 1
+          fi
+          echo "AAHP_BASE_SHA=$BASE" >> "$GITHUB_ENV"
+
+      - name: Refuse a tag that is not on main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$TAG_SHA" origin/main; then
+            echo "::error::$TAG points at $TAG_SHA, which is not an ancestor of main"
+            echo "::error::tags bypass branch protection, so a tag off main is never released"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          # 22 with the npm cache, matching ci.yml. This job produces the file
+          # users install, so it builds on the same Node the required check
+          # builds on.
+          node-version: 22
+          cache: npm
+
+      # The gate this whole workflow was written for. v0.10.0 shipped with
+      # README, both install snippets, STATUS.md and DASHBOARD.md naming three
+      # versions between them, none of which was the tag. package.json is the
+      # single oracle the aahp version-sync gate compares every documented
+      # version site against, so pinning the tag to package.json here makes that
+      # gate transitively enforce the tag across all five documents.
+      - name: Tag must match package.json
+        id: meta
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match package.json version $VERSION"
+            exit 1
+          fi
+          # Every later step derives the artifact name from the same two fields
+          # vsce derives it from, so the filename is never hardcoded and never
+          # guessed from a glob of whatever .vsix files are lying around.
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "VSIX=$NAME-$VERSION.vsix" >> "$GITHUB_ENV"
+          echo "vsix=$NAME-$VERSION.vsix" >> "$GITHUB_OUTPUT"
+          # The tag is now proven to be vX.Y.Z and to equal package.json, so it
+          # is safe to hand to the publish job.
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # The in-archive bundle path comes from package.json main as well, so
+          # the assertion below cannot drift away from what VS Code loads.
+          MAIN=$(node -p "require('./package.json').main")
+          echo "BUNDLE=extension/${MAIN#./}" >> "$GITHUB_ENV"
+
+      - name: Release title from the tag annotation
+        id: title
+        run: |
+          # Annotated tag: the subject line is the title. Lightweight tag: fall
+          # back to the tag name rather than to the commit subject, which is what
+          # for-each-ref would hand back and would read as "chore(release): ...".
+          SUBJECT=""
+          if [ "$(git cat-file -t "refs/tags/$TAG")" = tag ]; then
+            SUBJECT=$(git for-each-ref "refs/tags/$TAG" --format='%(contents:subject)')
+          fi
+          # One line, bounded. The value is written to GITHUB_OUTPUT and later
+          # used as a quoted argument out of the environment, never interpolated.
+          SUBJECT=$(printf '%s' "$SUBJECT" | tr -d '\r\n' | cut -c1-120)
+          printf 'title=%s\n' "${SUBJECT:-$TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Does a release already exist for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Asked once here so the notes gate below knows whether it is guarding
+          # a body that is about to be written or one that already exists. A
+          # transport error must not be read as "no release": that would send the
+          # run down the create path and end in a 422.
+          if OUT=$(gh release view "$TAG" --json isDraft 2>&1); then
+            echo "RELEASE_EXISTS=true" >> "$GITHUB_ENV"
+          elif printf '%s\n' "$OUT" | grep -qi 'release not found'; then
+            echo "RELEASE_EXISTS=false" >> "$GITHUB_ENV"
+          else
+            printf '%s\n' "$OUT"
+            echo "::error::could not determine whether $TAG already has a release"
+            exit 1
+          fi
+
+      # Plain npm ci, not --ignore-scripts: esbuild needs its install script and
+      # the build must actually run here. Acceptable only because this job holds
+      # no write scope - see the header.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run aahp verify (CI level, no escape hatch)
+        run: npx --no-install aahp verify . --level ci
+
+      - name: Run aahp check (governance gates)
+        run: npx --no-install aahp check .
+
+      - name: Run aahp doctor (conformance snapshot)
+        run: npx --no-install aahp doctor . --json
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      # Fail here, before anything is published. A tag that is pushed but has no
+      # release is trivially repaired by adding the changelog section and
+      # re-tagging; a published release with an empty body is public immediately.
+      # So no --generate-notes fallback. On the repair path the body already
+      # exists and is richer than the changelog section, so a missing section is
+      # only reported, not fatal: the repair reconciles the ASSET and never
+      # rewrites the body.
+      - name: Extract the release notes from docs/CHANGELOG.md
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          # The version travels into awk as data via -v, never as part of the
+          # program text, and the match is a literal string prefix rather than a
+          # regex: the dots in a version are regex wildcards, and the closing
+          # bracket in "## [0.10.1]" is what stops it matching "## [0.10.10]".
+          # The terminator is the next "## " heading, not a blank line, because
+          # docs/CHANGELOG.md has no blank line between sections. The CR strip
+          # only matters for local dry runs on a CRLF checkout.
+          awk -v want="## [${VERSION}]" '
+            { sub(/\r$/, "") }
+            index($0, want) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' docs/CHANGELOG.md > "$RUNNER_TEMP/release/RELEASE_NOTES.md"
+          if [ -s "$RUNNER_TEMP/release/RELEASE_NOTES.md" ]; then
+            exit 0
+          fi
+          rm -f "$RUNNER_TEMP/release/RELEASE_NOTES.md"
+          if [ "$RELEASE_EXISTS" = true ]; then
+            echo "::notice::docs/CHANGELOG.md has no '## [$VERSION]' section; $TAG already has a release, so its body is left untouched"
+            exit 0
+          fi
+          echo "::error::docs/CHANGELOG.md has no '## [$VERSION]' section; refusing to publish a bodyless release"
+          exit 1
+
+      # Exact pin, not a floating tag. @vscode/vsce is not a devDependency and
+      # appears nowhere in package-lock.json, so `npx --no-install` (the idiom
+      # the aahp CLI is invoked with) cannot work here and an unpinned
+      # `npx @vscode/vsce` would fetch whatever is latest at release time. The
+      # pin covers vsce itself and NOT its ~30 caret-ranged dependencies, two of
+      # which run install scripts that fetch native binaries; that closure is
+      # resolved fresh on every release and is invisible to package-lock.json, to
+      # Dependabot and to supply-chain-guard. The durable fix is to add
+      # @vscode/vsce as a pinned devDependency and switch this to
+      # `npx --no-install vsce`. Until then it runs in this job, which cannot
+      # publish anything.
+      #
+      # vsce runs the vscode:prepublish script, so the bundle is rebuilt here
+      # from the same source the Build step above compiled.
+      - name: Package the .vsix
+        run: |
+          npx --yes @vscode/vsce@3.9.2 package --no-dependencies \
+            --out "$RUNNER_TEMP/release/$VSIX"
+          ls -l "$RUNNER_TEMP/release/$VSIX"
+
+      # main is ./dist/extension.js and dist/ is gitignored, so a .vsix built
+      # from a tree where the build silently produced nothing still installs
+      # cleanly and then fails at activation with a module-not-found. Assert the
+      # bundle is really inside the archive before the file reaches a user.
+      - name: The .vsix must contain the bundle
+        run: |
+          BYTES=$(unzip -p "$RUNNER_TEMP/release/$VSIX" "$BUNDLE" | wc -c)
+          echo "$BUNDLE: $BYTES bytes"
+          if [ "$BYTES" -lt 10000 ]; then
+            echo "::error::$VSIX does not contain a plausible $BUNDLE"
+            exit 1
+          fi
+
+      - name: Record the artifact digest
+        id: digest
+        run: |
+          # The publish job re-checks this before it uploads anything, so the
+          # file that reaches users is provably the file these gates passed.
+          SUM=$(sha256sum "$RUNNER_TEMP/release/$VSIX" | cut -d' ' -f1)
+          echo "sha256=$SUM" >> "$GITHUB_OUTPUT"
+          echo "$VSIX sha256=$SUM"
+
+      - name: Hand the build off to the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ env.TAG }}
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    # dry_run rehearses every gate, the build and the packaging against a real
+    # tag and stops here. inputs is null on a tag push and on a release event, so
+    # those paths always publish.
+    if: ${{ inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      # The repo default for the workflow token is read-only, so the publish job
+      # has to grant itself write or `gh release create` fails with HTTP 403 at
+      # the very last step. Job-scoped: the workflow floor stays read, and the
+      # build job above never holds this.
+      contents: write
+      # Build provenance. GitHub releases are the only channel and the .vsix
+      # carries no Marketplace signature any more, so this attestation is the
+      # only way a user - or the next maintainer - can tell an asset produced by
+      # this workflow from one somebody built locally and uploaded by hand:
+      #   gh attestation verify conduit-vscode-X.Y.Z.vsix -R elvatis/conduit-vscode
+      id-token: write
+      attestations: write
+
+    env:
+      # Not re-derived from the event: this is the tag the build job validated,
+      # matched against package.json and built from.
+      TAG: ${{ needs.build.outputs.tag }}
+      VSIX: ${{ needs.build.outputs.vsix }}
+      SHA256: ${{ needs.build.outputs.sha256 }}
+      # Comes from the tag annotation, so it is attacker-influenced text: it is
+      # only ever read out of the environment as a quoted argument.
+      TITLE: ${{ needs.build.outputs.title }}
+      FORCE: ${{ inputs.force || false }}
+      # gh runs here without a checkout, so it needs to be told the repo.
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Download the built .vsix and release notes
+        uses: actions/download-artifact@v7
+        with:
+          name: release-${{ env.TAG }}
+          path: ${{ runner.temp }}/release
+
+      - name: Verify the artifact against the digest recorded by the build job
+        run: |
+          cd "$RUNNER_TEMP/release"
+          printf '%s  %s\n' "$SHA256" "$VSIX" | sha256sum -c -
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ runner.temp }}/release/${{ env.VSIX }}
+
+      - name: Publish the release with its .vsix attached
+        env:
+          # gh reads GH_TOKEN / GITHUB_TOKEN from the process environment.
+          # Actions does not put the token there, so without this mapping gh
+          # exits with "set the GH_TOKEN environment variable".
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VSIX_PATH="$RUNNER_TEMP/release/$VSIX"
+          NOTES="$RUNNER_TEMP/release/RELEASE_NOTES.md"
+          if REL=$(gh release view "$TAG" --json isDraft,assets 2>&1); then
+            IS_DRAFT=$(printf '%s' "$REL" | jq -r '.isDraft')
+            # "attached" is not enough: an upload that was started and never
+            # finished leaves an asset with the right name, state "starter" and
+            # size 0, which 404s on download.
+            GOOD=$(printf '%s' "$REL" | jq --arg n "$VSIX" \
+              '[.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)] | length')
+            if [ "$IS_DRAFT" = false ] && [ "$GOOD" -gt 0 ] && [ "$FORCE" != true ]; then
+              # Already correct. Do not rebuild history: a rebuild of an older
+              # tag on a newer toolchain is byte-different, and replacing an
+              # asset users have already downloaded is not a repair. Dispatch
+              # with force: true to override deliberately.
+              echo "::notice::$TAG is already published with $VSIX attached; leaving it untouched"
+              echo "UPLOADED=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            # Repair. The body is left alone: release bodies here are hand
+            # written prose, richer than the changelog section, and regenerating
+            # one would be a downgrade. --clobber deletes before it uploads, so a
+            # failed upload can leave the release empty; that is what the
+            # assertion below is for.
+            echo "reconciling the asset on the existing release $TAG"
+            gh release upload "$TAG" "$VSIX_PATH" --clobber
+            # A run that died inside `gh release create` left a DRAFT holding the
+            # asset, and every re-run lands in this branch. Without this line the
+            # draft is never published and the job goes green over a release no
+            # user can see. No-op on an already published release.
+            gh release edit "$TAG" --draft=false
+            echo "UPLOADED=true" >> "$GITHUB_ENV"
+          elif printf '%s' "$REL" | grep -qi 'release not found'; then
+            if [ ! -s "$NOTES" ]; then
+              echo "::error::no release notes were extracted and $TAG has no release to repair"
+              exit 1
+            fi
+            # Create and attach in ONE call. This is the whole point: there is no
+            # moment at which a published release exists without its .vsix. gh
+            # implements it by creating the release as a draft, uploading, then
+            # publishing - which is also why a half-finished run leaves a draft
+            # and why the assertion below refuses one. --verify-tag makes gh
+            # refuse to invent a tag if anything upstream went wrong.
+            gh release create "$TAG" "$VSIX_PATH" \
+              --verify-tag \
+              --title "$TITLE" \
+              --notes-file "$NOTES"
+            echo "UPLOADED=true" >> "$GITHUB_ENV"
+          else
+            printf '%s\n' "$REL"
+            echo "::error::could not read the release for $TAG"
+            exit 1
+          fi
+
+      - name: Assert the published release carries a downloadable .vsix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" --json isDraft,assets > "$RUNNER_TEMP/rel.json"
+          if [ "$(jq -r '.isDraft' "$RUNNER_TEMP/rel.json")" != false ]; then
+            echo "::error::$TAG is still a draft; it has no public download link"
+            exit 1
+          fi
+          if ! jq -e --arg n "$VSIX" \
+               '.assets[] | select(.name == $n and .state == "uploaded" and .size > 0)' \
+               "$RUNNER_TEMP/rel.json" > /dev/null; then
+            echo "::error::$TAG is published without a usable $VSIX; assets present:"
+            jq -r '.assets[] | "\(.name) state=\(.state) size=\(.size)"' "$RUNNER_TEMP/rel.json"
+            exit 1
+          fi
+          if [ "$UPLOADED" = true ]; then
+            # This run uploaded the file, so the published size must be exactly
+            # the size of the file the gates passed.
+            BYTES=$(wc -c < "$RUNNER_TEMP/release/$VSIX")
+            if ! jq -e --arg n "$VSIX" --argjson b "$BYTES" \
+                 '.assets[] | select(.name == $n and .size == $b)' \
+                 "$RUNNER_TEMP/rel.json" > /dev/null; then
+              echo "::error::$VSIX is attached to $TAG but its size is not $BYTES bytes"
+              jq -r '.assets[] | "\(.name) state=\(.state) size=\(.size)"' "$RUNNER_TEMP/rel.json"
+              exit 1
+            fi
+          fi
+          echo "$TAG published with $VSIX attached, uploaded and non-empty"

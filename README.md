@@ -667,6 +667,18 @@ Open issues tracking planned features:
 ## Changelog
 
 ### v0.10.1 (2026-09-03)
+- `.github/workflows/release.yml` builds the `.vsix` from the tagged commit and
+  publishes it as the release asset in one run, so a release cannot exist without
+  its download. Three of the seventeen releases cut so far are still empty
+  (v0.1.0, v0.2.0, v0.6.0) and v0.10.0 had no asset for five minutes after
+  publication; the release object and the artifact were two separate manual acts
+- The workflow refuses a tag that disagrees with package.json, is not an ancestor
+  of main, or has no matching `docs/CHANGELOG.md` section, and re-runs
+  `aahp verify`, `aahp check`, `aahp doctor`, the build and the tests before
+  publishing. It asserts afterwards that the release is not a draft and carries a
+  fully uploaded, non-empty asset whose bytes are the bytes the gates passed
+- Note when tagging: GitHub loads the workflow from the tagged commit, so a tag
+  cut before this file exists runs nothing at all, silently
 - Release hygiene only; no runtime change. v0.10.0 shipped with no `.vsix` attached
   to its GitHub release, which is this project only distribution channel, and with a
   README that still read 0.9.0 and install snippets that still read 0.7.6
