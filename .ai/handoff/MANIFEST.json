@@ -3,70 +3,70 @@
   "project": "pv",
   "last_session": {
     "agent": "cli-tool",
-    "session_id": "cli-1788420239",
-    "timestamp": "2026-09-03T07:24:00Z",
-    "commit": "8292276",
+    "session_id": "cli-1788420959",
+    "timestamp": "2026-09-03T07:35:59Z",
+    "commit": "7c71064",
     "phase": "idle",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
       "checksum": "sha256:6017c88343266424382a4369b1ddfdd9a87c5301ec7452c043234fd8eb642b40",
-      "updated": "2026-09-03T07:23:59Z",
+      "updated": "2026-09-03T07:35:38Z",
       "lines": 129,
       "summary": "| Feature | Status | Notes |"
     },
     "NEXT_ACTIONS.md": {
-      "checksum": "sha256:d9ea0f38e2595a6af5f7d1de1335156e0cdf1f8526ac3110da104fceec26dac4",
-      "updated": "2026-09-03T07:23:12Z",
-      "lines": 60,
+      "checksum": "sha256:67673753afe5210ab9d9f74e64f081b45e028b5502b3f767f0acb30073b24395",
+      "updated": "2026-09-03T07:35:58Z",
+      "lines": 101,
       "summary": "Current version: **v0.10.1**"
     },
     "LOG.md": {
       "checksum": "sha256:5869bdd3b1358d96ad2a4c11a00d3d2d81bdba07edad7093445e1c8a89a6d057",
-      "updated": "2026-09-03T07:18:17Z",
+      "updated": "2026-09-03T07:35:38Z",
       "lines": 111,
       "summary": "_Reverse chronological. Latest session first._"
     },
     "LOG-ARCHIVE.md": {
       "checksum": "sha256:36837627f7ee88cc9389b8bee9d52952dc75b3dc511a8ccf776db38f4e1e3b8e",
-      "updated": "2026-09-03T07:16:06Z",
+      "updated": "2026-09-03T07:34:13Z",
       "lines": 10,
       "summary": "(no summary available)"
     },
     "DASHBOARD.md": {
       "checksum": "sha256:5c2e4207cb49745fdd6cd7343bd7ab3806c7101bb82472b938837e90950a3634",
-      "updated": "2026-09-03T07:16:06Z",
+      "updated": "2026-09-03T07:34:13Z",
       "lines": 56,
       "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-09-03_"
     },
     "TRUST.md": {
       "checksum": "sha256:a63d46b6769f9706730db66239c40a9b1ea72a209360299a7e3831ecede5442a",
-      "updated": "2026-09-03T07:19:42Z",
+      "updated": "2026-09-03T07:35:38Z",
       "lines": 73,
       "summary": "| Level | Meaning |"
     },
     "CONVENTIONS.md": {
       "checksum": "sha256:c981e86105fe42ed99653009e6219fc0b74419d0f30929795aa61219c856022f",
-      "updated": "2026-09-03T07:20:29Z",
+      "updated": "2026-09-03T07:35:38Z",
       "lines": 78,
       "summary": "- TypeScript strict mode, CommonJS output (VS Code extension requirement)"
     },
     "WORKFLOW.md": {
       "checksum": "sha256:fa7207ba5773dde73d4435c42d19ed2a15198a7368839dbb2618eb4980c7af28",
-      "updated": "2026-09-03T07:20:29Z",
+      "updated": "2026-09-03T07:35:38Z",
       "lines": 49,
       "summary": "| Agent | Model | Role |"
     },
     "GROUNDING.md": {
       "checksum": "sha256:7ef8cece585dc5defb4285175b9ba560d5469675df553d4ce28ec9e7aec24343",
-      "updated": "2026-09-03T07:16:06Z",
+      "updated": "2026-09-03T07:34:13Z",
       "lines": 209,
       "summary": "This register EXTENDS existing AAHP machinery; it does not fork or replace it. It"
     },
     "pii-allowlist.json": {
       "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
-      "updated": "2026-09-03T07:16:06Z",
+      "updated": "2026-09-03T07:34:13Z",
       "lines": 4,
       "summary": "{"
     }
@@ -74,7 +74,7 @@
   "quick_context": "| Feature | Status | Notes | Current version: **v0.10.1** ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 4294,
-    "full_read": 10007
+    "manifest_plus_core": 4773,
+    "full_read": 10486
   }
 }
