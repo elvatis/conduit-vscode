@@ -5,7 +5,7 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.10.1
+**Current version:** 0.10.2
 
 > **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.9.0+ at `http://127.0.0.1:31338` (`mode` on chat completions: `chat` | `plan` | `agent`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
@@ -48,7 +48,7 @@ Connect VS Code to **any AI provider** through a single extension. One chat inte
 
 **Option A - From .vsix file:**
 ```bash
-code --install-extension conduit-vscode-0.10.1.vsix
+code --install-extension conduit-vscode-0.10.2.vsix
 ```
 Or in VS Code: `Extensions > ... > Install from VSIX...`
 
@@ -58,7 +58,7 @@ git clone https://github.com/elvatis/conduit-vscode
 cd conduit-vscode
 npm install --include=dev
 npx @vscode/vsce package --no-dependencies
-code --install-extension conduit-vscode-0.10.1.vsix
+code --install-extension conduit-vscode-0.10.2.vsix
 ```
 
 ### First Launch
@@ -593,7 +593,7 @@ Press **F5** in VS Code to launch the Extension Development Host for debugging.
 ### Package for Distribution
 ```bash
 npx @vscode/vsce package --no-dependencies
-# produces conduit-vscode-0.10.1.vsix
+# produces conduit-vscode-0.10.2.vsix
 ```
 
 ### Project Structure
@@ -666,6 +666,16 @@ Open issues tracking planned features:
 
 ## Changelog
 
+### v0.10.2 (2026-09-03)
+- Type checking, which this extension never had: esbuild bundles without
+  checking types, so `npm run build` passed over 159 errors while TRUST.md
+  recorded the opposite as verified. `npm run typecheck` now runs in CI
+- 157 of those came from `tsconfig.json` declaring no `"types"`, so node
+  globals resolved to nothing. The two real ones are fixed
+- The sessions tree can clear its highlight again: `refresh` took
+  `string | undefined` while the event it listens to emits `string | null`,
+  and `null` is what "no active session" looks like
+- No change to chat, providers or the bridge protocol
 ### v0.10.1 (2026-09-03)
 - `.github/workflows/release.yml` builds the `.vsix` from the tagged commit and
   publishes it as the release asset in one run, so a release cannot exist without
