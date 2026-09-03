@@ -1,6 +1,6 @@
 # NEXT_ACTIONS.md - conduit-vscode
 
-Current version: **v0.10.1**
+Current version: **v0.10.2**
 
 _Last updated: 2026-09-02_
 
