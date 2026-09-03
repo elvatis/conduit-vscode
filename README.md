@@ -5,7 +5,7 @@
 
 Connect VS Code to **any AI provider** through a single extension. One chat interface for Grok, Claude, Gemini, ChatGPT, OpenAI Codex, OpenCode, Pi, and local models, powered by [conduit-bridge](https://github.com/elvatis/conduit-bridge).
 
-**Current version:** 0.10.1
+**Current version:** 0.9.0
 
 > **Status:** Active development. Requires [conduit-bridge](https://github.com/elvatis/conduit-bridge) v0.9.0+ at `http://127.0.0.1:31338` (`mode` on chat completions: `chat` | `plan` | `agent`). CLI, API, and LM Studio providers are the supported transports. Web/Playwright providers were removed in the bridge.
 
