@@ -41,7 +41,7 @@
       "note": "version header, 2 install snippets, packaging step (the vN.N.N changelog heading is not boundary-matched)"
     },
     {
-      "file": "docs/CHANGELOG.md",
+      "file": "CHANGELOG.md",
       "minOccurrences": 1,
       "boundary": true,
       "note": "release section heading"
@@ -73,5 +73,14 @@
   ],
   "verifyWorkflow": {
     "enforce": true
+  },
+  "docLinks": {
+    "include": [
+      "README.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md",
+      "docs/*.md",
+      ".ai/handoff/*.md"
+    ]
   }
 }

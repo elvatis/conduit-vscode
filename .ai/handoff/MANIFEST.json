@@ -3,22 +3,22 @@
   "project": "pv",
   "last_session": {
     "agent": "cli-tool",
-    "session_id": "cli-1788420068",
-    "timestamp": "2026-09-03T07:21:09Z",
-    "commit": "fe2dfd4",
+    "session_id": "cli-1788420239",
+    "timestamp": "2026-09-03T07:24:00Z",
+    "commit": "8292276",
     "phase": "idle",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:313495158929a52dde3af9f95789fd587074740cab2ee1baf1320d4bcb7d9178",
-      "updated": "2026-09-03T07:18:18Z",
-      "lines": 127,
+      "checksum": "sha256:6017c88343266424382a4369b1ddfdd9a87c5301ec7452c043234fd8eb642b40",
+      "updated": "2026-09-03T07:23:59Z",
+      "lines": 129,
       "summary": "| Feature | Status | Notes |"
     },
     "NEXT_ACTIONS.md": {
       "checksum": "sha256:d9ea0f38e2595a6af5f7d1de1335156e0cdf1f8526ac3110da104fceec26dac4",
-      "updated": "2026-09-03T07:18:17Z",
+      "updated": "2026-09-03T07:23:12Z",
       "lines": 60,
       "summary": "Current version: **v0.10.1**"
     },
@@ -74,7 +74,7 @@
   "quick_context": "| Feature | Status | Notes | Current version: **v0.10.1** ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 4058,
-    "full_read": 9771
+    "manifest_plus_core": 4294,
+    "full_read": 10007
   }
 }

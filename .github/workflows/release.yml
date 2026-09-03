@@ -288,7 +288,7 @@ jobs:
       # exists and is richer than the changelog section, so a missing section is
       # only reported, not fatal: the repair reconciles the ASSET and never
       # rewrites the body.
-      - name: Extract the release notes from docs/CHANGELOG.md
+      - name: Extract the release notes from CHANGELOG.md
         run: |
           mkdir -p "$RUNNER_TEMP/release"
           # The version travels into awk as data via -v, never as part of the
@@ -296,23 +296,23 @@ jobs:
           # regex: the dots in a version are regex wildcards, and the closing
           # bracket in "## [0.10.1]" is what stops it matching "## [0.10.10]".
           # The terminator is the next "## " heading, not a blank line, because
-          # docs/CHANGELOG.md has no blank line between sections. The CR strip
+          # CHANGELOG.md has no blank line between sections. The CR strip
           # only matters for local dry runs on a CRLF checkout.
           awk -v want="## [${VERSION}]" '
             { sub(/\r$/, "") }
             index($0, want) == 1 { found = 1; next }
             found && /^## / { exit }
             found { print }
-          ' docs/CHANGELOG.md > "$RUNNER_TEMP/release/RELEASE_NOTES.md"
+          ' CHANGELOG.md > "$RUNNER_TEMP/release/RELEASE_NOTES.md"
           if [ -s "$RUNNER_TEMP/release/RELEASE_NOTES.md" ]; then
             exit 0
           fi
           rm -f "$RUNNER_TEMP/release/RELEASE_NOTES.md"
           if [ "$RELEASE_EXISTS" = true ]; then
-            echo "::notice::docs/CHANGELOG.md has no '## [$VERSION]' section; $TAG already has a release, so its body is left untouched"
+            echo "::notice::CHANGELOG.md has no '## [$VERSION]' section; $TAG already has a release, so its body is left untouched"
             exit 0
           fi
-          echo "::error::docs/CHANGELOG.md has no '## [$VERSION]' section; refusing to publish a bodyless release"
+          echo "::error::CHANGELOG.md has no '## [$VERSION]' section; refusing to publish a bodyless release"
           exit 1
 
       # Exact pin, not a floating tag. @vscode/vsce is not a devDependency and

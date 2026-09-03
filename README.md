@@ -673,7 +673,7 @@ Open issues tracking planned features:
   (v0.1.0, v0.2.0, v0.6.0) and v0.10.0 had no asset for five minutes after
   publication; the release object and the artifact were two separate manual acts
 - The workflow refuses a tag that disagrees with package.json, is not an ancestor
-  of main, or has no matching `docs/CHANGELOG.md` section, and re-runs
+  of main, or has no matching `CHANGELOG.md` section, and re-runs
   `aahp verify`, `aahp check`, `aahp doctor`, the build and the tests before
   publishing. It asserts afterwards that the release is not a draft and carries a
   fully uploaded, non-empty asset whose bytes are the bytes the gates passed
@@ -683,7 +683,7 @@ Open issues tracking planned features:
   to its GitHub release, which is this project only distribution channel, and with a
   README that still read 0.9.0 and install snippets that still read 0.7.6
 - `versionSites` is now configured, so `aahp check` fails when the version in
-  package.json disagrees with README, docs/CHANGELOG.md, STATUS.md or DASHBOARD.md.
+  package.json disagrees with README, CHANGELOG.md, STATUS.md or DASHBOARD.md.
   The gate existed all along and reported `SKIP - no versionSites configured`
 - CI runs `aahp check` alongside `verify` and `doctor`; it never ran before, so no
   governance gate could fail the build
