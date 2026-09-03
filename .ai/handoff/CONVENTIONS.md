@@ -70,9 +70,9 @@ tsconfig.json
 | `#terminal` | inline | Terminal output reference |
 
 ## Release Checklist
-1. `npm run build` - must succeed
-2. Bump version in `package.json`
-3. `npx @vscode/vsce package --no-dependencies` - generates `.vsix`
-4. Test `.vsix` locally: `code --install-extension conduit-vscode-X.Y.Z.vsix`
-5. Git commit + tag + `gh release create` (attach `.vsix`)
-6. Update `.ai/handoff/` files (STATUS, DASHBOARD, LOG, MANIFEST, NEXT_ACTIONS)
+
+Releases are cut by `.github/workflows/release.yml`: pushing a
+`vX.Y.Z` tag builds the `.vsix` and publishes it as the release
+asset in one run, and fails if the tag disagrees with
+package.json. There is no manual attach step. See that file for
+the gates and the residual risks.

@@ -690,7 +690,7 @@ Open issues tracking planned features:
 - Removed the em dashes the repo own forbidden-patterns rule bans, including the one
   in the `displayName` shown in the VS Code extensions list
 ### v0.10.0 (2026-09-03)
-- Deleted the local model tables: conduit-bridge 0.9.0 reports `context_window`,
+- Deleted the local model tables: conduit-bridge v0.9.0 reports `context_window`,
   `max_output_tokens` and `display_name`, so `MODEL_LIMITS`, `PROVIDER_FALLBACK_LIMITS`,
   `MODEL_DISPLAY_NAMES` and `MODEL_TIERS` are gone (129 lines). They went stale the
   moment the bridge started discovering catalogs instead of shipping a pinned list
@@ -698,7 +698,7 @@ Open issues tracking planned features:
   build had not heard of, which with a discovered catalog was 21 of 36 CLI models
 - Trimming honours `max_prompt_chars`, so a prompt cannot exceed what the transport carries
 - `local-*` models keep a conservative 8192-token assumption: the bridge never sees them
-- Requires conduit-bridge 0.9.0
+- Requires conduit-bridge v0.9.0
 
 ### v0.9.1 (2026-09-02)
 - Request timeout is a budget on the whole turn, not an idle timer, because no CLI

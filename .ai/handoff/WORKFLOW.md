@@ -46,4 +46,4 @@ Release: gh release create (if version bump)
 - All webview HTML must be inline (no external resources)
 - Always check `editor.selection.isEmpty` before selection-dependent commands
 - `vscode` is always external - never import it from test code without mocking
-- `gh release create` mandatory for releases - git tags alone don't suffice
+- Releases are automated by `.github/workflows/release.yml`; there is no manual attach step.

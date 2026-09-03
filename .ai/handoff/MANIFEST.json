@@ -3,78 +3,78 @@
   "project": "pv",
   "last_session": {
     "agent": "cli-tool",
-    "session_id": "cli-1788418464",
-    "timestamp": "2026-09-03T06:54:24Z",
-    "commit": "de767e5",
+    "session_id": "cli-1788420068",
+    "timestamp": "2026-09-03T07:21:09Z",
+    "commit": "fe2dfd4",
     "phase": "idle",
     "duration_minutes": 0
   },
   "files": {
     "STATUS.md": {
-      "checksum": "sha256:f6c69c1eaaa8a30b73f57eaf8ed553fa7b0d5835c6d6627a7f22bdb01faf5ff6",
-      "updated": "2026-09-03T06:53:20Z",
+      "checksum": "sha256:313495158929a52dde3af9f95789fd587074740cab2ee1baf1320d4bcb7d9178",
+      "updated": "2026-09-03T07:18:18Z",
       "lines": 127,
-      "summary": "(no summary available)"
+      "summary": "| Feature | Status | Notes |"
     },
     "NEXT_ACTIONS.md": {
-      "checksum": "sha256:bb84b2e42a95eb2f6ca61c126a41fcc0dd29ee3ea4c355f699af9362a09555d6",
-      "updated": "2026-09-03T06:51:27Z",
-      "lines": 58,
-      "summary": "_Last updated: 2026-09-02_"
+      "checksum": "sha256:d9ea0f38e2595a6af5f7d1de1335156e0cdf1f8526ac3110da104fceec26dac4",
+      "updated": "2026-09-03T07:18:17Z",
+      "lines": 60,
+      "summary": "Current version: **v0.10.1**"
     },
     "LOG.md": {
-      "checksum": "sha256:14d5b36767eb12dd1cc94203571d9b28729ceda2cf2e7ffb1b0a4d82692080cc",
-      "updated": "2026-09-03T06:51:27Z",
+      "checksum": "sha256:5869bdd3b1358d96ad2a4c11a00d3d2d81bdba07edad7093445e1c8a89a6d057",
+      "updated": "2026-09-03T07:18:17Z",
       "lines": 111,
       "summary": "_Reverse chronological. Latest session first._"
     },
     "LOG-ARCHIVE.md": {
       "checksum": "sha256:36837627f7ee88cc9389b8bee9d52952dc75b3dc511a8ccf776db38f4e1e3b8e",
-      "updated": "2026-09-03T06:51:27Z",
+      "updated": "2026-09-03T07:16:06Z",
       "lines": 10,
       "summary": "(no summary available)"
     },
     "DASHBOARD.md": {
       "checksum": "sha256:5c2e4207cb49745fdd6cd7343bd7ab3806c7101bb82472b938837e90950a3634",
-      "updated": "2026-09-03T06:51:27Z",
+      "updated": "2026-09-03T07:16:06Z",
       "lines": 56,
       "summary": "_Quick-glance state for autonomous agents. Last updated: 2026-09-03_"
     },
     "TRUST.md": {
-      "checksum": "sha256:c215dc057c3622e4d162092485b3d4560e8dea6a5a0c0b18a64a9de3ed0642f4",
-      "updated": "2026-09-03T06:51:27Z",
+      "checksum": "sha256:a63d46b6769f9706730db66239c40a9b1ea72a209360299a7e3831ecede5442a",
+      "updated": "2026-09-03T07:19:42Z",
       "lines": 73,
-      "summary": "(no summary available)"
+      "summary": "| Level | Meaning |"
     },
     "CONVENTIONS.md": {
-      "checksum": "sha256:daf29e79be137d6d995bc12209360d0258437b5a55878fd00b83c6079f21d309",
-      "updated": "2026-09-03T06:51:27Z",
+      "checksum": "sha256:c981e86105fe42ed99653009e6219fc0b74419d0f30929795aa61219c856022f",
+      "updated": "2026-09-03T07:20:29Z",
       "lines": 78,
       "summary": "- TypeScript strict mode, CommonJS output (VS Code extension requirement)"
     },
     "WORKFLOW.md": {
-      "checksum": "sha256:717d55f1f79b11e13ce2ea26e9724770600aafd39ffee0132ececfb02b48e04f",
-      "updated": "2026-09-03T06:51:27Z",
+      "checksum": "sha256:fa7207ba5773dde73d4435c42d19ed2a15198a7368839dbb2618eb4980c7af28",
+      "updated": "2026-09-03T07:20:29Z",
       "lines": 49,
-      "summary": "(no summary available)"
+      "summary": "| Agent | Model | Role |"
     },
     "GROUNDING.md": {
       "checksum": "sha256:7ef8cece585dc5defb4285175b9ba560d5469675df553d4ce28ec9e7aec24343",
-      "updated": "2026-09-03T06:51:27Z",
+      "updated": "2026-09-03T07:16:06Z",
       "lines": 209,
-      "summary": "(no summary available)"
+      "summary": "This register EXTENDS existing AAHP machinery; it does not fork or replace it. It"
     },
     "pii-allowlist.json": {
       "checksum": "sha256:7c1051f6e2bc3943b7c1dbe4da229694455681b8875a346c99279e555edb733f",
-      "updated": "2026-09-03T06:51:27Z",
+      "updated": "2026-09-03T07:16:06Z",
       "lines": 4,
       "summary": "{"
     }
   },
-  "quick_context": "(no summary available) _Last updated: 2026-09-02_ ",
+  "quick_context": "| Feature | Status | Notes | Current version: **v0.10.1** ",
   "token_budget": {
     "manifest_only": 85,
-    "manifest_plus_core": 4054,
-    "full_read": 9656
+    "manifest_plus_core": 4058,
+    "full_read": 9771
   }
 }

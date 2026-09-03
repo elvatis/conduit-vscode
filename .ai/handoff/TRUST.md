@@ -35,17 +35,17 @@ and README section 2.10 for the doctrine.
 
 | Property | Status | Provenance | Last Verified | Agent | TTL | Expires | Notes |
 |----------|--------|------------|---------------|-------|-----|---------|-------|
-| TypeScript compiles with zero errors | verified | tool_verified | - | - | - | - | tsc type-check |
-| esbuild bundle succeeds | verified | tool_verified | - | - | - | - | `dist/extension.js` ~123kb |
-| All VS Code API calls use correct types | verified | tool_verified | - | - | - | - | `@types/vscode ^1.90.0` |
-| Extension activates and runs in VS Code | verified | runtime_observed | - | - | - | - | tested locally |
-| Model selection works correctly | verified | runtime_observed | - | - | - | - | tier icon stripping verified |
-| Agent step cards render with spinner/checkmark transitions | verified | runtime_observed | - | - | - | - | |
-| Markdown rendering handles headings, lists, tables, blockquotes, code blocks | verified | runtime_observed | - | - | - | - | |
-| #workspace and #codebase mentions resolve correctly | verified | runtime_observed | - | - | - | - | |
-| .vsix packaging works | verified | tool_verified | - | - | - | - | `npx @vscode/vsce package --no-dependencies` |
-| GitHub releases created with .vsix attached | verified | human_confirmed | - | - | - | - | v0.1.0, v0.2.0, v0.3.0 |
-| 30 tests passing (vitest) | verified | test_verified | - | - | - | - | |
+| TypeScript compiles with zero errors | unverified | assumed | - | - | - | - | CONTRADICTED on 2026-09-03: there is no typecheck script and no CI step, and `npx tsc --noEmit` reports 159 errors. About 120 come from tsconfig declaring no "types", so node globals are missing; the remaining 33 are genuine noImplicitAny errors in src. The build passes because esbuild does not type-check. Fixing this is source work, tracked separately. |
+| esbuild bundle succeeds | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `dist/extension.js` ~123kb |
+| All VS Code API calls use correct types | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `@types/vscode ^1.90.0` |
+| Extension activates and runs in VS Code | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | tested locally |
+| Model selection works correctly | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | tier icon stripping verified |
+| Agent step cards render with spinner/checkmark transitions | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 |  |
+| Markdown rendering handles headings, lists, tables, blockquotes, code blocks | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 |  |
+| #workspace and #codebase mentions resolve correctly | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 |  |
+| .vsix packaging works | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `npx @vscode/vsce package --no-dependencies` |
+| GitHub releases created with .vsix attached | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | v0.3.0, v0.10.0, v0.10.1 carry a .vsix. v0.1.0, v0.2.0 and v0.6.0 have ZERO assets, measured via the releases API on 2026-09-03; the earlier claim that v0.1.0 and v0.2.0 had one was wrong. Enforced from v0.10.1 by .github/workflows/release.yml. |
+| 30 tests passing (vitest) | verified | test_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 |  |
 
 ---
 
@@ -56,7 +56,7 @@ and README section 2.10 for the doctrine.
 | Multi-turn agent loop | untested | - | - | - | - | - | T-016 |
 | VS Code Marketplace publishing | untested | - | - | - | - | - | T-006 |
 | All provider login flows end-to-end | untested | - | - | - | - | - | depends on bridge + account access |
-| Performance with very large workspaces (>1000 files) for #codebase mention | untested | - | - | - | - | - | |
+| Performance with very large workspaces (>1000 files) for #codebase mention | untested | - | - | - | - | - |  |
 
 ---
 
