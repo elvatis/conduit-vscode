@@ -2,6 +2,26 @@
 
 All notable changes to conduit-vscode are documented here.
 
+## [Unreleased]
+
+### Added
+
+- `npm run typecheck` (`tsc --noEmit`), run in CI before the build. Nothing had
+  ever type-checked this extension: esbuild bundles without checking types, so
+  159 errors accumulated unseen while TRUST.md recorded the opposite as verified.
+
+### Fixed
+
+- `tsconfig.json` declared no `"types"`, so node globals resolved to nothing.
+  That alone accounted for 157 of the 159 errors, including every implicit-any
+  one, which had been misread as independent source defects.
+- A dynamic `import()` in the LLM validation test omitted the `.js` extension
+  that Node16 module resolution requires.
+- `SessionsTreeProvider.refresh` took `string | undefined` while the event it
+  listens to emits `string | null`. `null` means "no active session", and the
+  narrow type meant the tree could never clear its highlight; `undefined` still
+  means "leave it alone", so background refreshes are unaffected.
+
 ## [0.10.1] - 2026-09-03
 
 ### Fixed
@@ -191,6 +211,7 @@ All notable changes to conduit-vscode are documented here.
 ### Added
 - Reliable agent loop with tool execution
 
+[Unreleased]: https://github.com/elvatis/conduit-vscode/compare/v0.10.1...HEAD
 [0.10.1]: https://github.com/elvatis/conduit-vscode/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/elvatis/conduit-vscode/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/elvatis/conduit-vscode/compare/v0.9.0...v0.9.1

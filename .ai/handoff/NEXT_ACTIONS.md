@@ -72,13 +72,16 @@ decision or source work, so it is recorded here rather than assumed.
    2026-09-03 cannot block a merge. Needs a repository settings change.
    Verify afterwards with a throwaway pull request that violates one gate.
 
-2. **Nothing type-checks this repository.** `npx tsc --noEmit` reports 159
-   errors: roughly 120 because `tsconfig.json` declares no `"types"`, so node
-   globals resolve to nothing, and 33 genuine `noImplicitAny` errors in
-   `src`. The build passes only because esbuild does not type-check.
-   `TRUST.md` claimed this was verified; that row is now `unverified` with
-   the measurement recorded. Fixing it is source work: add the `types` entry
-   first, then the 33 annotations, then a `typecheck` script and a CI step.
+2. ~~Nothing type-checks this repository.~~ **DONE 2026-09-03.**
+   `npm run typecheck` exists, exits 0, and runs in CI before the
+   build. Correction to what this entry said: the "33 genuine
+   noImplicitAny errors" were not genuine. tsconfig declared no
+   `"types"`, so node globals resolved to nothing and the implicit-any
+   errors were downstream of that. Adding `"types": ["node"]` took 159
+   errors to 2. Both remaining ones were real and are fixed: a dynamic
+   import missing its `.js` extension under Node16 resolution, and
+   `SessionsTreeProvider.refresh` typed too narrowly to accept the
+   `null` its own event emits.
 
 3. **Three releases are permanently empty**: v0.1.0, v0.2.0 and v0.6.0 carry
    zero assets. `release.yml` prevents new ones from being published without
