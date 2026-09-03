@@ -35,7 +35,7 @@ and README section 2.10 for the doctrine.
 
 | Property | Status | Provenance | Last Verified | Agent | TTL | Expires | Notes |
 |----------|--------|------------|---------------|-------|-----|---------|-------|
-| TypeScript compiles with zero errors | unverified | assumed | - | - | - | - | CONTRADICTED on 2026-09-03: there is no typecheck script and no CI step, and `npx tsc --noEmit` reports 159 errors. About 120 come from tsconfig declaring no "types", so node globals are missing; the remaining 33 are genuine noImplicitAny errors in src. The build passes because esbuild does not type-check. Fixing this is source work, tracked separately. |
+| TypeScript compiles with zero errors | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `npm run typecheck` (tsc --noEmit) exits 0 and runs in CI. Earlier today this row was downgraded on a count of 159 errors said to include 33 genuine noImplicitAny defects; that reading was wrong. tsconfig declared no "types", so node globals were missing and the implicit-any errors were downstream of that. With "types": ["node"] only 2 real errors remained, both fixed here. |
 | esbuild bundle succeeds | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `dist/extension.js` ~123kb |
 | All VS Code API calls use correct types | verified | tool_verified | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | `@types/vscode ^1.90.0` |
 | Extension activates and runs in VS Code | verified | runtime_observed | 2026-09-03 | claude-opus-5 | 90d | 2026-12-03 | tested locally |

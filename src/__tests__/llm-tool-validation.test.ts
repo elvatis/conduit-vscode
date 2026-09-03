@@ -281,7 +281,7 @@ const LLM_MODEL = process.env.LLM_MODEL;
 describe.skipIf(!LLM_MODEL)('live LLM tool-call generation', () => {
   it(`generates correct tool calls with ${LLM_MODEL}`, async () => {
     // Dynamic import to avoid pulling in cli-runner when not needed
-    const { routeToCliRunner } = await import('../cli-runner');
+    const { routeToCliRunner } = await import('../cli-runner.js');
     const catalog = buildToolCatalogPrompt();
     const rendered = SAMPLE_PROMPT.replace('{{TOOL_CATALOG}}', catalog);
 

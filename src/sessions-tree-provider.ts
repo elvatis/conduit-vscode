@@ -505,7 +505,10 @@ export class SessionsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     setBackgroundRefreshCallback(() => this.refresh());
   }
 
-  refresh(activeSessionId?: string): void {
+  // Accepts null as well as undefined, because onSessionChange emits
+  // string | null and null means "no active session". undefined still means
+  // "leave the highlight alone", so a background refresh does not clear it.
+  refresh(activeSessionId?: string | null): void {
     if (activeSessionId !== undefined) {
       this._activeSessionId = activeSessionId;
     }

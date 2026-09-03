@@ -25,6 +25,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Before the build, because esbuild does not type-check: it bundles happily
+      # over 159 type errors, which is how TRUST.md came to claim this repo
+      # compiled cleanly when nothing had ever checked.
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Build
         run: npm run build
 
