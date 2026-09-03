@@ -6,7 +6,7 @@ Conduit is a VS Code extension that connects VS Code to any OpenAI-compatible AI
 
 - Publisher: `elvatis`
 - Extension ID: `elvatis.conduit-vscode`
-- Current version: `0.9.0`
+- Current version: `0.10.1`
 
 ## Build & Test
 
@@ -23,7 +23,6 @@ npm test             # vitest run
 2. `npm run build` - must succeed
 3. `npx @vscode/vsce package --no-dependencies` - generates `.vsix`
 4. Test locally: `code --install-extension conduit-vscode-X.Y.Z.vsix`
-5. Git commit + tag + `gh release create` (attach `.vsix`)
 
 **Always bump the version in `package.json` before committing changes.**
 

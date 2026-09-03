@@ -13,3 +13,19 @@ coverage/
 # committable; only the *.local.json variants are excluded.
 .claude/settings.local.json
 .claude/*.local.json
+
+# Secrets and local environment. Never commit API keys.
+.env
+.env.*
+!.env.example
+
+# Other credential artifacts that must never reach this public repo.
+*.pem
+*.p12
+*.pfx
+*.key
+.npmrc
+.netrc
+secrets.json
+credentials.json
+service-account*.json

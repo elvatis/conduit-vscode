@@ -35,7 +35,7 @@ All notable changes to conduit-vscode are documented here.
 ### Removed
 
 - `MODEL_LIMITS`, `PROVIDER_FALLBACK_LIMITS`, `MODEL_DISPLAY_NAMES` and `MODEL_TIERS`
-  (129 lines). conduit-bridge 0.9.0 reports `context_window`, `max_output_tokens` and
+  (129 lines). conduit-bridge v0.9.0 reports `context_window`, `max_output_tokens` and
   `display_name`, discovered per provider. The tables knew nothing about the gemini-3.8
   family, gpt-5.4, gpt-5.4-mini or the models agy resells, so 493 of 508 live models
   rendered as a bare slug and 21 of 36 CLI models were barred from Agent mode.
@@ -94,33 +94,28 @@ All notable changes to conduit-vscode are documented here.
 ## [0.7.6] - 2026-07-17
 
 ### Changed
+
 - Dev deps: `@typescript-eslint/eslint-plugin` 8.63.0 -> ^8.64.0 (now aligned with `@typescript-eslint/parser` 8.64.0), `eslint` 10.6.0 -> ^10.7.0, `@types/node` 26.1.0 -> ^26.1.1
 - No runtime changes; dev-only bumps, so the packaged `dist/extension.js` is functionally unchanged from v0.7.5
-
-### Held back
-- `typescript` 6 -> 7 (Dependabot #73, closed): `@typescript-eslint/eslint-plugin@8.64` declares a peer of `typescript@">=4.8.4 <6.1.0"`, so the lint toolchain cannot resolve against the TypeScript 7 native port. Added a Dependabot ignore for the `typescript` major; revisit when typescript-eslint's peer range includes TS 7
+- Held back: `typescript` 6 -> 7 (Dependabot #73, closed): `@typescript-eslint/eslint-plugin@8.64` declares a peer of `typescript@">=4.8.4 <6.1.0"`, so the lint toolchain cannot resolve against the TypeScript 7 native port. Added a Dependabot ignore for the `typescript` major; revisit when typescript-eslint's peer range includes TS 7
 
 ## [0.7.5] - 2026-07-17
 
 ### Security
+
 - Command-injection hardening (CWE-78) in the agent tool executors: validate branch names and command tokens coming from LLM tool args; switch `toolCreateWorktree`, `toolRunCommand`, `toolRemoveWorktree`, `getBranchStatus` and branch delete to `execFile`/`execFileSync` with no shell; validate the GitHub label in `batchFixIssues` before passing it to `execFileSync`. 32 regression tests added (shell metachars, leading hyphen, `..`, exec vs execFile assertions)
 - Transitive `brace-expansion` bump - GHSA-jxxr-4gwj-5jf2 (ReDoS via large numeric range)
 
 ### Changed
+
 - Dev deps: `eslint` ^10.6.0, `vitest` 4.1.10 (with `@vitest/coverage-v8` resolving 4.1.10 via the existing ^4.1.6 range), `@typescript-eslint/eslint-plugin` ^8.63.0, `@typescript-eslint/parser` ^8.64.0, `esbuild` ^0.28.1, `@types/node` ^26.1.0; transitive `vite` now resolves 8.1.3
 - Re-pinned `@types/vscode` to `~1.90.0` to match `engines.vscode ^1.90.0` (vsce refuses to package otherwise) and added a Dependabot ignore rule for it - bump both together deliberately from now on
-
-### Packaging
-- `.vscodeignore` extended (`scripts/**`, `schema/**`, `.scg-history/**`, `.github/**`, `CLAUDE.md`): the AAHP/CI repo tooling had crept into the .vsix; the artifact now ships only extension content
-
-### CI / Infra
-- supply-chain-guard tracks the moving `@v5` release branch instead of stale SHA pins
-- `actions/checkout` 7, `actions/setup-node` 7, `actions/setup-python` 6, `github/codeql-action` 4, `actions/upload-artifact` 7
-- Dependabot exempted from the aahp-verify handoff gate
-- AAHP verify gate tooling synced to v3.5.0 (Layer 3 squash tolerance, hook tooling)
-
-### Docs
-- Handoff docs reconciled with reality: multi-turn agent loop (T-016) confirmed shipped in v0.5.0-v0.7.0, issue #52 closed as done; VS Code Marketplace listing (T-006) dropped by decision 2026-07-17, issue #53 closed
+- Packaging: `.vscodeignore` extended (`scripts/**`, `schema/**`, `.scg-history/**`, `.github/**`, `CLAUDE.md`): the AAHP/CI repo tooling had crept into the .vsix; the artifact now ships only extension content
+- CI / Infra: supply-chain-guard tracks the moving `@v5` release branch instead of stale SHA pins
+- CI / Infra: `actions/checkout` 7, `actions/setup-node` 7, `actions/setup-python` 6, `github/codeql-action` 4, `actions/upload-artifact` 7
+- CI / Infra: Dependabot exempted from the aahp-verify handoff gate
+- CI / Infra: AAHP verify gate tooling synced to v3.5.0 (Layer 3 squash tolerance, hook tooling)
+- Docs: Handoff docs reconciled with reality: multi-turn agent loop (T-016) confirmed shipped in v0.5.0-v0.7.0, issue #52 closed as done; VS Code Marketplace listing (T-006) dropped by decision 2026-07-17, issue #53 closed
 
 ## [0.7.4] - 2026-05-17
 
@@ -152,6 +147,7 @@ All notable changes to conduit-vscode are documented here.
 ## [0.7.0] - 2026-03-18
 
 ### Added
+
 - **CI workflow:** Build + test on push/PR to `main` with coverage artifact upload (`.github/workflows/ci.yml`) (#11)
 - **LLM tool-call validation CI:** Weekly multi-model smoke test against Claude Sonnet, Gemini Flash, and GPT-5.3 Codex (`.github/workflows/llm-validation.yml`), also triggerable via `workflow_dispatch` (#11)
 - **CI badges** in README header (#11)
@@ -164,20 +160,18 @@ All notable changes to conduit-vscode are documented here.
 - **Budget limit setting:** `conduit.maxSessionCost` to cap agent session spending (#13)
 
 ### Changed
+
 - `cli-runner.ts` refactored to import shared logic from `agent-backends.ts` instead of duplicating it (#10)
 - README roadmap updated: Issues #10, #11, #12, #13 marked as Done
+- Tests: 22 new tests for agent backends (#10)
+- Tests: 6 new tests for session persistence (#12)
+- Tests: 27 new tests for cost tracking (#13)
+- Tests: Total: 295+ tests across 19 test files
+- Infrastructure: Branch protection enabled on `main`: require PR reviews, CI status checks, prevent force pushes and deletions, enforce for admins, linear history required
 
 ### Fixed
+
 - Removed stale merge conflict marker from `src/commands.ts`
-
-### Tests
-- 22 new tests for agent backends (#10)
-- 6 new tests for session persistence (#12)
-- 27 new tests for cost tracking (#13)
-- Total: 295+ tests across 19 test files
-
-### Infrastructure
-- Branch protection enabled on `main`: require PR reviews, CI status checks, prevent force pushes and deletions, enforce for admins, linear history required
 
 ## [0.6.0] - 2026-03-18
 
@@ -196,3 +190,17 @@ All notable changes to conduit-vscode are documented here.
 
 ### Added
 - Reliable agent loop with tool execution
+
+[0.10.1]: https://github.com/elvatis/conduit-vscode/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/elvatis/conduit-vscode/compare/v0.9.1...v0.10.0
+[0.9.1]: https://github.com/elvatis/conduit-vscode/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/elvatis/conduit-vscode/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/elvatis/conduit-vscode/compare/v0.7.6...v0.8.0
+[0.7.6]: https://github.com/elvatis/conduit-vscode/compare/v0.7.5...v0.7.6
+[0.7.5]: https://github.com/elvatis/conduit-vscode/compare/v0.7.4...v0.7.5
+[0.7.4]: https://github.com/elvatis/conduit-vscode/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/elvatis/conduit-vscode/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/elvatis/conduit-vscode/compare/v0.7.0...v0.7.2
+[0.7.0]: https://github.com/elvatis/conduit-vscode/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/elvatis/conduit-vscode/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/elvatis/conduit-vscode/releases/tag/v0.5.0

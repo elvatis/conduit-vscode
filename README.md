@@ -673,7 +673,7 @@ Open issues tracking planned features:
   (v0.1.0, v0.2.0, v0.6.0) and v0.10.0 had no asset for five minutes after
   publication; the release object and the artifact were two separate manual acts
 - The workflow refuses a tag that disagrees with package.json, is not an ancestor
-  of main, or has no matching `docs/CHANGELOG.md` section, and re-runs
+  of main, or has no matching `CHANGELOG.md` section, and re-runs
   `aahp verify`, `aahp check`, `aahp doctor`, the build and the tests before
   publishing. It asserts afterwards that the release is not a draft and carries a
   fully uploaded, non-empty asset whose bytes are the bytes the gates passed
@@ -683,14 +683,14 @@ Open issues tracking planned features:
   to its GitHub release, which is this project only distribution channel, and with a
   README that still read 0.9.0 and install snippets that still read 0.7.6
 - `versionSites` is now configured, so `aahp check` fails when the version in
-  package.json disagrees with README, docs/CHANGELOG.md, STATUS.md or DASHBOARD.md.
+  package.json disagrees with README, CHANGELOG.md, STATUS.md or DASHBOARD.md.
   The gate existed all along and reported `SKIP - no versionSites configured`
 - CI runs `aahp check` alongside `verify` and `doctor`; it never ran before, so no
   governance gate could fail the build
 - Removed the em dashes the repo own forbidden-patterns rule bans, including the one
   in the `displayName` shown in the VS Code extensions list
 ### v0.10.0 (2026-09-03)
-- Deleted the local model tables: conduit-bridge 0.9.0 reports `context_window`,
+- Deleted the local model tables: conduit-bridge v0.9.0 reports `context_window`,
   `max_output_tokens` and `display_name`, so `MODEL_LIMITS`, `PROVIDER_FALLBACK_LIMITS`,
   `MODEL_DISPLAY_NAMES` and `MODEL_TIERS` are gone (129 lines). They went stale the
   moment the bridge started discovering catalogs instead of shipping a pinned list
@@ -698,7 +698,7 @@ Open issues tracking planned features:
   build had not heard of, which with a discovered catalog was 21 of 36 CLI models
 - Trimming honours `max_prompt_chars`, so a prompt cannot exceed what the transport carries
 - `local-*` models keep a conservative 8192-token assumption: the bridge never sees them
-- Requires conduit-bridge 0.9.0
+- Requires conduit-bridge v0.9.0
 
 ### v0.9.1 (2026-09-02)
 - Request timeout is a budget on the whole turn, not an idle timer, because no CLI

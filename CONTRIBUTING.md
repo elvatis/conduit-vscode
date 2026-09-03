@@ -12,7 +12,7 @@ Thanks for your interest in contributing. Follow these steps to get your changes
 ## Pull Request Process
 
 1. Keep changes focused and small.
-2. Update `docs/CHANGELOG.md` with a short entry for your change.
+2. Update `CHANGELOG.md` with a short entry for your change.
 3. Open a Pull Request against `main` with a clear description.
 4. Link any relevant issues.
 
